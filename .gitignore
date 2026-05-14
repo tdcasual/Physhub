@@ -5,6 +5,9 @@ node_modules/
 dist/
 coverage/
 uploads/
+test-results/
+playwright-report/
+tsconfig.tsbuildinfo
 .env
 .env.local
 *.log
