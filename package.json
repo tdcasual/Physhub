@@ -1,0 +1,43 @@
+{
+  "name": "physics-question-bank",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev --turbopack",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint ."
+  },
+  "dependencies": {
+    "@tailwindcss/postcss": "latest",
+    "clsx": "^2.1.1",
+    "katex": "^0.16.46",
+    "lucide-react": "^1.16.0",
+    "next": "latest",
+    "react": "latest",
+    "react-dom": "latest",
+    "react-markdown": "^10.1.0",
+    "rehype-katex": "^7.0.1",
+    "rehype-sanitize": "^6.0.0",
+    "remark-math": "^6.0.0",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@eslint/eslintrc": "latest",
+    "@playwright/test": "^1.60.0",
+    "@tailwindcss/typography": "latest",
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.2",
+    "@types/node": "latest",
+    "@types/react": "latest",
+    "@types/react-dom": "latest",
+    "@vitejs/plugin-react": "^6.0.2",
+    "eslint": "latest",
+    "eslint-config-next": "latest",
+    "jsdom": "^29.1.1",
+    "playwright": "^1.60.0",
+    "tailwindcss": "latest",
+    "typescript": "latest",
+    "vitest": "^4.1.6"
+  }
+}
