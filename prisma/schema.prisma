@@ -70,6 +70,7 @@ model User {
 
   createdQuestions Question[] @relation("QuestionCreatedBy")
   reviewedQuestions Question[] @relation("QuestionReviewedBy")
+  createdQuestionVersions QuestionVersion[] @relation("QuestionVersionCreatedBy")
 }
 
 model RawAsset {
@@ -224,9 +225,11 @@ model QuestionVersion {
   version    Int
   snapshot   Json
   createdBy  String?
+  createdById String?
   createdAt  DateTime @default(now())
 
-  question Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  question      Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  createdByUser User?    @relation("QuestionVersionCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
 
   @@unique([questionId, version])
 }
@@ -247,6 +250,7 @@ model Suggestion {
   question       Question?       @relation(fields: [questionId], references: [id], onDelete: Cascade)
   draft          QuestionDraft?  @relation(fields: [draftId], references: [id], onDelete: Cascade)
   knowledgePoint KnowledgePoint? @relation(fields: [knowledgePointId], references: [id])
+  createdByAgentRun AgentRun?    @relation(fields: [createdByAgentRunId], references: [id], onDelete: SetNull)
 }
 
 model ParseJob {
@@ -281,6 +285,7 @@ model AgentRun {
   createdAt  DateTime  @default(now())
 
   draft QuestionDraft? @relation(fields: [draftId], references: [id], onDelete: SetNull)
+  suggestions Suggestion[]
 }
 
 model ReviewRecord {
