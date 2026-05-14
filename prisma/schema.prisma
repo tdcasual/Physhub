@@ -68,8 +68,8 @@ model User {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  createdQuestions Question[] @relation("QuestionCreatedBy")
-  reviewedQuestions Question[] @relation("QuestionReviewedBy")
+  createdQuestions        Question[]        @relation("QuestionCreatedBy")
+  reviewedQuestions       Question[]        @relation("QuestionReviewedBy")
   createdQuestionVersions QuestionVersion[] @relation("QuestionVersionCreatedBy")
 }
 
@@ -175,8 +175,8 @@ model Question {
 
   sourceRawAsset        RawAsset?       @relation(fields: [sourceRawAssetId], references: [id])
   primaryKnowledgePoint KnowledgePoint? @relation("PrimaryKnowledgePoint", fields: [primaryKnowledgePointId], references: [id])
-  createdBy             User?          @relation("QuestionCreatedBy", fields: [createdById], references: [id])
-  reviewedBy            User?          @relation("QuestionReviewedBy", fields: [reviewedById], references: [id])
+  createdBy             User?           @relation("QuestionCreatedBy", fields: [createdById], references: [id])
+  reviewedBy            User?           @relation("QuestionReviewedBy", fields: [reviewedById], references: [id])
 
   knowledgePoints QuestionKnowledgePoint[]
   tags            QuestionTag[]
@@ -220,13 +220,13 @@ model QuestionAsset {
 }
 
 model QuestionVersion {
-  id         String   @id @default(cuid())
-  questionId String
-  version    Int
-  snapshot   Json
-  createdBy  String?
+  id          String   @id @default(cuid())
+  questionId  String
+  version     Int
+  snapshot    Json
+  createdBy   String?
   createdById String?
-  createdAt  DateTime @default(now())
+  createdAt   DateTime @default(now())
 
   question      Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
   createdByUser User?    @relation("QuestionVersionCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
@@ -247,10 +247,10 @@ model Suggestion {
   updatedAt           DateTime @updatedAt
   knowledgePointId    String?
 
-  question       Question?       @relation(fields: [questionId], references: [id], onDelete: Cascade)
-  draft          QuestionDraft?  @relation(fields: [draftId], references: [id], onDelete: Cascade)
-  knowledgePoint KnowledgePoint? @relation(fields: [knowledgePointId], references: [id])
-  createdByAgentRun AgentRun?    @relation(fields: [createdByAgentRunId], references: [id], onDelete: SetNull)
+  question          Question?       @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  draft             QuestionDraft?  @relation(fields: [draftId], references: [id], onDelete: Cascade)
+  knowledgePoint    KnowledgePoint? @relation(fields: [knowledgePointId], references: [id])
+  createdByAgentRun AgentRun?       @relation(fields: [createdByAgentRunId], references: [id], onDelete: SetNull)
 }
 
 model ParseJob {
@@ -284,7 +284,7 @@ model AgentRun {
   draftId    String?
   createdAt  DateTime  @default(now())
 
-  draft QuestionDraft? @relation(fields: [draftId], references: [id], onDelete: SetNull)
+  draft       QuestionDraft? @relation(fields: [draftId], references: [id], onDelete: SetNull)
   suggestions Suggestion[]
 }
 
