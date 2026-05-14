@@ -9,13 +9,13 @@
     "lint": "eslint ."
   },
   "dependencies": {
-    "@tailwindcss/postcss": "latest",
+    "@tailwindcss/postcss": "4.3.0",
     "clsx": "^2.1.1",
     "katex": "^0.16.46",
     "lucide-react": "^1.16.0",
-    "next": "latest",
-    "react": "latest",
-    "react-dom": "latest",
+    "next": "16.2.6",
+    "react": "19.2.6",
+    "react-dom": "19.2.6",
     "react-markdown": "^10.1.0",
     "rehype-katex": "^7.0.1",
     "rehype-sanitize": "^6.0.0",
@@ -23,21 +23,21 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
-    "@eslint/eslintrc": "latest",
+    "@eslint/eslintrc": "3.3.5",
     "@playwright/test": "^1.60.0",
-    "@tailwindcss/typography": "latest",
+    "@tailwindcss/typography": "0.5.19",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.2",
-    "@types/node": "latest",
-    "@types/react": "latest",
-    "@types/react-dom": "latest",
+    "@types/node": "25.8.0",
+    "@types/react": "19.2.14",
+    "@types/react-dom": "19.2.3",
     "@vitejs/plugin-react": "^6.0.2",
-    "eslint": "latest",
-    "eslint-config-next": "latest",
+    "eslint": "9.39.4",
+    "eslint-config-next": "16.2.6",
     "jsdom": "^29.1.1",
     "playwright": "^1.60.0",
-    "tailwindcss": "latest",
-    "typescript": "latest",
+    "tailwindcss": "4.3.0",
+    "typescript": "6.0.3",
     "vitest": "^4.1.6"
   }
 }
