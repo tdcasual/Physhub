@@ -1,0 +1,346 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum UserRole {
+  OWNER
+  EDITOR
+  VIEWER
+}
+
+enum RawAssetKind {
+  IMAGE
+  PDF
+  MARKDOWN
+  LATEX
+  TEXT
+}
+
+enum RawAssetStatus {
+  UPLOADED
+  PROCESSING
+  PARSED
+  FAILED
+  ARCHIVED
+}
+
+enum DraftStatus {
+  DRAFT
+  NEEDS_REVIEW
+  REJECTED
+  PROMOTED
+}
+
+enum QuestionStatus {
+  REVIEWED
+  PUBLISHED
+  DEPRECATED
+}
+
+enum QuestionType {
+  SINGLE_CHOICE
+  MULTIPLE_CHOICE
+  FILL_BLANK
+  EXPERIMENT
+  CALCULATION
+  PROOF
+  IMAGE_ANALYSIS
+}
+
+enum JobStatus {
+  QUEUED
+  RUNNING
+  SUCCEEDED
+  FAILED
+  CANCELED
+  RETRYING
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String
+  role      UserRole @default(EDITOR)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  createdQuestions Question[] @relation("QuestionCreatedBy")
+  reviewedQuestions Question[] @relation("QuestionReviewedBy")
+}
+
+model RawAsset {
+  id           String         @id @default(cuid())
+  kind         RawAssetKind
+  status       RawAssetStatus @default(UPLOADED)
+  originalName String
+  mimeType     String?
+  storageKey   String?
+  textContent  String?
+  metadata     Json?
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+
+  parseJobs ParseJob[]
+  drafts    QuestionDraft[]
+  questions Question[]
+}
+
+model Asset {
+  id          String   @id @default(cuid())
+  kind        String
+  format      String
+  storageKey  String
+  title       String?
+  metadata    Json?
+  derivedFrom String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  questionAssets QuestionAsset[]
+}
+
+model KnowledgePoint {
+  id        String   @id @default(cuid())
+  name      String
+  slug      String   @unique
+  parentId  String?
+  sortOrder Int      @default(0)
+  metadata  Json?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  parent   KnowledgePoint?  @relation("KnowledgeTree", fields: [parentId], references: [id])
+  children KnowledgePoint[] @relation("KnowledgeTree")
+
+  primaryQuestions Question[]               @relation("PrimaryKnowledgePoint")
+  questionLinks    QuestionKnowledgePoint[]
+  draftSuggestions Suggestion[]
+}
+
+model Tag {
+  id        String   @id @default(cuid())
+  name      String
+  slug      String   @unique
+  group     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  questions QuestionTag[]
+}
+
+model QuestionDraft {
+  id               String        @id @default(cuid())
+  status           DraftStatus   @default(DRAFT)
+  type             QuestionType?
+  stemMd           String?
+  optionsJson      Json?
+  answerJson       Json?
+  solutionMd       String?
+  sourceRawAssetId String?
+  aiOutput         Json?
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+  promotedAt       DateTime?
+
+  sourceRawAsset RawAsset?    @relation(fields: [sourceRawAssetId], references: [id])
+  suggestions    Suggestion[]
+  agentRuns      AgentRun[]
+}
+
+model Question {
+  id                      String         @id @default(cuid())
+  publicId                String         @unique
+  type                    QuestionType
+  status                  QuestionStatus @default(REVIEWED)
+  stemMd                  String
+  optionsJson             Json?
+  answerJson              Json
+  solutionMd              String?
+  difficulty              Int?
+  usageJson               Json?
+  metadata                Json?
+  sourceRawAssetId        String?
+  primaryKnowledgePointId String?
+  schemaVersion           Int            @default(1)
+  createdById             String?
+  reviewedById            String?
+  publishedAt             DateTime?
+  createdAt               DateTime       @default(now())
+  updatedAt               DateTime       @updatedAt
+
+  sourceRawAsset        RawAsset?       @relation(fields: [sourceRawAssetId], references: [id])
+  primaryKnowledgePoint KnowledgePoint? @relation("PrimaryKnowledgePoint", fields: [primaryKnowledgePointId], references: [id])
+  createdBy             User?          @relation("QuestionCreatedBy", fields: [createdById], references: [id])
+  reviewedBy            User?          @relation("QuestionReviewedBy", fields: [reviewedById], references: [id])
+
+  knowledgePoints QuestionKnowledgePoint[]
+  tags            QuestionTag[]
+  assets          QuestionAsset[]
+  versions        QuestionVersion[]
+  suggestions     Suggestion[]
+  setItems        QuestionSetItem[]
+}
+
+model QuestionKnowledgePoint {
+  questionId       String
+  knowledgePointId String
+  role             String @default("secondary")
+
+  question       Question       @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  knowledgePoint KnowledgePoint @relation(fields: [knowledgePointId], references: [id], onDelete: Cascade)
+
+  @@id([questionId, knowledgePointId])
+}
+
+model QuestionTag {
+  questionId String
+  tagId      String
+
+  question Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  tag      Tag      @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([questionId, tagId])
+}
+
+model QuestionAsset {
+  questionId String
+  assetId    String
+  role       String @default("figure")
+  sortOrder  Int    @default(0)
+
+  question Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  asset    Asset    @relation(fields: [assetId], references: [id], onDelete: Cascade)
+
+  @@id([questionId, assetId])
+}
+
+model QuestionVersion {
+  id         String   @id @default(cuid())
+  questionId String
+  version    Int
+  snapshot   Json
+  createdBy  String?
+  createdAt  DateTime @default(now())
+
+  question Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+  @@unique([questionId, version])
+}
+
+model Suggestion {
+  id                  String   @id @default(cuid())
+  questionId          String?
+  draftId             String?
+  kind                String
+  payload             Json
+  confidence          Float?
+  status              String   @default("pending_review")
+  createdByAgentRunId String?
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+  knowledgePointId    String?
+
+  question       Question?       @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  draft          QuestionDraft?  @relation(fields: [draftId], references: [id], onDelete: Cascade)
+  knowledgePoint KnowledgePoint? @relation(fields: [knowledgePointId], references: [id])
+}
+
+model ParseJob {
+  id           String    @id @default(cuid())
+  rawAssetId   String
+  status       JobStatus @default(QUEUED)
+  jobType      String
+  input        Json?
+  output       Json?
+  errorCode    String?
+  errorMessage String?
+  rawError     String?
+  retryCount   Int       @default(0)
+  failedStep   String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  rawAsset RawAsset @relation(fields: [rawAssetId], references: [id], onDelete: Cascade)
+}
+
+model AgentRun {
+  id         String    @id @default(cuid())
+  agentName  String
+  toolName   String?
+  model      String?
+  status     JobStatus @default(SUCCEEDED)
+  input      Json
+  output     Json?
+  confidence Float?
+  accepted   Boolean?
+  draftId    String?
+  createdAt  DateTime  @default(now())
+
+  draft QuestionDraft? @relation(fields: [draftId], references: [id], onDelete: SetNull)
+}
+
+model ReviewRecord {
+  id           String   @id @default(cuid())
+  resourceType String
+  resourceId   String
+  action       String
+  actorId      String?
+  notes        String?
+  diff         Json?
+  createdAt    DateTime @default(now())
+}
+
+model QuestionSet {
+  id          String   @id @default(cuid())
+  title       String
+  description String?
+  status      String   @default("draft")
+  metadata    Json?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  items      QuestionSetItem[]
+  exportJobs ExportJob[]
+}
+
+model QuestionSetItem {
+  id            String @id @default(cuid())
+  questionSetId String
+  questionId    String
+  sortOrder     Int
+  points        Float?
+  settings      Json?
+
+  questionSet QuestionSet @relation(fields: [questionSetId], references: [id], onDelete: Cascade)
+  question    Question    @relation(fields: [questionId], references: [id])
+
+  @@unique([questionSetId, questionId])
+}
+
+model ExportJob {
+  id            String    @id @default(cuid())
+  questionSetId String?
+  format        String
+  status        JobStatus @default(QUEUED)
+  outputKey     String?
+  errorCode     String?
+  errorMessage  String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  questionSet QuestionSet? @relation(fields: [questionSetId], references: [id], onDelete: SetNull)
+}
+
+model ApiKey {
+  id         String    @id @default(cuid())
+  name       String
+  keyHash    String    @unique
+  scopes     String[]
+  lastUsedAt DateTime?
+  revokedAt  DateTime?
+  createdAt  DateTime  @default(now())
+}
