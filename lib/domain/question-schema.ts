@@ -1,31 +1,29 @@
 import { z } from "zod";
+import { QuestionType } from "@prisma/client";
 
-const questionTypeSchema = z.enum([
-  "SINGLE_CHOICE",
-  "MULTIPLE_CHOICE",
-  "FILL_BLANK",
-  "EXPERIMENT",
-  "CALCULATION",
-  "PROOF",
-  "IMAGE_ANALYSIS",
-]);
+const questionTypeValues = Object.values(QuestionType) as [
+  QuestionType,
+  ...QuestionType[],
+];
+
+export const questionTypeSchema = z.enum(questionTypeValues);
 
 export const optionSchema = z.object({
   label: z.string().trim().min(1),
-  contentMd: z.string().trim().min(1),
+  value: z.string().trim().min(1),
 });
 
-export const answerSchema = z.discriminatedUnion("kind", [
+export const answerSchema = z.discriminatedUnion("type", [
   z.object({
-    kind: z.literal("single"),
+    type: z.literal("single"),
     value: z.string().trim().min(1),
   }),
   z.object({
-    kind: z.literal("multiple"),
+    type: z.literal("multiple"),
     value: z.array(z.string().trim().min(1)).min(1),
   }),
   z.object({
-    kind: z.literal("text"),
+    type: z.literal("text"),
     value: z.string().trim().min(1),
   }),
 ]);
@@ -60,15 +58,27 @@ function hasAnswer(answer: Partial<QuestionInput>["answer"]) {
     return false;
   }
 
-  if (answer.kind === "single" || answer.kind === "text") {
+  if (answer.type === "single" || answer.type === "text") {
     return hasText(answer.value);
   }
 
-  if (answer.kind === "multiple") {
+  if (answer.type === "multiple") {
     return answer.value.some(hasText);
   }
 
   return false;
+}
+
+function answerTypeMatchesQuestionType(input: Partial<QuestionInput>) {
+  if (input.type === "SINGLE_CHOICE") {
+    return input.answer?.type === "single";
+  }
+
+  if (input.type === "MULTIPLE_CHOICE") {
+    return input.answer?.type === "multiple";
+  }
+
+  return true;
 }
 
 function answerMatchesOptions(input: Partial<QuestionInput>) {
@@ -82,11 +92,11 @@ function answerMatchesOptions(input: Partial<QuestionInput>) {
 
   const optionLabels = new Set(input.options.map((option) => option.label));
 
-  if (input.answer.kind === "single") {
+  if (input.answer.type === "single") {
     return optionLabels.has(input.answer.value);
   }
 
-  if (input.answer.kind === "multiple") {
+  if (input.answer.type === "multiple") {
     return input.answer.value.every((value) => optionLabels.has(value));
   }
 
@@ -118,7 +128,7 @@ export function validatePublishableQuestion(
     addError(errors, "选择题必须有选项");
   }
 
-  if (!answerMatchesOptions(input)) {
+  if (!answerTypeMatchesQuestionType(input) || !answerMatchesOptions(input)) {
     addError(errors, "答案必须匹配选项");
   }
 
