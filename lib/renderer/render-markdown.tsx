@@ -4,16 +4,12 @@ import rehypeSanitize from "rehype-sanitize";
 import remarkMath from "remark-math";
 
 function isSafeImageSrc(src: string) {
-  if (src.startsWith("/") || src.startsWith("./") || src.startsWith("../")) {
-    return true;
-  }
-
-  try {
-    const url = new URL(src);
-    return url.protocol === "http:" || url.protocol === "https:";
-  } catch {
-    return false;
-  }
+  const trimmedSrc = src.trim();
+  return (
+    trimmedSrc.startsWith("/assets/") ||
+    trimmedSrc.startsWith("/uploads/") ||
+    trimmedSrc.startsWith("/api/assets/")
+  );
 }
 
 const markdownComponents: Components = {
@@ -22,14 +18,16 @@ const markdownComponents: Components = {
       return null;
     }
 
-    if (!isSafeImageSrc(src)) {
+    const safeSrc = src.trim();
+
+    if (!isSafeImageSrc(safeSrc)) {
       return null;
     }
 
     return (
       // eslint-disable-next-line @next/next/no-img-element
       <img
-        src={src}
+        src={safeSrc}
         alt={alt}
         className="max-w-full rounded border border-slate-200"
       />
