@@ -1,9 +1,11 @@
-import { Atom, BookOpenCheck, DatabaseZap, SearchCheck } from "lucide-react";
+import Link from "next/link";
+import { Atom, BookOpenCheck, DatabaseZap, PencilLine, SearchCheck } from "lucide-react";
 
 const workflow = [
   {
     title: "Curate",
-    detail: "Ingest original material and keep every question tied to a human-owned review state.",
+    detail:
+      "Manually enter reviewed questions and keep every item tied to a human-owned review state.",
     icon: BookOpenCheck,
   },
   {
@@ -13,7 +15,8 @@ const workflow = [
   },
   {
     title: "Retrieve",
-    detail: "Prepare clean structures for precise teacher search and future agent-safe APIs.",
+    detail:
+      "Prepare clean structures for precise teacher search, classification, and future agent-safe APIs.",
     icon: SearchCheck,
   },
 ];
@@ -43,10 +46,17 @@ export default function Home() {
               A cloud workbench for teacher-owned physics question curation.
             </h1>
             <p className="mt-7 max-w-2xl text-lg leading-8 text-stone-900/70">
-              The backend starts with clear boundaries: AI may assist sorting,
-              checking, and retrieval, while final publishing remains a human
-              review action.
+              The workbench organizes teacher-owned questions for classification,
+              quality checks, and precise search. AI can assist with structure and
+              retrieval, while final content stays under human review.
             </p>
+            <Link
+              href="/questions/new"
+              className="mt-8 inline-flex items-center gap-2 border border-stone-900/20 bg-stone-950 px-4 py-3 text-sm font-semibold text-white hover:bg-stone-800"
+            >
+              <PencilLine aria-hidden="true" className="size-4" />
+              Open manual editor
+            </Link>
           </div>
 
           <aside className="border-l-4 border-orange-800 bg-sky-100/70 p-6">
