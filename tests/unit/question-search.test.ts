@@ -1,14 +1,98 @@
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
   buildQuestionSearchWhere,
   SearchRequestValidationError,
+  searchQuestions,
   understandQuestionSearchQuery,
 } from "@/lib/search/question-search";
 import {
   mapQuestionSearchApiError,
+  POST,
   parseQuestionSearchRequestBody,
 } from "@/app/api/search/questions/route";
+
+const findManyMock = vi.hoisted(() => vi.fn());
+
+vi.mock("@/lib/db/prisma", () => ({
+  prisma: {
+    question: {
+      findMany: findManyMock,
+    },
+  },
+}));
+
+function searchableQuestion(overrides: Record<string, unknown> = {}) {
+  return {
+    id: "question_1",
+    publicId: "q_motion_0001",
+    type: "SINGLE_CHOICE",
+    stemMd: "高一运动学 v-t 图像面积表示位移",
+    optionsJson: [{ label: "A", value: "位移" }],
+    answerJson: { type: "single", value: "A" },
+    solutionMd: "v-t 图像下方面积等于位移。",
+    difficulty: 2,
+    status: "PUBLISHED",
+    sourceRawAssetId: null,
+    primaryKnowledgePointId: "kp_motion",
+    classificationReviewJson: null,
+    usageJson: { usage: ["随堂练习"] },
+    createdAt: new Date("2026-05-15T00:00:00.000Z"),
+    updatedAt: new Date("2026-05-15T00:00:00.000Z"),
+    primaryKnowledgePoint: {
+      id: "kp_motion",
+      name: "运动学",
+      parentId: null,
+      createdAt: new Date("2026-05-15T00:00:00.000Z"),
+      updatedAt: new Date("2026-05-15T00:00:00.000Z"),
+    },
+    knowledgePoints: [
+      {
+        questionId: "question_1",
+        knowledgePointId: "kp_vt",
+        knowledgePoint: {
+          id: "kp_vt",
+          name: "v-t 图像",
+          parentId: "kp_motion",
+          createdAt: new Date("2026-05-15T00:00:00.000Z"),
+          updatedAt: new Date("2026-05-15T00:00:00.000Z"),
+        },
+      },
+    ],
+    tags: [
+      {
+        questionId: "question_1",
+        tagId: "tag_class",
+        tag: {
+          id: "tag_class",
+          name: "随堂练习",
+          createdAt: new Date("2026-05-15T00:00:00.000Z"),
+          updatedAt: new Date("2026-05-15T00:00:00.000Z"),
+        },
+      },
+    ],
+    assets: [
+      {
+        questionId: "question_1",
+        assetId: "asset_1",
+        asset: {
+          id: "asset_1",
+          kind: "IMAGE",
+          storageKey: "questions/q_motion_0001.png",
+          mimeType: "image/png",
+          metadataJson: {},
+          createdAt: new Date("2026-05-15T00:00:00.000Z"),
+          updatedAt: new Date("2026-05-15T00:00:00.000Z"),
+        },
+      },
+    ],
+    ...overrides,
+  };
+}
+
+beforeEach(() => {
+  findManyMock.mockReset();
+});
 
 describe("understandQuestionSearchQuery", () => {
   it("extracts classroom search intent from a natural Chinese query", () => {
@@ -89,6 +173,61 @@ describe("buildQuestionSearchWhere", () => {
   });
 });
 
+describe("searchQuestions", () => {
+  it("returns query understanding and repository results without a live database", async () => {
+    const question = searchableQuestion();
+    findManyMock.mockResolvedValueOnce([question]);
+
+    const result = await searchQuestions(
+      "找 3 道高一运动学 v-t 图像面积表示位移的基础题，适合随堂练习，最好有图",
+      { status: "PUBLISHED" },
+    );
+
+    expect(findManyMock).toHaveBeenCalledWith({
+      where: expect.objectContaining({
+        status: "PUBLISHED",
+        difficulty: { in: [1, 2] },
+        assets: { some: {} },
+      }),
+      include: expect.objectContaining({
+        primaryKnowledgePoint: true,
+        knowledgePoints: expect.any(Object),
+        tags: expect.any(Object),
+        assets: expect.any(Object),
+      }),
+      orderBy: {
+        createdAt: "desc",
+      },
+      take: 3,
+    });
+    expect(result).toEqual({
+      understanding: {
+        rawQuery:
+          "找 3 道高一运动学 v-t 图像面积表示位移的基础题，适合随堂练习，最好有图",
+        terms: ["高一", "运动学", "v-t 图像", "位移", "随堂练习"],
+        limit: 3,
+        grade: "高一",
+        chapter: "运动学",
+        knowledge_points: ["v-t 图像", "位移"],
+        difficulty: [1, 2],
+        usage: ["随堂练习"],
+        has_image: true,
+      },
+      results: [
+        {
+          ...question,
+          reasons: expect.arrayContaining([
+            { field: "text", value: "高一" },
+            { field: "text", value: "运动学" },
+            { field: "difficulty", value: "2" },
+            { field: "assets", value: "has_image" },
+          ]),
+        },
+      ],
+    });
+  });
+});
+
 describe("question search route helpers", () => {
   it("accepts a valid request body", () => {
     expect(
@@ -121,5 +260,47 @@ describe("question search route helpers", () => {
       error: "Search query is required",
       status: 400,
     });
+  });
+});
+
+describe("POST /api/search/questions", () => {
+  it("accepts a query with optional constraints and returns the search result", async () => {
+    findManyMock.mockResolvedValueOnce([searchableQuestion()]);
+
+    const response = await POST(
+      new Request("http://localhost/api/search/questions", {
+        method: "POST",
+        body: JSON.stringify({
+          query: "找 2 道高二电磁感应题",
+          constraints: { limit: 1, status: "REVIEWED" },
+        }),
+      }),
+    );
+
+    await expect(response.json()).resolves.toMatchObject({
+      understanding: {
+        rawQuery: "找 2 道高二电磁感应题",
+        terms: ["高二", "电磁感应"],
+        limit: 1,
+        grade: "高二",
+        chapter: "电磁感应",
+      },
+      results: [
+        {
+          id: "question_1",
+          publicId: "q_motion_0001",
+          reasons: expect.any(Array),
+        },
+      ],
+    });
+    expect(response.status).toBe(200);
+    expect(findManyMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        take: 1,
+        where: expect.objectContaining({
+          status: "REVIEWED",
+        }),
+      }),
+    );
   });
 });
