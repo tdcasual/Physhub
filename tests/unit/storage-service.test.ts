@@ -1,6 +1,13 @@
 import { describe, expect, it } from "vitest";
 
-import { buildStorageKey } from "@/lib/storage/storage-service";
+import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+
+import {
+  buildStorageKey,
+  saveLocalUpload,
+} from "@/lib/storage/storage-service";
 
 const uuidPattern =
   "[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}";
@@ -40,5 +47,57 @@ describe("storage service", () => {
     expect(() => buildStorageKey("../..", "image.png")).toThrow(
       "storage key prefix must contain at least one safe segment",
     );
+  });
+
+  it("writes uploads under LOCAL_UPLOAD_DIR", async () => {
+    const uploadDir = await mkdtemp(join(tmpdir(), "storage-service-"));
+    const previousUploadDir = process.env.LOCAL_UPLOAD_DIR;
+
+    process.env.LOCAL_UPLOAD_DIR = uploadDir;
+
+    try {
+      const savedPath = await saveLocalUpload(
+        "raw/incoming/sample.txt",
+        Buffer.from("hello upload"),
+      );
+
+      expect(savedPath).toBe(join(uploadDir, "raw/incoming/sample.txt"));
+      await expect(readFile(savedPath, "utf8")).resolves.toBe("hello upload");
+    } finally {
+      if (previousUploadDir === undefined) {
+        delete process.env.LOCAL_UPLOAD_DIR;
+      } else {
+        process.env.LOCAL_UPLOAD_DIR = previousUploadDir;
+      }
+
+      await rm(uploadDir, { recursive: true, force: true });
+    }
+  });
+
+  it("prevents path traversal when saving uploads", async () => {
+    const uploadDir = await mkdtemp(join(tmpdir(), "storage-service-"));
+    const previousUploadDir = process.env.LOCAL_UPLOAD_DIR;
+
+    process.env.LOCAL_UPLOAD_DIR = uploadDir;
+
+    try {
+      await expect(
+        saveLocalUpload("../escape.txt", Buffer.from("nope")),
+      ).rejects.toThrow("storage key must stay inside the upload directory");
+      await expect(
+        saveLocalUpload("raw/../../escape.txt", Buffer.from("nope")),
+      ).rejects.toThrow("storage key must stay inside the upload directory");
+      await expect(
+        saveLocalUpload("/absolute.txt", Buffer.from("nope")),
+      ).rejects.toThrow("storage key must be relative");
+    } finally {
+      if (previousUploadDir === undefined) {
+        delete process.env.LOCAL_UPLOAD_DIR;
+      } else {
+        process.env.LOCAL_UPLOAD_DIR = previousUploadDir;
+      }
+
+      await rm(uploadDir, { recursive: true, force: true });
+    }
   });
 });
