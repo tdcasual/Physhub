@@ -1,4 +1,10 @@
+import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "@prisma/client";
+import { Pool } from "pg";
+
+const databaseUrl =
+  process.env.DATABASE_URL ??
+  "postgresql://postgres:postgres@localhost:5432/physics_question_bank?schema=public";
 
 export const KNOWLEDGE_POINT_SEEDS = [
   { slug: "physics", name: "物理", parentSlug: null, sortOrder: 0 },
@@ -77,7 +83,9 @@ export async function seed(prisma: PrismaClient) {
 }
 
 async function main() {
+  const pool = new Pool({ connectionString: databaseUrl });
   const prisma = new PrismaClient({
+    adapter: new PrismaPg(pool),
     log: process.env.NODE_ENV === "development" ? ["query", "error", "warn"] : ["error"],
   });
 
@@ -85,6 +93,7 @@ async function main() {
     await seed(prisma);
   } finally {
     await prisma.$disconnect();
+    await pool.end();
   }
 }
 
