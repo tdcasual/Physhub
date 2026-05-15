@@ -39,6 +39,47 @@ describe("suggestion review route", () => {
     );
   });
 
+  it("rejects malformed JSON with a stable 400 JSON error", async () => {
+    const { PATCH } = await import("@/app/api/suggestions/[id]/route");
+
+    const response = await PATCH(
+      new Request("http://localhost/api/suggestions/suggestion_1", {
+        method: "PATCH",
+        body: "{",
+      }),
+      {
+        params: Promise.resolve({ id: "suggestion_1" }),
+      },
+    );
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toEqual({
+      error: "Invalid request body",
+    });
+    expect(mockPrisma.suggestion.findUnique).not.toHaveBeenCalled();
+    expect(mockPrisma.$transaction).not.toHaveBeenCalled();
+    expect(mockPrisma.question.update).not.toHaveBeenCalled();
+  });
+
+  it.each([null, "accepted", ["accepted"]])(
+    "rejects a non-object review body with a stable 400 JSON error",
+    async (body) => {
+      const { PATCH } = await import("@/app/api/suggestions/[id]/route");
+
+      const response = await PATCH(patchRequest(body), {
+        params: Promise.resolve({ id: "suggestion_1" }),
+      });
+
+      expect(response.status).toBe(400);
+      await expect(response.json()).resolves.toEqual({
+        error: "Invalid request body",
+      });
+      expect(mockPrisma.suggestion.findUnique).not.toHaveBeenCalled();
+      expect(mockPrisma.$transaction).not.toHaveBeenCalled();
+      expect(mockPrisma.question.update).not.toHaveBeenCalled();
+    },
+  );
+
   it("rejects an invalid review status with a stable 400 JSON error", async () => {
     const { PATCH } = await import("@/app/api/suggestions/[id]/route");
 

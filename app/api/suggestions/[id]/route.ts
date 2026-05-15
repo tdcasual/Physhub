@@ -25,16 +25,38 @@ function isSuggestionReviewStatus(
   );
 }
 
+function isRequestBody(body: unknown): body is Record<string, unknown> {
+  return typeof body === "object" && body !== null && !Array.isArray(body);
+}
+
 export async function PATCH(
   request: Request,
   context: SuggestionRouteContext,
 ) {
   const { id } = await context.params;
 
-  try {
-    const body = await request.json();
+  let body: unknown;
 
-    if (!isSuggestionReviewStatus(body.status)) {
+  try {
+    body = await request.json();
+  } catch {
+    return NextResponse.json(
+      { error: "Invalid request body" },
+      { status: 400 },
+    );
+  }
+
+  if (!isRequestBody(body)) {
+    return NextResponse.json(
+      { error: "Invalid request body" },
+      { status: 400 },
+    );
+  }
+
+  try {
+    const { status, notes } = body;
+
+    if (!isSuggestionReviewStatus(status)) {
       return NextResponse.json(
         { error: "Invalid suggestion status" },
         { status: 400 },
@@ -53,15 +75,15 @@ export async function PATCH(
     const updatedSuggestion = await prisma.$transaction(async (tx) => {
       const reviewedSuggestion = await tx.suggestion.update({
         where: { id: suggestion.id },
-        data: { status: body.status },
+        data: { status },
       });
 
       await tx.reviewRecord.create({
         data: {
           resourceType: "suggestion",
           resourceId: suggestion.id,
-          action: body.status,
-          notes: typeof body.notes === "string" ? body.notes : undefined,
+          action: status,
+          notes: typeof notes === "string" ? notes : undefined,
         },
       });
 
