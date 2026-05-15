@@ -12,6 +12,8 @@ type AnswerEditorProps = {
 };
 
 export function AnswerEditor({ answer, options, onChange }: AnswerEditorProps) {
+  const hasOptions = options.length > 0;
+
   return (
     <section className="space-y-3">
       <h2 className="text-lg font-semibold">Answer</h2>
@@ -28,6 +30,7 @@ export function AnswerEditor({ answer, options, onChange }: AnswerEditorProps) {
           Correct option
           <select
             value={answer.value}
+            disabled={!hasOptions}
             onChange={(event) =>
               onChange({ type: "single", value: event.currentTarget.value })
             }
@@ -38,6 +41,7 @@ export function AnswerEditor({ answer, options, onChange }: AnswerEditorProps) {
                 {option.label}
               </option>
             ))}
+            {!hasOptions ? <option value="">No complete options</option> : null}
           </select>
         </label>
       </div>

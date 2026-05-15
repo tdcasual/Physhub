@@ -42,41 +42,48 @@ export function OptionEditor({ options, onChange }: OptionEditorProps) {
       </div>
 
       <div className="space-y-3">
-        {options.map((option, index) => (
-          <div
-            key={`${option.label}-${index}`}
-            className="grid gap-2 border border-stone-900/15 bg-stone-50 p-3 sm:grid-cols-[5rem_1fr_auto]"
-          >
-            <label className="space-y-1 text-sm font-medium text-stone-900/70">
-              Label
-              <input
-                value={option.label}
-                onChange={(event) =>
-                  updateOption(index, "label", event.currentTarget.value)
-                }
-                className="w-full border border-stone-900/20 bg-white px-3 py-2 text-stone-950"
-              />
-            </label>
-            <label className="space-y-1 text-sm font-medium text-stone-900/70">
-              Value Markdown
-              <textarea
-                value={option.value}
-                onChange={(event) =>
-                  updateOption(index, "value", event.currentTarget.value)
-                }
-                rows={2}
-                className="w-full resize-y border border-stone-900/20 bg-white px-3 py-2 text-stone-950"
-              />
-            </label>
-            <button
-              type="button"
-              onClick={() => removeOption(index)}
-              className="self-end border border-stone-900/20 bg-white px-3 py-2 text-sm font-medium text-stone-700 hover:bg-orange-50"
+        {options.map((option, index) => {
+          const rowLabel = option.label.trim() || `row ${index + 1}`;
+
+          return (
+            <div
+              key={`${option.label}-${index}`}
+              className="grid gap-2 border border-stone-900/15 bg-stone-50 p-3 sm:grid-cols-[5rem_1fr_auto]"
             >
-              Remove
-            </button>
-          </div>
-        ))}
+              <label className="space-y-1 text-sm font-medium text-stone-900/70">
+                <span>Label</span>
+                <input
+                  aria-label={`Option ${index + 1} label`}
+                  value={option.label}
+                  onChange={(event) =>
+                    updateOption(index, "label", event.currentTarget.value)
+                  }
+                  className="w-full border border-stone-900/20 bg-white px-3 py-2 text-stone-950"
+                />
+              </label>
+              <label className="space-y-1 text-sm font-medium text-stone-900/70">
+                <span>Value Markdown</span>
+                <textarea
+                  aria-label={`Option ${index + 1} ${rowLabel} value markdown`}
+                  value={option.value}
+                  onChange={(event) =>
+                    updateOption(index, "value", event.currentTarget.value)
+                  }
+                  rows={2}
+                  className="w-full resize-y border border-stone-900/20 bg-white px-3 py-2 text-stone-950"
+                />
+              </label>
+              <button
+                type="button"
+                aria-label={`Remove option ${rowLabel}`}
+                onClick={() => removeOption(index)}
+                className="self-end border border-stone-900/20 bg-white px-3 py-2 text-sm font-medium text-stone-700 hover:bg-orange-50"
+              >
+                Remove
+              </button>
+            </div>
+          );
+        })}
       </div>
     </section>
   );

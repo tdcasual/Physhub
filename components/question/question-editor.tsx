@@ -18,6 +18,43 @@ const initialStem = `如图所示为某物体做直线运动的 $v-t$ 图像。�
 
 const initialSolution = `由 $v-t$ 图像可知，$0-2\\text{s}$ 内速度均匀增大，物体做匀加速直线运动；$2-4\\text{s}$ 内速度保持不变，物体做匀速直线运动。因此选 B。`;
 
+function isCompleteOption(option: EditableOption) {
+  return option.label.trim().length > 0 && option.value.trim().length > 0;
+}
+
+function validOptions(options: EditableOption[]) {
+  return options
+    .filter(isCompleteOption)
+    .map((option) => ({ label: option.label.trim(), value: option.value }));
+}
+
+function alignAnswerValue(
+  previousOptions: EditableOption[],
+  nextOptions: EditableOption[],
+  answerValue: string,
+) {
+  const nextValidOptions = validOptions(nextOptions);
+
+  if (nextValidOptions.some((option) => option.label === answerValue)) {
+    return answerValue;
+  }
+
+  const previousSelectedIndex = previousOptions.findIndex(
+    (option) => isCompleteOption(option) && option.label.trim() === answerValue,
+  );
+  const nextOptionAtSelectedIndex = nextOptions[previousSelectedIndex];
+
+  if (
+    previousOptions.length === nextOptions.length &&
+    nextOptionAtSelectedIndex &&
+    isCompleteOption(nextOptionAtSelectedIndex)
+  ) {
+    return nextOptionAtSelectedIndex.label.trim();
+  }
+
+  return nextValidOptions[0]?.label ?? "";
+}
+
 export function QuestionEditor() {
   const [stemMd, setStemMd] = useState(initialStem);
   const [options, setOptions] = useState(initialOptions);
@@ -27,13 +64,16 @@ export function QuestionEditor() {
   });
   const [solutionMd, setSolutionMd] = useState(initialSolution);
 
-  const previewOptions = useMemo(
-    () =>
-      options.filter(
-        (option) => option.label.trim().length > 0 && option.value.trim().length > 0,
-      ),
-    [options],
-  );
+  const previewOptions = useMemo(() => validOptions(options), [options]);
+
+  function handleOptionsChange(nextOptions: EditableOption[]) {
+    const nextAnswerValue = alignAnswerValue(options, nextOptions, answer.value);
+
+    setOptions(nextOptions);
+    if (nextAnswerValue !== answer.value) {
+      setAnswer({ type: "single", value: nextAnswerValue });
+    }
+  }
 
   return (
     <div className="mx-auto grid w-full max-w-7xl gap-6 px-6 py-8 lg:grid-cols-[minmax(0,1fr)_minmax(22rem,0.85fr)] lg:px-10">
@@ -59,9 +99,9 @@ export function QuestionEditor() {
           />
         </label>
 
-        <OptionEditor options={options} onChange={setOptions} />
+        <OptionEditor options={options} onChange={handleOptionsChange} />
 
-        <AnswerEditor answer={answer} options={options} onChange={setAnswer} />
+        <AnswerEditor answer={answer} options={previewOptions} onChange={setAnswer} />
 
         <label className="block space-y-2 text-sm font-medium text-stone-900/70">
           Solution Markdown
