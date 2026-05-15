@@ -14,33 +14,40 @@ export async function POST(
   context: QuestionClassifyRouteContext,
 ) {
   const { id } = await context.params;
-  const question = await prisma.question.findUnique({ where: { id } });
-
-  if (!question) {
-    return NextResponse.json({ error: "Question not found" }, { status: 404 });
-  }
 
   try {
+    const question = await prisma.question.findUnique({ where: { id } });
+
+    if (!question) {
+      return NextResponse.json(
+        { error: "Question not found" },
+        { status: 404 },
+      );
+    }
+
     const output = suggestMetadata(question.stemMd);
     const confidence = output.knowledge_points[0]?.confidence;
-    const agentRun = await prisma.agentRun.create({
-      data: {
-        agentName: "mock-classification-agent",
-        toolName: "classify_question",
-        input: { questionId: question.id, stemMd: question.stemMd },
-        output,
-        confidence,
-      },
-    });
 
-    const suggestion = await prisma.suggestion.create({
-      data: {
-        questionId: question.id,
-        kind: "metadata",
-        payload: output,
-        confidence,
-        createdByAgentRunId: agentRun.id,
-      },
+    const suggestion = await prisma.$transaction(async (tx) => {
+      const agentRun = await tx.agentRun.create({
+        data: {
+          agentName: "mock-classification-agent",
+          toolName: "classify_question",
+          input: { questionId: question.id, stemMd: question.stemMd },
+          output,
+          confidence,
+        },
+      });
+
+      return tx.suggestion.create({
+        data: {
+          questionId: question.id,
+          kind: "metadata",
+          payload: output,
+          confidence,
+          createdByAgentRunId: agentRun.id,
+        },
+      });
     });
 
     return NextResponse.json({ suggestion }, { status: 201 });

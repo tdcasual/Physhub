@@ -12,6 +12,7 @@ const { mockPrisma } = vi.hoisted(() => ({
     suggestion: {
       create: vi.fn(),
     },
+    $transaction: vi.fn(),
   },
 }));
 
@@ -25,6 +26,10 @@ describe("question classify route", () => {
     mockPrisma.question.update.mockReset();
     mockPrisma.agentRun.create.mockReset();
     mockPrisma.suggestion.create.mockReset();
+    mockPrisma.$transaction.mockReset();
+    mockPrisma.$transaction.mockImplementation(async (callback) =>
+      callback(mockPrisma),
+    );
   });
 
   it("returns a stable 404 JSON error when the question is missing", async () => {
@@ -39,6 +44,27 @@ describe("question classify route", () => {
     await expect(response.json()).resolves.toEqual({
       error: "Question not found",
     });
+    expect(mockPrisma.agentRun.create).not.toHaveBeenCalled();
+    expect(mockPrisma.suggestion.create).not.toHaveBeenCalled();
+    expect(mockPrisma.$transaction).not.toHaveBeenCalled();
+    expect(mockPrisma.question.update).not.toHaveBeenCalled();
+  });
+
+  it("returns a stable 500 JSON error when reading the question fails", async () => {
+    mockPrisma.question.findUnique.mockRejectedValue(
+      new Error("database password leaked"),
+    );
+    const { POST } = await import("@/app/api/questions/[id]/classify/route");
+
+    const response = await POST(new Request("http://localhost"), {
+      params: Promise.resolve({ id: "question_1" }),
+    });
+
+    expect(response.status).toBe(500);
+    await expect(response.json()).resolves.toEqual({
+      error: "Failed to classify question",
+    });
+    expect(mockPrisma.$transaction).not.toHaveBeenCalled();
     expect(mockPrisma.agentRun.create).not.toHaveBeenCalled();
     expect(mockPrisma.suggestion.create).not.toHaveBeenCalled();
     expect(mockPrisma.question.update).not.toHaveBeenCalled();
@@ -74,6 +100,7 @@ describe("question classify route", () => {
     expect(mockPrisma.question.findUnique).toHaveBeenCalledWith({
       where: { id: question.id },
     });
+    expect(mockPrisma.$transaction).toHaveBeenCalledTimes(1);
     expect(mockPrisma.agentRun.create).toHaveBeenCalledWith({
       data: expect.objectContaining({
         agentName: "mock-classification-agent",
@@ -105,6 +132,34 @@ describe("question classify route", () => {
         createdByAgentRunId: agentRun.id,
       },
     });
+    expect(mockPrisma.question.update).not.toHaveBeenCalled();
+  });
+
+  it("uses a transaction so suggestion failures cannot leave a committed agent run", async () => {
+    const question = {
+      id: "question_1",
+      stemMd: "速度-时间图像",
+    };
+    const agentRun = { id: "agent_run_1" };
+
+    mockPrisma.question.findUnique.mockResolvedValue(question);
+    mockPrisma.agentRun.create.mockResolvedValue(agentRun);
+    mockPrisma.suggestion.create.mockRejectedValue(
+      new Error("suggestion insert failed"),
+    );
+
+    const { POST } = await import("@/app/api/questions/[id]/classify/route");
+    const response = await POST(new Request("http://localhost"), {
+      params: Promise.resolve({ id: question.id }),
+    });
+
+    expect(response.status).toBe(500);
+    await expect(response.json()).resolves.toEqual({
+      error: "Failed to classify question",
+    });
+    expect(mockPrisma.$transaction).toHaveBeenCalledTimes(1);
+    expect(mockPrisma.agentRun.create).toHaveBeenCalledTimes(1);
+    expect(mockPrisma.suggestion.create).toHaveBeenCalledTimes(1);
     expect(mockPrisma.question.update).not.toHaveBeenCalled();
   });
 
