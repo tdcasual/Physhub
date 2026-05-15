@@ -1,10 +1,7 @@
-let lastStorageId = 0;
+import { randomUUID } from "node:crypto";
 
 function nextStorageId(): string {
-  const now = Date.now();
-  lastStorageId = Math.max(now, lastStorageId + 1);
-
-  return lastStorageId.toString();
+  return randomUUID();
 }
 
 function safeSegment(value: string, fallback: string): string {
