@@ -75,7 +75,7 @@ export function OptionEditor({ options, onChange }: OptionEditorProps) {
               </label>
               <button
                 type="button"
-                aria-label={`Remove option ${rowLabel}`}
+                aria-label={`Remove option row ${index + 1} (${rowLabel})`}
                 onClick={() => removeOption(index)}
                 className="self-end border border-stone-900/20 bg-white px-3 py-2 text-sm font-medium text-stone-700 hover:bg-orange-50"
               >

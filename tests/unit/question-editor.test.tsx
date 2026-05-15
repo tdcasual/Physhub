@@ -52,12 +52,31 @@ describe("QuestionEditor", () => {
   it("moves the answer to the next valid option when the selected option is removed", () => {
     render(<QuestionEditor />);
 
-    fireEvent.click(screen.getByRole("button", { name: /Remove option B/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Remove option row 2 (B)" }));
 
     const contract = readContract();
     expect(screen.getByLabelText("Correct option")).toHaveValue("A");
     expect(contract.answer.value).toBe("A");
     expect(contract.options.map((option) => option.label)).toEqual(["A", "C", "D"]);
+  });
+
+  it("keeps remove controls uniquely named when option labels are duplicated", () => {
+    render(<QuestionEditor />);
+
+    fireEvent.change(screen.getAllByLabelText(/Option .* label/)[1], {
+      target: { value: "A" },
+    });
+
+    const firstRowRemove = screen.getByRole("button", {
+      name: "Remove option row 1 (A)",
+    });
+    const secondRowRemove = screen.getByRole("button", {
+      name: "Remove option row 2 (A)",
+    });
+
+    expect(firstRowRemove).toBeInTheDocument();
+    expect(secondRowRemove).toBeInTheDocument();
+    expect(firstRowRemove).not.toBe(secondRowRemove);
   });
 
   it("clears and disables the answer when no complete options remain", () => {
