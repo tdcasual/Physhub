@@ -36,8 +36,8 @@ export function AnswerEditor({ answer, options, onChange }: AnswerEditorProps) {
             }
             className="w-full border border-stone-900/20 bg-white px-3 py-2 text-stone-950"
           >
-            {options.map((option) => (
-              <option key={option.label} value={option.label}>
+            {options.map((option, index) => (
+              <option key={`${index}-${option.label}`} value={option.label}>
                 {option.label}
               </option>
             ))}

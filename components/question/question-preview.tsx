@@ -24,8 +24,8 @@ export function QuestionPreview({
 
       {options.length > 0 ? (
         <div className="grid gap-2">
-          {options.map((option) => (
-            <div key={option.label} className="flex gap-2">
+          {options.map((option, index) => (
+            <div key={`${index}-${option.label}`} className="flex gap-2">
               <span className="font-semibold">{option.label}.</span>
               <div className="prose prose-slate max-w-none">
                 <MarkdownLatex content={option.value} />

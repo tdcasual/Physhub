@@ -1,5 +1,5 @@
 import { fireEvent, render, screen, within } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { QuestionEditor } from "@/components/question/question-editor";
 
 function readContract() {
@@ -60,23 +60,33 @@ describe("QuestionEditor", () => {
     expect(contract.options.map((option) => option.label)).toEqual(["A", "C", "D"]);
   });
 
-  it("keeps remove controls uniquely named when option labels are duplicated", () => {
-    render(<QuestionEditor />);
+  it("keeps duplicated option labels uniquely keyed in rendered controls and preview", () => {
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
 
-    fireEvent.change(screen.getAllByLabelText(/Option .* label/)[1], {
-      target: { value: "A" },
-    });
+    try {
+      render(<QuestionEditor />);
 
-    const firstRowRemove = screen.getByRole("button", {
-      name: "Remove option row 1 (A)",
-    });
-    const secondRowRemove = screen.getByRole("button", {
-      name: "Remove option row 2 (A)",
-    });
+      fireEvent.change(screen.getAllByLabelText(/Option .* label/)[1], {
+        target: { value: "A" },
+      });
 
-    expect(firstRowRemove).toBeInTheDocument();
-    expect(secondRowRemove).toBeInTheDocument();
-    expect(firstRowRemove).not.toBe(secondRowRemove);
+      const firstRowRemove = screen.getByRole("button", {
+        name: "Remove option row 1 (A)",
+      });
+      const secondRowRemove = screen.getByRole("button", {
+        name: "Remove option row 2 (A)",
+      });
+
+      expect(firstRowRemove).toBeInTheDocument();
+      expect(secondRowRemove).toBeInTheDocument();
+      expect(firstRowRemove).not.toBe(secondRowRemove);
+      expect(consoleError).not.toHaveBeenCalledWith(
+        expect.stringContaining("Encountered two children with the same key"),
+        expect.anything(),
+      );
+    } finally {
+      consoleError.mockRestore();
+    }
   });
 
   it("clears and disables the answer when no complete options remain", () => {
