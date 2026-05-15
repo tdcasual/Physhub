@@ -6,7 +6,14 @@ import {
 } from "@/lib/domain/taxonomy-repository";
 
 export async function GET() {
-  const knowledgePoints = await listKnowledgePoints();
+  try {
+    const knowledgePoints = await listKnowledgePoints();
 
-  return NextResponse.json(buildKnowledgePointsResponse(knowledgePoints));
+    return NextResponse.json(buildKnowledgePointsResponse(knowledgePoints));
+  } catch {
+    return NextResponse.json(
+      { error: "Failed to load knowledge points" },
+      { status: 500 },
+    );
+  }
 }

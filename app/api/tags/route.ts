@@ -6,7 +6,14 @@ import {
 } from "@/lib/domain/taxonomy-repository";
 
 export async function GET() {
-  const tags = await listTags();
+  try {
+    const tags = await listTags();
 
-  return NextResponse.json(buildTagsResponse(tags));
+    return NextResponse.json(buildTagsResponse(tags));
+  } catch {
+    return NextResponse.json(
+      { error: "Failed to load tags" },
+      { status: 500 },
+    );
+  }
 }
