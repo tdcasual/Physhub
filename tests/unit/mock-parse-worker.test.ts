@@ -60,4 +60,22 @@ B. 乙`);
       ],
     });
   });
+
+  it("keeps option-like lines in the solution after the solution marker begins", () => {
+    const draft = parseTextToDraft(`选择正确选项
+A. 甲
+B. 乙
+答案：A
+解析：
+A. 甲正确，因为它满足题意。
+B. 乙错误，因为条件不足。`);
+
+    expect(draft.optionsJson).toEqual([
+      { label: "A", value: "甲" },
+      { label: "B", value: "乙" },
+    ]);
+    expect(draft.solutionMd).toBe(
+      "A. 甲正确，因为它满足题意。\nB. 乙错误，因为条件不足。",
+    );
+  });
 });

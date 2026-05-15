@@ -35,9 +35,15 @@ export function parseTextToDraft(text: string): ParsedSingleChoiceDraft {
   let isReadingSolution = false;
 
   for (const line of text.split(/\r?\n/)) {
+    const solutionMatch = line.match(solutionLinePattern);
+
+    if (isReadingSolution && !solutionMatch) {
+      solutionLines.push(line);
+      continue;
+    }
+
     const optionMatch = line.match(optionLinePattern);
     const answerMatch = line.match(answerLinePattern);
-    const solutionMatch = line.match(solutionLinePattern);
 
     if (optionMatch) {
       isReadingSolution = false;
@@ -59,11 +65,6 @@ export function parseTextToDraft(text: string): ParsedSingleChoiceDraft {
       if (solutionMatch[1].trim().length > 0) {
         solutionLines.push(solutionMatch[1].trim());
       }
-      continue;
-    }
-
-    if (isReadingSolution) {
-      solutionLines.push(line);
       continue;
     }
 

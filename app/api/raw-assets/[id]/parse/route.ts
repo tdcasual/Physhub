@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { prisma } from "@/lib/db/prisma";
-import { parseTextToDraft } from "@/lib/workers/mock-parse-worker";
+import { parseRawAsset } from "@/lib/domain/parse-raw-asset-workflow";
 
 type RawAssetParseRouteContext = {
   params: Promise<{
@@ -14,68 +13,28 @@ export async function POST(
   context: RawAssetParseRouteContext,
 ) {
   const { id } = await context.params;
-  const rawAsset = await prisma.rawAsset.findUnique({
-    where: { id },
-  });
 
-  if (!rawAsset) {
+  let result: Awaited<ReturnType<typeof parseRawAsset>>;
+
+  try {
+    result = await parseRawAsset(id);
+  } catch {
+    return NextResponse.json(
+      { error: "Failed to parse raw asset" },
+      { status: 500 },
+    );
+  }
+
+  if (result.status === "not_found") {
     return NextResponse.json({ error: "Raw asset not found" }, { status: 404 });
   }
 
-  const parsed = parseTextToDraft(rawAsset.textContent ?? "");
+  if (result.status === "failed") {
+    return NextResponse.json(
+      { error: "Failed to parse raw asset" },
+      { status: 500 },
+    );
+  }
 
-  const draft = await prisma.$transaction(async (tx) => {
-    const parseJob = await tx.parseJob.create({
-      data: {
-        rawAssetId: rawAsset.id,
-        status: "RUNNING",
-        jobType: "mock_parse_text",
-        input: {
-          rawAssetId: rawAsset.id,
-        },
-      },
-    });
-
-    const questionDraft = await tx.questionDraft.create({
-      data: {
-        status: "NEEDS_REVIEW",
-        type: parsed.type,
-        stemMd: parsed.stemMd,
-        optionsJson: parsed.optionsJson ?? undefined,
-        answerJson: parsed.answerJson ?? undefined,
-        solutionMd: parsed.solutionMd ?? null,
-        sourceRawAssetId: rawAsset.id,
-        aiOutput: parsed,
-      },
-    });
-
-    await tx.parseJob.update({
-      where: {
-        id: parseJob.id,
-      },
-      data: {
-        status: "SUCCEEDED",
-        output: {
-          draftId: questionDraft.id,
-        },
-      },
-    });
-
-    await tx.agentRun.create({
-      data: {
-        agentName: "mock-structure-agent",
-        toolName: "create_question_draft",
-        status: "SUCCEEDED",
-        input: {
-          rawAssetId: rawAsset.id,
-        },
-        output: parsed,
-        draftId: questionDraft.id,
-      },
-    });
-
-    return questionDraft;
-  });
-
-  return NextResponse.json({ draft }, { status: 201 });
+  return NextResponse.json({ draft: result.draft }, { status: 201 });
 }
