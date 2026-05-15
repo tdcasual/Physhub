@@ -12,6 +12,7 @@ import {
 } from "@/lib/domain/question-service";
 
 const manualPublicIdSlug = "manual";
+const maxPublicIdAttempts = 5;
 
 const questionInclude = {
   primaryKnowledgePoint: true,
@@ -43,6 +44,34 @@ export class QuestionValidationError extends Error {
     super(message);
     this.name = "QuestionValidationError";
   }
+}
+
+export class QuestionRelationError extends Error {
+  constructor(message = "Knowledge point not found") {
+    super(message);
+    this.name = "QuestionRelationError";
+  }
+}
+
+export class QuestionPersistenceError extends Error {
+  constructor(message = "Unable to create question") {
+    super(message);
+    this.name = "QuestionPersistenceError";
+  }
+}
+
+export function buildManualPublicQuestionId(
+  entropy = crypto.randomUUID(),
+): string {
+  const suffix = entropy.replace(/-/g, "").slice(0, 10).toLowerCase();
+
+  if (!/^[a-z0-9]{10}$/.test(suffix)) {
+    throw new Error(
+      "public question id entropy must contain at least 10 hex characters",
+    );
+  }
+
+  return buildPublicQuestionId(`${manualPublicIdSlug}_${suffix}`, 1);
 }
 
 export function buildPersistedQuestionContract(
@@ -82,12 +111,10 @@ function parseAndValidateQuestionInput(rawInput: unknown) {
 }
 
 type PrismaClientSingleton = typeof import("@/lib/db/prisma").prisma;
-
-async function buildNextPublicId(db: PrismaClientSingleton) {
-  const questionCount = await db.question.count();
-
-  return buildPublicQuestionId(manualPublicIdSlug, questionCount + 1);
-}
+type TransactionClient = Omit<
+  PrismaClientSingleton,
+  "$connect" | "$disconnect" | "$on" | "$transaction" | "$use" | "$extends"
+>;
 
 async function getDb(): Promise<PrismaClientSingleton> {
   const { prisma } = await import("@/lib/db/prisma");
@@ -102,6 +129,34 @@ function isUniquePublicIdConflict(error: unknown) {
     Array.isArray(error.meta?.target) &&
     error.meta.target.includes("publicId")
   );
+}
+
+function isRelationFailure(error: unknown) {
+  return (
+    error instanceof Prisma.PrismaClientKnownRequestError &&
+    (error.code === "P2003" || error.code === "P2025")
+  );
+}
+
+async function createQuestionWithCandidate(
+  tx: TransactionClient,
+  input: QuestionInput,
+  persistedQuestion: PersistedQuestionContract,
+  publicId: string,
+) {
+  return tx.question.create({
+    data: {
+      ...persistedQuestion,
+      publicId,
+      knowledgePoints: {
+        create: input.knowledgePointIds.map((knowledgePointId, index) => ({
+          knowledgePointId,
+          role: index === 0 ? "primary" : "secondary",
+        })),
+      },
+    },
+    include: questionInclude,
+  });
 }
 
 export async function listQuestions(): Promise<QuestionWithRelations[]> {
@@ -133,31 +188,27 @@ export async function createQuestion(
   const persistedQuestion = buildPersistedQuestionContract(input);
   const db = await getDb();
 
-  for (let attempt = 0; attempt < 3; attempt += 1) {
+  for (let attempt = 0; attempt < maxPublicIdAttempts; attempt += 1) {
     try {
-      const publicId = await buildNextPublicId(db);
+      const publicId = buildManualPublicQuestionId();
 
-      return await db.question.create({
-        data: {
-          ...persistedQuestion,
-          publicId,
-          knowledgePoints: {
-            create: input.knowledgePointIds.map((knowledgePointId, index) => ({
-              knowledgePointId,
-              role: index === 0 ? "primary" : "secondary",
-            })),
-          },
-        },
-        include: questionInclude,
-      });
+      return await db.$transaction((tx) =>
+        createQuestionWithCandidate(tx, input, persistedQuestion, publicId),
+      );
     } catch (error) {
       if (isUniquePublicIdConflict(error)) {
         continue;
+      }
+
+      if (isRelationFailure(error)) {
+        throw new QuestionRelationError();
       }
 
       throw error;
     }
   }
 
-  throw new Error("Unable to generate a unique public question id");
+  throw new QuestionPersistenceError(
+    "Unable to generate a unique public question id",
+  );
 }

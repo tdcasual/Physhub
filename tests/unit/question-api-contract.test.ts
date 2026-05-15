@@ -2,8 +2,15 @@ import { describe, expect, it } from "vitest";
 
 import type { QuestionInput } from "@/lib/domain/question-schema";
 import { validatePublishableQuestion } from "@/lib/domain/question-schema";
-import { buildPersistedQuestionContract } from "@/lib/domain/question-repository";
+import {
+  buildManualPublicQuestionId,
+  buildPersistedQuestionContract,
+  QuestionPersistenceError,
+  QuestionRelationError,
+  QuestionValidationError,
+} from "@/lib/domain/question-repository";
 import { normalizeQuestionInput } from "@/lib/domain/question-service";
+import { mapQuestionApiError } from "@/app/api/questions/route";
 
 function validQuestionInput(
   overrides: Partial<QuestionInput> = {},
@@ -81,6 +88,54 @@ describe("buildPersistedQuestionContract", () => {
       ],
       answerJson: { type: "single", value: "B" },
       primaryKnowledgePointId: "kp_motion",
+    });
+  });
+});
+
+describe("buildManualPublicQuestionId", () => {
+  it("builds an independent human-readable manual id candidate", () => {
+    expect(buildManualPublicQuestionId("abc123def456")).toBe(
+      "q_manual_abc123def4_0001",
+    );
+  });
+
+  it("rejects entropy that cannot form a valid slug suffix", () => {
+    expect(() => buildManualPublicQuestionId("not-valid!")).toThrow(
+      "public question id entropy must contain at least 10 hex characters",
+    );
+  });
+});
+
+describe("mapQuestionApiError", () => {
+  it("maps malformed JSON to a 400 response", () => {
+    expect(mapQuestionApiError(new SyntaxError("Unexpected token"))).toEqual({
+      error: "Malformed JSON request body",
+      status: 400,
+    });
+  });
+
+  it("maps domain validation errors to a 400 response", () => {
+    expect(mapQuestionApiError(new QuestionValidationError("题干不能为空"))).toEqual({
+      error: "题干不能为空",
+      status: 400,
+    });
+  });
+
+  it("maps missing relation errors to a clear 422 response", () => {
+    expect(mapQuestionApiError(new QuestionRelationError())).toEqual({
+      error: "Knowledge point not found",
+      status: 422,
+    });
+  });
+
+  it("maps unexpected persistence failures without leaking internals", () => {
+    expect(mapQuestionApiError(new Error("database password leaked"))).toEqual({
+      error: "Unable to create question",
+      status: 500,
+    });
+    expect(mapQuestionApiError(new QuestionPersistenceError())).toEqual({
+      error: "Unable to create question",
+      status: 500,
     });
   });
 });

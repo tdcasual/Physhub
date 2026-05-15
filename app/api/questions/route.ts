@@ -3,8 +3,35 @@ import { NextResponse } from "next/server";
 import {
   createQuestion,
   listQuestions,
+  QuestionPersistenceError,
+  QuestionRelationError,
   QuestionValidationError,
 } from "@/lib/domain/question-repository";
+
+export type QuestionApiErrorResponse = {
+  error: string;
+  status: 400 | 422 | 500;
+};
+
+export function mapQuestionApiError(error: unknown): QuestionApiErrorResponse {
+  if (error instanceof SyntaxError) {
+    return { error: "Malformed JSON request body", status: 400 };
+  }
+
+  if (error instanceof QuestionValidationError) {
+    return { error: error.message, status: 400 };
+  }
+
+  if (error instanceof QuestionRelationError) {
+    return { error: error.message, status: 422 };
+  }
+
+  if (error instanceof QuestionPersistenceError) {
+    return { error: error.message, status: 500 };
+  }
+
+  return { error: "Unable to create question", status: 500 };
+}
 
 export async function GET() {
   const questions = await listQuestions();
@@ -18,13 +45,11 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ question }, { status: 201 });
   } catch (error) {
-    if (error instanceof QuestionValidationError) {
-      return NextResponse.json({ error: error.message }, { status: 400 });
-    }
+    const response = mapQuestionApiError(error);
 
     return NextResponse.json(
-      { error: "Unable to create question" },
-      { status: 400 },
+      { error: response.error },
+      { status: response.status },
     );
   }
 }
