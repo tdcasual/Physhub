@@ -130,12 +130,14 @@ describe("buildQuestionSearchWhere", () => {
 
     expect(
       buildQuestionSearchWhere(understanding, {
-        status: "PUBLISHED",
+        status: ["PUBLISHED"],
         difficulty: [2],
         has_image: true,
       }),
     ).toMatchObject({
-      status: "PUBLISHED",
+      status: {
+        in: ["PUBLISHED"],
+      },
       difficulty: {
         in: [2],
       },
@@ -180,20 +182,21 @@ describe("searchQuestions", () => {
 
     const result = await searchQuestions(
       "找 3 道高一运动学 v-t 图像面积表示位移的基础题，适合随堂练习，最好有图",
-      { status: "PUBLISHED" },
+      { status: ["PUBLISHED"] },
     );
 
     expect(findManyMock).toHaveBeenCalledWith({
       where: expect.objectContaining({
-        status: "PUBLISHED",
+        status: { in: ["PUBLISHED"] },
         difficulty: { in: [1, 2] },
         assets: { some: {} },
       }),
-      include: expect.objectContaining({
-        primaryKnowledgePoint: true,
-        knowledgePoints: expect.any(Object),
-        tags: expect.any(Object),
-        assets: expect.any(Object),
+      select: expect.objectContaining({
+        id: true,
+        publicId: true,
+        type: true,
+        status: true,
+        stemMd: true,
       }),
       orderBy: {
         createdAt: "desc",
@@ -215,7 +218,13 @@ describe("searchQuestions", () => {
       },
       results: [
         {
-          ...question,
+          id: "question_1",
+          question_id: "q_motion_0001",
+          score: expect.any(Number),
+          reason: expect.any(String),
+          stemMd: question.stemMd,
+          status: "PUBLISHED",
+          type: "SINGLE_CHOICE",
           reasons: expect.arrayContaining([
             { field: "text", value: "高一" },
             { field: "text", value: "运动学" },
@@ -233,11 +242,11 @@ describe("question search route helpers", () => {
     expect(
       parseQuestionSearchRequestBody({
         query: "找 2 道高二电磁感应题",
-        constraints: { status: "REVIEWED" },
+        constraints: { status: ["reviewed", "PUBLISHED"] },
       }),
     ).toEqual({
       query: "找 2 道高二电磁感应题",
-      constraints: { status: "REVIEWED" },
+      constraints: { status: ["REVIEWED", "PUBLISHED"] },
     });
   });
 
@@ -261,6 +270,29 @@ describe("question search route helpers", () => {
       status: 400,
     });
   });
+
+  it("rejects malformed nested constraints with stable 400 errors", () => {
+    for (const body of [
+      { query: "找题", constraints: [] },
+      { query: "找题", constraints: { knowledge_points: "运动学" } },
+      { query: "找题", constraints: { usage: [42] } },
+      { query: "找题", constraints: { difficulty: ["easy"] } },
+      { query: "找题", constraints: { has_image: "yes" } },
+    ]) {
+      expect(() => parseQuestionSearchRequestBody(body)).toThrow(
+        SearchRequestValidationError,
+      );
+    }
+  });
+
+  it("rejects invalid status constraints with stable 400 errors", () => {
+    expect(() =>
+      parseQuestionSearchRequestBody({
+        query: "找题",
+        constraints: { status: ["published", "DRAFT"] },
+      }),
+    ).toThrow(SearchRequestValidationError);
+  });
 });
 
 describe("POST /api/search/questions", () => {
@@ -272,12 +304,14 @@ describe("POST /api/search/questions", () => {
         method: "POST",
         body: JSON.stringify({
           query: "找 2 道高二电磁感应题",
-          constraints: { limit: 1, status: "REVIEWED" },
+          constraints: { limit: 1, status: ["reviewed"] },
         }),
       }),
     );
 
-    await expect(response.json()).resolves.toMatchObject({
+    const json = await response.json();
+
+    expect(json).toMatchObject({
       understanding: {
         rawQuery: "找 2 道高二电磁感应题",
         terms: ["高二", "电磁感应"],
@@ -288,19 +322,59 @@ describe("POST /api/search/questions", () => {
       results: [
         {
           id: "question_1",
-          publicId: "q_motion_0001",
+          question_id: "q_motion_0001",
           reasons: expect.any(Array),
         },
       ],
     });
+    expect(json.results[0]).not.toHaveProperty("answerJson");
+    expect(json.results[0]).not.toHaveProperty("metadata");
+    expect(json.results[0]).not.toHaveProperty("usageJson");
     expect(response.status).toBe(200);
     expect(findManyMock).toHaveBeenCalledWith(
       expect.objectContaining({
         take: 1,
         where: expect.objectContaining({
-          status: "REVIEWED",
+          status: { in: ["REVIEWED"] },
         }),
       }),
     );
+  });
+
+  it("returns stable 400 responses for malformed nested constraints", async () => {
+    const response = await POST(
+      new Request("http://localhost/api/search/questions", {
+        method: "POST",
+        body: JSON.stringify({
+          query: "找题",
+          constraints: { knowledge_points: [null] },
+        }),
+      }),
+    );
+
+    await expect(response.json()).resolves.toEqual({
+      error: expect.any(String),
+    });
+    expect(response.status).toBe(400);
+    expect(findManyMock).not.toHaveBeenCalled();
+  });
+
+  it("returns stable 500 responses for database failures", async () => {
+    findManyMock.mockRejectedValueOnce(new Error("database unavailable"));
+
+    const response = await POST(
+      new Request("http://localhost/api/search/questions", {
+        method: "POST",
+        body: JSON.stringify({
+          query: "找题",
+          constraints: { status: ["PUBLISHED"] },
+        }),
+      }),
+    );
+
+    await expect(response.json()).resolves.toEqual({
+      error: "Unable to search questions",
+    });
+    expect(response.status).toBe(500);
   });
 });

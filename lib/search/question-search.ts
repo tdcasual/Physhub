@@ -47,7 +47,7 @@ export type QuestionSearchConstraints = {
   difficulty?: number[];
   usage?: string[];
   has_image?: boolean;
-  status?: QuestionStatus;
+  status?: QuestionStatus[];
 };
 
 export type QuestionSearchResultReason = {
@@ -56,16 +56,31 @@ export type QuestionSearchResultReason = {
 };
 
 export type QuestionSearchQuestion = Prisma.QuestionGetPayload<{
-  include: typeof questionSearchInclude;
+  select: typeof questionSearchSelect;
 }>;
 
-export type QuestionSearchResult = QuestionSearchQuestion & {
+export type QuestionSearchResult = {
+  question_id: string;
+  id: string;
+  score: number;
+  reason: string;
   reasons: QuestionSearchResultReason[];
+  stemMd: string;
+  status: QuestionStatus;
+  type: string;
 };
+
+export type QuestionSearchResultDto = QuestionSearchResult;
 
 export type QuestionSearchResponse = {
   understanding: QuestionSearchUnderstanding;
-  results: QuestionSearchResult[];
+  results: QuestionSearchResultDto[];
+};
+
+export type RawQuestionSearchConstraints = Partial<
+  Omit<QuestionSearchConstraints, "status">
+> & {
+  status?: QuestionStatus | QuestionStatus[] | string | string[];
 };
 
 export class SearchRequestValidationError extends Error {
@@ -82,27 +97,179 @@ export class QuestionSearchPersistenceError extends Error {
   }
 }
 
-export const questionSearchInclude = {
-  primaryKnowledgePoint: true,
+export const questionSearchSelect = {
+  id: true,
+  publicId: true,
+  type: true,
+  status: true,
+  stemMd: true,
+  solutionMd: true,
+  difficulty: true,
+  primaryKnowledgePoint: {
+    select: {
+      name: true,
+    },
+  },
   knowledgePoints: {
-    include: {
-      knowledgePoint: true,
+    select: {
+      knowledgePoint: {
+        select: {
+          name: true,
+        },
+      },
     },
   },
   tags: {
-    include: {
-      tag: true,
+    select: {
+      tag: {
+        select: {
+          name: true,
+        },
+      },
     },
   },
   assets: {
-    include: {
-      asset: true,
+    select: {
+      assetId: true,
     },
   },
-} satisfies Prisma.QuestionInclude;
+} satisfies Prisma.QuestionSelect;
+
+const questionStatuses = [
+  "REVIEWED",
+  "PUBLISHED",
+  "DEPRECATED",
+] as const satisfies readonly QuestionStatus[];
+
+type UnknownRecord = Record<string, unknown>;
+
+function isRecord(value: unknown): value is UnknownRecord {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function assertStringArray(value: unknown, field: string): string[] {
+  if (!Array.isArray(value)) {
+    throw new SearchRequestValidationError(`${field} must be an array`);
+  }
+
+  return value.map((item) => {
+    if (typeof item !== "string") {
+      throw new SearchRequestValidationError(`${field} must contain strings`);
+    }
+
+    return item.trim();
+  }).filter(Boolean);
+}
+
+function assertNumberArray(value: unknown, field: string): number[] {
+  if (!Array.isArray(value)) {
+    throw new SearchRequestValidationError(`${field} must be an array`);
+  }
+
+  return value.map((item) => {
+    if (typeof item !== "number" || !Number.isFinite(item)) {
+      throw new SearchRequestValidationError(`${field} must contain numbers`);
+    }
+
+    return Math.trunc(item);
+  });
+}
+
+function normalizeStatus(value: unknown): QuestionStatus[] {
+  const rawStatuses = Array.isArray(value) ? value : [value];
+
+  return rawStatuses.map((status) => {
+    if (typeof status !== "string") {
+      throw new SearchRequestValidationError("status must contain strings");
+    }
+
+    const normalized = status.trim().toUpperCase();
+
+    if (!questionStatuses.includes(normalized as QuestionStatus)) {
+      throw new SearchRequestValidationError("status contains an invalid value");
+    }
+
+    return normalized as QuestionStatus;
+  });
+}
+
+export function normalizeQuestionSearchConstraints(
+  constraints: unknown = {},
+): QuestionSearchConstraints {
+  if (!isRecord(constraints)) {
+    throw new SearchRequestValidationError("Search constraints must be an object");
+  }
+
+  const normalized: QuestionSearchConstraints = {};
+
+  if (constraints.limit !== undefined) {
+    if (
+      typeof constraints.limit !== "number" ||
+      !Number.isFinite(constraints.limit)
+    ) {
+      throw new SearchRequestValidationError("limit must be a number");
+    }
+
+    normalized.limit = clampLimit(constraints.limit);
+  }
+
+  for (const field of ["grade", "chapter"] as const) {
+    if (constraints[field] !== undefined) {
+      if (typeof constraints[field] !== "string") {
+        throw new SearchRequestValidationError(`${field} must be a string`);
+      }
+
+      const value = constraints[field].trim();
+
+      if (value) {
+        normalized[field] = value;
+      }
+    }
+  }
+
+  if (constraints.knowledge_points !== undefined) {
+    normalized.knowledge_points = assertStringArray(
+      constraints.knowledge_points,
+      "knowledge_points",
+    );
+  }
+
+  if (constraints.difficulty !== undefined) {
+    normalized.difficulty = assertNumberArray(
+      constraints.difficulty,
+      "difficulty",
+    );
+  }
+
+  if (constraints.usage !== undefined) {
+    normalized.usage = assertStringArray(constraints.usage, "usage");
+  }
+
+  if (constraints.has_image !== undefined) {
+    if (typeof constraints.has_image !== "boolean") {
+      throw new SearchRequestValidationError("has_image must be a boolean");
+    }
+
+    normalized.has_image = constraints.has_image;
+  }
+
+  if (constraints.status !== undefined) {
+    normalized.status = uniqueStatuses(normalizeStatus(constraints.status));
+  }
+
+  return normalized;
+}
+
+export type QuestionSearchResultWithReasons = QuestionSearchQuestion & {
+  reasons: QuestionSearchResultReason[];
+};
 
 function unique(values: string[]): string[] {
   return [...new Set(values.filter(Boolean))];
+}
+
+function uniqueStatuses(values: QuestionStatus[]): QuestionStatus[] {
+  return [...new Set(values)];
 }
 
 function clampLimit(limit: number): number {
@@ -199,17 +366,19 @@ export function understandQuestionSearchQuery(
 
 function mergeUnderstandingWithConstraints(
   understanding: QuestionSearchUnderstanding,
-  constraints: QuestionSearchConstraints = {},
+  constraints: RawQuestionSearchConstraints = {},
 ): QuestionSearchUnderstanding & QuestionSearchConstraints {
+  const normalizedConstraints = normalizeQuestionSearchConstraints(constraints);
+
   return {
     ...understanding,
-    ...constraints,
-    limit: clampLimit(constraints.limit ?? understanding.limit),
+    ...normalizedConstraints,
+    limit: clampLimit(normalizedConstraints.limit ?? understanding.limit),
     knowledge_points:
-      constraints.knowledge_points ?? understanding.knowledge_points,
-    difficulty: constraints.difficulty ?? understanding.difficulty,
-    usage: constraints.usage ?? understanding.usage,
-    has_image: constraints.has_image ?? understanding.has_image,
+      normalizedConstraints.knowledge_points ?? understanding.knowledge_points,
+    difficulty: normalizedConstraints.difficulty ?? understanding.difficulty,
+    usage: normalizedConstraints.usage ?? understanding.usage,
+    has_image: normalizedConstraints.has_image ?? understanding.has_image,
   };
 }
 
@@ -277,9 +446,13 @@ function usageContains(usage: string): Prisma.QuestionWhereInput[] {
 
 export function buildQuestionSearchWhere(
   understanding: QuestionSearchUnderstanding,
-  constraints: QuestionSearchConstraints = {},
+  constraints: RawQuestionSearchConstraints = {},
 ): Prisma.QuestionWhereInput {
-  const merged = mergeUnderstandingWithConstraints(understanding, constraints);
+  const normalizedConstraints = normalizeQuestionSearchConstraints(constraints);
+  const merged = mergeUnderstandingWithConstraints(
+    understanding,
+    normalizedConstraints,
+  );
   const andClauses: Prisma.QuestionWhereInput[] = [];
 
   if (merged.knowledge_points && merged.knowledge_points.length > 0) {
@@ -303,7 +476,9 @@ export function buildQuestionSearchWhere(
   }
 
   return {
-    ...(constraints.status ? { status: constraints.status } : {}),
+    ...(normalizedConstraints.status && normalizedConstraints.status.length > 0
+      ? { status: { in: normalizedConstraints.status } }
+      : {}),
     ...(merged.difficulty ? { difficulty: { in: merged.difficulty } } : {}),
     ...(merged.has_image === true ? { assets: { some: {} } } : {}),
     ...(merged.has_image === false ? { assets: { none: {} } } : {}),
@@ -352,19 +527,51 @@ export function explainQuestionSearchMatch(
     : [{ field: "query", value: understanding.rawQuery }];
 }
 
+function scoreQuestionSearchResult(
+  question: QuestionSearchQuestion,
+  reasons: QuestionSearchResultReason[],
+): number {
+  const reasonScore = reasons.length * 10;
+  const difficultyScore = question.difficulty ? Math.max(0, 6 - question.difficulty) : 0;
+  const assetScore = question.assets.length > 0 ? 2 : 0;
+
+  return reasonScore + difficultyScore + assetScore;
+}
+
+function toQuestionSearchResultDto(
+  question: QuestionSearchQuestion,
+  understanding: QuestionSearchUnderstanding,
+): QuestionSearchResultDto {
+  const reasons = explainQuestionSearchMatch(question, understanding);
+
+  return {
+    question_id: question.publicId,
+    id: question.id,
+    score: scoreQuestionSearchResult(question, reasons),
+    reason: reasons.map((item) => `${item.field}:${item.value}`).join("; "),
+    reasons,
+    stemMd: question.stemMd,
+    status: question.status,
+    type: question.type,
+  };
+}
+
 export async function searchQuestions(
   query: string,
-  constraints: QuestionSearchConstraints = {},
+  constraints: RawQuestionSearchConstraints = {},
 ): Promise<QuestionSearchResponse> {
-  const understanding = understandQuestionSearchQuery(query);
-  const merged = mergeUnderstandingWithConstraints(understanding, constraints);
-  const where = buildQuestionSearchWhere(understanding, constraints);
-
   try {
+    const normalizedConstraints = normalizeQuestionSearchConstraints(constraints);
+    const understanding = understandQuestionSearchQuery(query);
+    const merged = mergeUnderstandingWithConstraints(
+      understanding,
+      normalizedConstraints,
+    );
+    const where = buildQuestionSearchWhere(understanding, normalizedConstraints);
     const { prisma } = await import("@/lib/db/prisma");
     const questions = await prisma.question.findMany({
       where,
-      include: questionSearchInclude,
+      select: questionSearchSelect,
       orderBy: {
         createdAt: "desc",
       },
@@ -386,10 +593,9 @@ export async function searchQuestions(
           ? {}
           : { has_image: merged.has_image }),
       },
-      results: questions.map((question) => ({
-        ...question,
-        reasons: explainQuestionSearchMatch(question, understanding),
-      })),
+      results: questions.map((question) =>
+        toQuestionSearchResultDto(question, understanding),
+      ),
     };
   } catch (error) {
     if (error instanceof SearchRequestValidationError) {

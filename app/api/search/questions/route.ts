@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import {
   QuestionSearchPersistenceError,
   SearchRequestValidationError,
+  normalizeQuestionSearchConstraints,
   searchQuestions,
   type QuestionSearchConstraints,
 } from "@/lib/search/question-search";
@@ -32,18 +33,14 @@ export function parseQuestionSearchRequestBody(
     throw new SearchRequestValidationError("Search query is required");
   }
 
-  if (
-    body.constraints !== undefined &&
-    !isObject(body.constraints)
-  ) {
-    throw new SearchRequestValidationError("Search constraints must be an object");
-  }
+  const constraints =
+    body.constraints === undefined
+      ? undefined
+      : normalizeQuestionSearchConstraints(body.constraints);
 
   return {
     query: body.query,
-    ...(body.constraints
-      ? { constraints: body.constraints as QuestionSearchConstraints }
-      : {}),
+    ...(constraints ? { constraints } : {}),
   };
 }
 
