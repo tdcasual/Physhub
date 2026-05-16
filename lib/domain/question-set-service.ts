@@ -12,6 +12,29 @@ export class QuestionSetValidationError extends Error {
   }
 }
 
+export class QuestionSetRelationError extends Error {
+  constructor(message = "Question not found") {
+    super(message);
+    this.name = "QuestionSetRelationError";
+  }
+}
+
+export class QuestionSetPersistenceError extends Error {
+  constructor(message = "Unable to create question set") {
+    super(message);
+    this.name = "QuestionSetPersistenceError";
+  }
+}
+
+function isQuestionRelationFailure(error: unknown) {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    "code" in error &&
+    (error.code === "P2003" || error.code === "P2025")
+  );
+}
+
 export function buildQuestionSetItems(questionIds: string[]) {
   return questionIds.map((questionId, index) => ({
     questionId,
@@ -57,11 +80,19 @@ export function validateQuestionSetInput(input: unknown): QuestionSetInput {
 export async function createQuestionSet(input: unknown) {
   const questionSetInput = validateQuestionSetInput(input);
 
-  return prisma.questionSet.create({
-    data: {
-      title: questionSetInput.title,
-      items: { create: buildQuestionSetItems(questionSetInput.questionIds) },
-    },
-    include: { items: { orderBy: { sortOrder: "asc" } } },
-  });
+  try {
+    return await prisma.questionSet.create({
+      data: {
+        title: questionSetInput.title,
+        items: { create: buildQuestionSetItems(questionSetInput.questionIds) },
+      },
+      include: { items: { orderBy: { sortOrder: "asc" } } },
+    });
+  } catch (error) {
+    if (isQuestionRelationFailure(error)) {
+      throw new QuestionSetRelationError();
+    }
+
+    throw new QuestionSetPersistenceError();
+  }
 }

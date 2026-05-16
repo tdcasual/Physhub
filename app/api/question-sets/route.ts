@@ -2,12 +2,14 @@ import { NextResponse } from "next/server";
 
 import {
   createQuestionSet,
+  QuestionSetPersistenceError,
+  QuestionSetRelationError,
   QuestionSetValidationError,
 } from "@/lib/domain/question-set-service";
 
 export type QuestionSetApiErrorResponse = {
   error: string;
-  status: 400 | 500;
+  status: 400 | 422 | 500;
 };
 
 export function mapQuestionSetApiError(
@@ -19,6 +21,14 @@ export function mapQuestionSetApiError(
 
   if (error instanceof QuestionSetValidationError) {
     return { error: error.message, status: 400 };
+  }
+
+  if (error instanceof QuestionSetRelationError) {
+    return { error: error.message, status: 422 };
+  }
+
+  if (error instanceof QuestionSetPersistenceError) {
+    return { error: "Unable to create question set", status: 500 };
   }
 
   return { error: "Unable to create question set", status: 500 };
