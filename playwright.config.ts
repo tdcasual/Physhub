@@ -1,15 +1,18 @@
 import { defineConfig, devices } from "@playwright/test";
 
+const port = process.env.PLAYWRIGHT_PORT ?? "3100";
+const baseURL = `http://localhost:${port}`;
+
 export default defineConfig({
   testDir: "./tests/e2e",
   use: {
-    baseURL: "http://localhost:3000",
+    baseURL,
     trace: "on-first-retry",
   },
   webServer: {
-    command: "npm run dev",
-    url: "http://localhost:3000",
-    reuseExistingServer: true,
+    command: `next start -p ${port}`,
+    url: baseURL,
+    reuseExistingServer: !process.env.CI,
   },
   projects: [
     {
