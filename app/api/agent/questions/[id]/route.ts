@@ -20,7 +20,15 @@ export async function GET(
   }
 
   const { id } = await context.params;
-  const question = await getQuestion(id);
+  let question;
+  try {
+    question = await getQuestion(id);
+  } catch {
+    return NextResponse.json(
+      { error: "Failed to load question" },
+      { status: 500 },
+    );
+  }
 
   if (!question) {
     return NextResponse.json({ error: "Question not found" }, { status: 404 });

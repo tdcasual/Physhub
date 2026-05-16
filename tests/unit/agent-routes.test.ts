@@ -167,4 +167,19 @@ describe("GET /api/agent/questions/[id]", () => {
       error: "Question not found",
     });
   });
+
+  it("returns a stable 500 response for question read failures", async () => {
+    mockGetQuestion.mockRejectedValue(new Error("database exploded"));
+    const { GET } = await import("@/app/api/agent/questions/[id]/route");
+
+    const response = await GET(
+      authorizedRequest("http://localhost/api/agent/questions/question_1"),
+      { params: Promise.resolve({ id: "question_1" }) },
+    );
+
+    expect(response.status).toBe(500);
+    await expect(response.json()).resolves.toEqual({
+      error: "Failed to load question",
+    });
+  });
 });
