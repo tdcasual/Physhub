@@ -52,12 +52,12 @@ Run the main local quality gate before handing off changes:
 npm run check
 ```
 
-`npm run check` runs lint and unit tests. It intentionally does not run the slower production-server E2E flow.
+`npm run check` runs lint, TypeScript validation, and unit tests. It intentionally does not run the slower production-server E2E flow.
 
-Run TypeScript separately:
+Run TypeScript by itself while iterating on types:
 
 ```sh
-npm exec tsc -- --noEmit
+npm run typecheck
 ```
 
 Run E2E tests when changing user flows, routing, production startup, or browser behavior:
