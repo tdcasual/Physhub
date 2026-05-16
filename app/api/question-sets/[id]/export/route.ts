@@ -18,6 +18,24 @@ type ExportApiErrorResponse = {
   status: 400 | 404 | 500;
 };
 
+type ExportJobDto = {
+  id: string;
+  status: string;
+  format: string;
+  questionSetId: string | null;
+  outputKey: string | null;
+};
+
+function toExportJobDto(exportJob: ExportJobDto): ExportJobDto {
+  return {
+    id: exportJob.id,
+    status: exportJob.status,
+    format: exportJob.format,
+    questionSetId: exportJob.questionSetId,
+    outputKey: exportJob.outputKey,
+  };
+}
+
 function parseExportBody(input: unknown): ExportBody {
   if (input === undefined) {
     return { format: "markdown", teacher: true };
@@ -107,7 +125,7 @@ export async function POST(
       },
     });
 
-    return NextResponse.json({ exportJob, content });
+    return NextResponse.json({ exportJob: toExportJobDto(exportJob), content });
   } catch (error) {
     const response = mapQuestionSetExportApiError(error);
 

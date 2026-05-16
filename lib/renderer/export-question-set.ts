@@ -11,6 +11,19 @@ export type ExportableQuestion = {
   solutionMd?: string | null;
 };
 
+const BLOCKED_LATEX_COMMANDS = [
+  "input",
+  "include",
+  "write18",
+  "openout",
+  "read",
+  "catcode",
+  "usepackage",
+  "documentclass",
+] as const;
+
+const BLOCKED_LATEX_ENVIRONMENTS = ["document", "questions"] as const;
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
 }
@@ -55,6 +68,31 @@ function getAnswerText(question: ExportableQuestion) {
   return "";
 }
 
+function sanitizeLatexExportText(value: string) {
+  // Source content is Markdown + LaTeX, so safe math commands such as \frac
+  // must survive export. This MVP policy deterministically replaces only
+  // dangerous execution/preamble/document-structure commands that could break
+  // or escape the generated question environment.
+  let sanitized = value;
+
+  for (const command of BLOCKED_LATEX_COMMANDS) {
+    sanitized = sanitized.replace(
+      new RegExp(`\\\\${command}\\b`, "gi"),
+      `[blocked LaTeX command: ${command}]`,
+    );
+  }
+
+  for (const environment of BLOCKED_LATEX_ENVIRONMENTS) {
+    sanitized = sanitized.replace(
+      new RegExp(`\\\\(begin|end)\\s*\\{\\s*${environment}\\s*\\}`, "gi"),
+      (_match, boundary: string) =>
+        `[blocked LaTeX command: ${boundary}{${environment}}]`,
+    );
+  }
+
+  return sanitized;
+}
+
 export function renderQuestionToMarkdown(
   question: ExportableQuestion,
   teacher = true,
@@ -80,18 +118,21 @@ export function renderQuestionToLatex(
   teacher = true,
 ) {
   const choices = getOptions(question)
-    .map((option) => `\\choice ${option.value}`)
+    .map((option) => `\\choice ${sanitizeLatexExportText(option.value)}`)
     .join("\n");
-  const answer = getAnswerText(question);
+  const answer = sanitizeLatexExportText(getAnswerText(question));
+  const solutionMd = question.solutionMd
+    ? sanitizeLatexExportText(question.solutionMd)
+    : "";
   const solution = [
     answer ? `答案：${answer}` : "",
-    question.solutionMd ? `解析：\n${question.solutionMd}` : "",
+    solutionMd ? `解析：\n${solutionMd}` : "",
   ]
     .filter(Boolean)
     .join("\n\n");
 
   return [
-    `\\question ${question.stemMd}`,
+    `\\question ${sanitizeLatexExportText(question.stemMd)}`,
     choices ? `\\begin{choices}\n${choices}\n\\end{choices}` : "",
     teacher && solution ? `\\begin{solution}\n${solution}\n\\end{solution}` : "",
   ]
