@@ -28,7 +28,6 @@ export type DraftReviewWorkspaceDraft = {
     status: RawAssetStatus;
     originalName: string;
     mimeType: string | null;
-    storageKey: string | null;
     textContent: string | null;
     metadata: JsonValue | null;
     createdAt: string;

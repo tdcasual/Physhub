@@ -27,7 +27,6 @@ const draft: DraftReviewWorkspaceDraft = {
     status: "PARSED",
     originalName: "motion.txt",
     mimeType: "text/plain",
-    storageKey: null,
     textContent: "Original pasted source\nA. Speed is constant\nB. Velocity changes uniformly",
     metadata: { page: 1 },
     createdAt: "2026-05-16T09:58:00.000Z",

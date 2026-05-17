@@ -54,6 +54,11 @@ function toQuestionListItem(question: RecentQuestion): QuestionListItem {
 async function getRecentQuestions(): Promise<QuestionListItem[]> {
   const questions = await prisma.question.findMany({
     select: recentQuestionSelect,
+    where: {
+      status: {
+        in: ["REVIEWED", "PUBLISHED"],
+      },
+    },
     orderBy: {
       updatedAt: "desc",
     },
