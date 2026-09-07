@@ -16,6 +16,7 @@ vi.mock("@/lib/db/prisma", () => ({
 import { POST as postEditorSession } from "@/app/api/auth/editor-session/route";
 import { GET as listDrafts, POST as postDrafts } from "@/app/api/drafts/route";
 import { GET as getDraft, PATCH as patchDraft } from "@/app/api/drafts/[id]/route";
+import { POST as postPromoteDraft } from "@/app/api/drafts/[id]/promote/route";
 import { GET as getKnowledgePoints } from "@/app/api/knowledge-points/route";
 import { POST as postQuestionSets } from "@/app/api/question-sets/route";
 import { POST as postQuestionSetExport } from "@/app/api/question-sets/[id]/export/route";
@@ -136,6 +137,16 @@ const unauthenticatedHumanRoutes: Array<{
     call: () =>
       patchDraft(
         new Request("http://localhost/api/drafts/draft_1", { method: "PATCH" }),
+        { params: Promise.resolve({ id: "draft_1" }) },
+      ),
+  },
+  {
+    name: "POST /api/drafts/[id]/promote",
+    call: () =>
+      postPromoteDraft(
+        new Request("http://localhost/api/drafts/draft_1/promote", {
+          method: "POST",
+        }),
         { params: Promise.resolve({ id: "draft_1" }) },
       ),
   },

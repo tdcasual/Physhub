@@ -21,6 +21,7 @@ const draft: DraftReviewWorkspaceDraft = {
   createdAt: "2026-05-16T10:00:00.000Z",
   updatedAt: "2026-05-16T10:05:00.000Z",
   promotedAt: null,
+  promotedQuestionId: null,
   sourceRawAsset: {
     id: "raw_1",
     kind: "TEXT",
@@ -82,7 +83,7 @@ describe("DraftReviewWorkspace", () => {
     expect(screen.getByRole("button", { name: "Save" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Reject" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Send back" })).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /promote/i })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Promote" })).toBeInTheDocument();
 
     expect(screen.getByLabelText("Stem Markdown")).toHaveValue(draft.stemMd);
     expect(screen.getByLabelText("Correct option")).toHaveValue("B");
@@ -198,6 +199,7 @@ describe("DraftReviewWorkspace", () => {
     expect(screen.queryByRole("button", { name: "Save" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Reject" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Send back" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Promote" })).not.toBeInTheDocument();
     expect(screen.getByLabelText("Stem Markdown")).toBeDisabled();
     expect(screen.getByLabelText("Solution Markdown")).toBeDisabled();
     expect(screen.getByLabelText("Correct option")).toBeDisabled();
@@ -223,5 +225,70 @@ describe("DraftReviewWorkspace", () => {
       "src",
       "/api/raw-assets/raw_1/file",
     );
+  });
+
+  it("hides promote on already promoted drafts and shows the official question id", () => {
+    render(
+      <DraftReviewWorkspace
+        draft={{
+          ...draft,
+          status: "PROMOTED",
+          promotedAt: "2026-05-16T10:10:00.000Z",
+          promotedQuestionId: "question_9",
+        }}
+      />,
+    );
+
+    expect(screen.queryByRole("button", { name: "Promote" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Save" })).not.toBeInTheDocument();
+    expect(screen.getByText(/Question question_9/)).toBeInTheDocument();
+    expect(screen.getByText(/Promoted/)).toBeInTheDocument();
+  });
+
+  it("posts promote and shows validation errors from the API", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: false,
+      json: async () => ({ error: "答案必须匹配选项" }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<DraftReviewWorkspace draft={draft} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Promote" }));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/drafts/draft_1/promote",
+      expect.objectContaining({
+        method: "POST",
+        credentials: "include",
+      }),
+    );
+    expect(screen.getByText("答案必须匹配选项")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Promote" })).toBeInTheDocument();
+  });
+
+  it("shows promotedAt and the new question id after a successful promote", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        draft: {
+          id: "draft_1",
+          status: "PROMOTED",
+          promotedAt: "2026-05-16T10:20:00.000Z",
+          promotedQuestionId: "question_1",
+        },
+        question: { id: "question_1" },
+      }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<DraftReviewWorkspace draft={draft} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Promote" }));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+
+    expect(screen.queryByRole("button", { name: "Promote" })).not.toBeInTheDocument();
+    expect(screen.getByText(/Question question_1/)).toBeInTheDocument();
+    expect(screen.getByText(/Promoted/)).toBeInTheDocument();
   });
 });

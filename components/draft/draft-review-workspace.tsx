@@ -22,6 +22,7 @@ export type DraftReviewWorkspaceDraft = {
   createdAt: string;
   updatedAt: string;
   promotedAt: string | null;
+  promotedQuestionId: string | null;
   sourceRawAsset: {
     id: string;
     kind: RawAssetKind;
@@ -173,6 +174,10 @@ export function DraftReviewWorkspace({ draft }: { draft: DraftReviewWorkspaceDra
   );
   const [solutionMd, setSolutionMd] = useState(draft.solutionMd ?? "");
   const [status, setStatus] = useState(draft.status);
+  const [promotedAt, setPromotedAt] = useState(draft.promotedAt);
+  const [promotedQuestionId, setPromotedQuestionId] = useState(
+    draft.promotedQuestionId,
+  );
   const [pendingAction, setPendingAction] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
 
@@ -250,6 +255,47 @@ export function DraftReviewWorkspace({ draft }: { draft: DraftReviewWorkspaceDra
 
   function handleSendBack() {
     return patchDraft("send-back", { ...buildEditorFields(), status: "DRAFT" });
+  }
+
+  async function handlePromote() {
+    setPendingAction("promote");
+    setActionError(null);
+
+    try {
+      const response = await fetch(`/api/drafts/${draft.id}/promote`, {
+        method: "POST",
+        credentials: "include",
+      });
+      const payload = (await response.json()) as {
+        error?: string;
+        draft?: {
+          status?: DraftStatus;
+          promotedAt?: string | null;
+          promotedQuestionId?: string | null;
+        };
+        question?: { id?: string };
+      };
+
+      if (!response.ok) {
+        setActionError(payload.error ?? "Unable to promote draft");
+        return;
+      }
+
+      if (payload.draft?.status) {
+        setStatus(payload.draft.status);
+      }
+
+      setPromotedAt(payload.draft?.promotedAt ?? promotedAt);
+      setPromotedQuestionId(
+        payload.question?.id ??
+          payload.draft?.promotedQuestionId ??
+          promotedQuestionId,
+      );
+    } catch {
+      setActionError("Unable to promote draft");
+    } finally {
+      setPendingAction(null);
+    }
   }
 
   function handleOptionsChange(nextOptions: EditableOption[]) {
@@ -331,10 +377,28 @@ export function DraftReviewWorkspace({ draft }: { draft: DraftReviewWorkspaceDra
                 Send back
               </button>
             ) : null}
+            <button
+              type="button"
+              onClick={() => {
+                void handlePromote();
+              }}
+              disabled={pendingAction !== null}
+              className="border border-lime-900 bg-lime-800 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
+            >
+              Promote
+            </button>
             {actionError ? (
               <p className="text-sm text-red-800">{actionError}</p>
             ) : null}
           </div>
+        ) : null}
+
+        {status === "PROMOTED" || promotedAt || promotedQuestionId ? (
+          <p className="text-sm text-stone-900/80">
+            Promoted
+            {promotedAt ? ` at ${formatDate(promotedAt)}` : ""}
+            {promotedQuestionId ? ` · Question ${promotedQuestionId}` : ""}
+          </p>
         ) : null}
 
         <div className="grid gap-5 xl:grid-cols-[minmax(18rem,0.75fr)_minmax(24rem,1fr)_minmax(22rem,0.9fr)]">

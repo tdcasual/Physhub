@@ -93,7 +93,7 @@ function getValidationMessage(error: ZodError) {
   return error.issues.map((issue) => issue.message).join("; ");
 }
 
-function parseAndValidateQuestionInput(rawInput: unknown) {
+export function parseAndValidateQuestionInput(rawInput: unknown) {
   const parsed = questionInputSchema.safeParse(rawInput);
 
   if (!parsed.success) {

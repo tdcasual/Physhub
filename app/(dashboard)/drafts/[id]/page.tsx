@@ -22,6 +22,7 @@ const draftSelect = {
   createdAt: true,
   updatedAt: true,
   promotedAt: true,
+  promotedQuestionId: true,
   sourceRawAsset: {
     select: {
       id: true,
@@ -101,6 +102,7 @@ function toWorkspaceDraft(draft: DraftRecord): DraftReviewWorkspaceDraft {
     createdAt: draft.createdAt.toISOString(),
     updatedAt: draft.updatedAt.toISOString(),
     promotedAt: draft.promotedAt?.toISOString() ?? null,
+    promotedQuestionId: draft.promotedQuestionId,
     sourceRawAsset: draft.sourceRawAsset
       ? {
           id: draft.sourceRawAsset.id,

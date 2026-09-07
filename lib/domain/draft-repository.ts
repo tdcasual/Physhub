@@ -138,6 +138,7 @@ export type QuestionDraftDto = {
   createdAt: string;
   updatedAt: string;
   promotedAt: string | null;
+  promotedQuestionId: string | null;
 };
 
 export type QuestionDraftDetailDto = QuestionDraftDto & {
@@ -224,6 +225,7 @@ export function toQuestionDraftDto(draft: DraftRecord): QuestionDraftDto {
     createdAt: toIso(draft.createdAt) ?? new Date(0).toISOString(),
     updatedAt: toIso(draft.updatedAt) ?? new Date(0).toISOString(),
     promotedAt: toIso(draft.promotedAt),
+    promotedQuestionId: draft.promotedQuestionId,
   };
 }
 
