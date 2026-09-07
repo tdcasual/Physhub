@@ -74,22 +74,25 @@ The E2E command builds the app and starts the production server on port 3100.
 
 ## AI Boundary
 
-The Next.js process does not call an LLM. Mock parse/classify HTTP routes are rule fixtures, not OCR. The design is to require a human session and `ENABLE_MOCK_PARSE` / `ENABLE_MOCK_CLASSIFY` (default off); today those routes still run unauthenticated.
+The platform does not embed an LLM or OCR. The default product path is an external coding-agent harness submitting already-structured drafts through `/api/agent/*`. Human review and promote are the only way a draft becomes a formal `Question`.
 
-External agents may:
+`POST /api/raw-assets/:id/parse` and `POST /api/questions/:id/classify` are rule-based test fixtures, not product AI. They require a human session and stay off unless `ENABLE_MOCK_PARSE=true` or `ENABLE_MOCK_CLASSIFY=true`. Production default is off. Mock classify payloads have no `knowledge_points[].id` and cannot be accepted.
+
+Harness / AI may:
 
 - Create drafts from existing source material.
 - Create suggestions for human review.
-- Help classify existing questions (as suggestions; mock payloads omit knowledge-point ids and cannot be accepted).
 - Help search or translate natural-language search intent into structured filters.
 
 Agents must not:
 
-- Publish final questions. The designed insert path is human promote, with human `POST /api/questions` becoming a create-draft + promote wrapper. Today that POST still writes `REVIEWED` directly.
+- Publish final questions. Official insert is human promote (`POST /api/drafts/:id/promote`). Human `POST /api/questions` is a create-draft + promote wrapper.
 - Delete final questions.
 - Generate original questions.
 - Directly overwrite confirmed metadata.
 
-Draft knowledge points and tags are JSON arrays on `QuestionDraft`, not join tables. Harness instructions live at `skills/physhub/SKILL.md` in a later PR; the runtime does not load them.
+Agent APIs stay conservative: retrieval, drafts, suggestions, quality-check, sets, and export. Final publication, destructive actions, and confirmed metadata changes require human-controlled paths.
 
-Mutating agent writes will store `IdempotencyRecord` rows (table exists; write path lands with the agent tools). v1 has no cleaner; keep them about 90 days, then delete by hand.
+Draft knowledge points and tags are JSON arrays on `QuestionDraft`, not join tables. Harness instructions live at `skills/physhub/SKILL.md`; the runtime does not load them.
+
+Mutating agent writes store `IdempotencyRecord` rows. v1 has no cleaner; keep them about 90 days, then delete by hand.

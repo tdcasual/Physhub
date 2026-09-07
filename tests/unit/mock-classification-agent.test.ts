@@ -12,6 +12,7 @@ describe("mock classification agent", () => {
       confidence: 0.86,
       reason: expect.any(String),
     });
+    expect(result.knowledge_points[0]).not.toHaveProperty("id");
     expect(result.difficulty).toMatchObject({
       value: 2,
       confidence: 0.72,

@@ -1,3 +1,4 @@
+// Rule fixture for tests / ENABLE_MOCK_PARSE, not OCR or an LLM.
 import type { QuestionType } from "@prisma/client";
 
 export type ParsedOption = {

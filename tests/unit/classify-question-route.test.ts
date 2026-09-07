@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const { mockPrisma } = vi.hoisted(() => ({
   mockPrisma: {
@@ -23,7 +23,10 @@ vi.mock("@/lib/db/prisma", () => ({
 import { editorSessionRequest } from "@/tests/unit/helpers/editor-session";
 
 describe("question classify route", () => {
+  const originalMockClassify = process.env.ENABLE_MOCK_CLASSIFY;
+
   beforeEach(() => {
+    process.env.ENABLE_MOCK_CLASSIFY = "true";
     mockPrisma.question.findUnique.mockReset();
     mockPrisma.question.update.mockReset();
     mockPrisma.agentRun.create.mockReset();
@@ -32,6 +35,30 @@ describe("question classify route", () => {
     mockPrisma.$transaction.mockImplementation(async (callback) =>
       callback(mockPrisma),
     );
+  });
+
+  afterEach(() => {
+    if (originalMockClassify === undefined) {
+      delete process.env.ENABLE_MOCK_CLASSIFY;
+    } else {
+      process.env.ENABLE_MOCK_CLASSIFY = originalMockClassify;
+    }
+  });
+
+  it("returns 404 Not found and does not classify when ENABLE_MOCK_CLASSIFY is off", async () => {
+    delete process.env.ENABLE_MOCK_CLASSIFY;
+    const { POST } = await import("@/app/api/questions/[id]/classify/route");
+
+    const response = await POST(editorSessionRequest("http://localhost"), {
+      params: Promise.resolve({ id: "question_1" }),
+    });
+
+    expect(response.status).toBe(404);
+    await expect(response.json()).resolves.toEqual({ error: "Not found" });
+    expect(mockPrisma.question.findUnique).not.toHaveBeenCalled();
+    expect(mockPrisma.question.update).not.toHaveBeenCalled();
+    expect(mockPrisma.$transaction).not.toHaveBeenCalled();
+    expect(mockPrisma.suggestion.create).not.toHaveBeenCalled();
   });
 
   it("returns a stable 404 JSON error when the question is missing", async () => {
@@ -125,6 +152,10 @@ describe("question classify route", () => {
         }),
       }),
     );
+    expect(
+      mockPrisma.agentRun.create.mock.calls[0]?.[0].data.output
+        .knowledge_points[0],
+    ).not.toHaveProperty("id");
     expect(mockPrisma.suggestion.create).toHaveBeenCalledWith({
       data: {
         questionId: question.id,

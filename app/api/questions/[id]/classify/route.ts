@@ -20,6 +20,10 @@ export async function POST(
     return auth.response;
   }
 
+  if (process.env.ENABLE_MOCK_CLASSIFY !== "true") {
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
+
   const { id } = await context.params;
 
   try {

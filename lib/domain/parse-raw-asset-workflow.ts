@@ -20,6 +20,10 @@ type ParseJobRecord = {
 type ParseWorkflowDb = {
   rawAsset: {
     findUnique(input: { where: { id: string } }): Promise<RawAssetRecord | null>;
+    update(input: {
+      where: { id: string };
+      data: { status: "PROCESSING" | "PARSED" | "FAILED" };
+    }): Promise<unknown>;
   };
   parseJob: {
     create(input: {
@@ -110,9 +114,15 @@ export async function parseRawAssetWithClient({
     },
   });
 
-  let failedStep = "parse_text";
+  let failedStep = "mark_processing";
 
   try {
+    await db.rawAsset.update({
+      where: { id: rawAsset.id },
+      data: { status: "PROCESSING" },
+    });
+
+    failedStep = "parse_text";
     const parsed = parseTextToDraft(rawAsset.textContent ?? "");
 
     failedStep = "create_draft";
@@ -156,6 +166,12 @@ export async function parseRawAssetWithClient({
       },
     });
 
+    failedStep = "mark_parsed";
+    await db.rawAsset.update({
+      where: { id: rawAsset.id },
+      data: { status: "PARSED" },
+    });
+
     return {
       status: "created",
       draft: questionDraft,
@@ -172,6 +188,11 @@ export async function parseRawAssetWithClient({
         rawError: serializeRawError(error),
         failedStep,
       },
+    });
+
+    await db.rawAsset.update({
+      where: { id: rawAsset.id },
+      data: { status: "FAILED" },
     });
 
     return { status: "failed" };

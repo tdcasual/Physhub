@@ -1,3 +1,5 @@
+// Rule fixture for tests / ENABLE_MOCK_CLASSIFY, not an LLM.
+// Payload has no knowledge_points[].id, so human accept cannot write it.
 export type MetadataSuggestion = {
   knowledge_points: Array<{
     value: string;

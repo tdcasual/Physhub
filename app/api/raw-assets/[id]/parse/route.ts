@@ -19,6 +19,10 @@ export async function POST(
     return auth.response;
   }
 
+  if (process.env.ENABLE_MOCK_PARSE !== "true") {
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
+
   const { id } = await context.params;
 
   let result: Awaited<ReturnType<typeof parseRawAsset>>;

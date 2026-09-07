@@ -7,6 +7,7 @@ function buildDb(overrides: Record<string, unknown> = {}) {
   return {
     rawAsset: {
       findUnique: vi.fn(),
+      update: vi.fn(),
     },
     parseJob: {
       create: vi.fn(),
@@ -46,6 +47,7 @@ describe("parseRawAssetWithClient", () => {
       where: { id: "missing" },
     });
     expect(db.parseJob.create).not.toHaveBeenCalled();
+    expect(db.rawAsset.update).not.toHaveBeenCalled();
   });
 
   it("creates a running job, draft, agent run, and marks the job succeeded", async () => {
@@ -106,6 +108,10 @@ describe("parseRawAssetWithClient", () => {
         output: { draftId: "draft_1" },
       },
     });
+    expect(db.rawAsset.update.mock.calls).toEqual([
+      [{ where: { id: "raw_1" }, data: { status: "PROCESSING" } }],
+      [{ where: { id: "raw_1" }, data: { status: "PARSED" } }],
+    ]);
   });
 
   it("marks an existing parse job failed when parsing fails", async () => {
@@ -138,5 +144,9 @@ describe("parseRawAssetWithClient", () => {
     expect(db.parseJob.update.mock.calls[0][0].data.rawError).toContain(
       "parser exploded",
     );
+    expect(db.rawAsset.update.mock.calls).toEqual([
+      [{ where: { id: "raw_1" }, data: { status: "PROCESSING" } }],
+      [{ where: { id: "raw_1" }, data: { status: "FAILED" } }],
+    ]);
   });
 });
