@@ -1,22 +1,23 @@
 import Link from "next/link";
-import { Atom, BookOpenCheck, DatabaseZap, PencilLine, SearchCheck } from "lucide-react";
+import { Atom, BookOpenCheck, PencilLine, SearchCheck } from "lucide-react";
 
 const workflow = [
   {
     title: "Curate",
     detail:
-      "Manually enter reviewed questions and keep every item tied to a human-owned review state.",
+      "Bring existing physics questions into drafts. Official items enter the bank only after human review.",
     icon: BookOpenCheck,
   },
   {
     title: "Classify",
-    detail: "Record topic, difficulty, source, and AI suggestions without overwriting confirmed metadata.",
+    detail:
+      "External harnesses suggest topic, difficulty, and tags. Confirmed metadata stays human-owned; the workbench does not generate questions.",
     icon: Atom,
   },
   {
     title: "Retrieve",
     detail:
-      "Prepare clean structures for precise teacher search, classification, and future agent-safe APIs.",
+      "Search the reviewed bank with precise filters. Agents use the tool API; the app does not embed a model.",
     icon: SearchCheck,
   },
 ];
@@ -25,18 +26,6 @@ export default function Home() {
   return (
     <main className="min-h-screen bg-[var(--background)] text-[var(--foreground)]">
       <section className="mx-auto flex min-h-screen w-full max-w-6xl flex-col justify-between px-6 py-8 sm:px-10 lg:px-12">
-        <header className="flex items-center justify-between border-b border-stone-900/15 pb-5">
-          <div className="flex items-center gap-3">
-            <div className="grid size-10 place-items-center border border-stone-900/20 bg-sky-100 text-stone-900">
-              <DatabaseZap aria-hidden="true" className="size-5" />
-            </div>
-            <span className="text-sm font-semibold uppercase tracking-[0.18em] text-lime-800">
-              Physics Question Bank
-            </span>
-          </div>
-          <span className="text-sm text-stone-900/60">MVP foundation</span>
-        </header>
-
         <div className="grid gap-12 py-14 lg:grid-cols-[1.2fr_0.8fr] lg:items-end">
           <div className="max-w-3xl">
             <p className="mb-5 text-sm font-semibold uppercase tracking-[0.18em] text-orange-800">
