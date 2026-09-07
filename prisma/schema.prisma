@@ -134,22 +134,27 @@ model Tag {
 }
 
 model QuestionDraft {
-  id               String        @id @default(cuid())
-  status           DraftStatus   @default(DRAFT)
-  type             QuestionType?
-  stemMd           String?
-  optionsJson      Json?
-  answerJson       Json?
-  solutionMd       String?
-  sourceRawAssetId String?
-  aiOutput         Json?
-  createdAt        DateTime      @default(now())
-  updatedAt        DateTime      @updatedAt
-  promotedAt       DateTime?
+  id                 String        @id @default(cuid())
+  status             DraftStatus   @default(DRAFT)
+  type               QuestionType?
+  stemMd             String?
+  optionsJson        Json?
+  answerJson         Json?
+  solutionMd         String?
+  difficulty         Int?
+  knowledgePointIds  Json? // string[]
+  tagIds             Json? // string[]
+  sourceRawAssetId   String?
+  aiOutput           Json?
+  createdAt          DateTime      @default(now())
+  updatedAt          DateTime      @updatedAt
+  promotedAt         DateTime?
+  promotedQuestionId String?       @unique
 
-  sourceRawAsset RawAsset?    @relation(fields: [sourceRawAssetId], references: [id])
-  suggestions    Suggestion[]
-  agentRuns      AgentRun[]
+  sourceRawAsset   RawAsset?    @relation(fields: [sourceRawAssetId], references: [id])
+  promotedQuestion Question?    @relation("PromotedFromDraft", fields: [promotedQuestionId], references: [id])
+  suggestions      Suggestion[]
+  agentRuns        AgentRun[]
 }
 
 model Question {
@@ -178,12 +183,13 @@ model Question {
   createdBy             User?           @relation("QuestionCreatedBy", fields: [createdById], references: [id])
   reviewedBy            User?           @relation("QuestionReviewedBy", fields: [reviewedById], references: [id])
 
-  knowledgePoints QuestionKnowledgePoint[]
-  tags            QuestionTag[]
-  assets          QuestionAsset[]
-  versions        QuestionVersion[]
-  suggestions     Suggestion[]
-  setItems        QuestionSetItem[]
+  knowledgePoints   QuestionKnowledgePoint[]
+  tags              QuestionTag[]
+  assets            QuestionAsset[]
+  versions          QuestionVersion[]
+  suggestions       Suggestion[]
+  setItems          QuestionSetItem[]
+  promotedFromDraft QuestionDraft?           @relation("PromotedFromDraft")
 }
 
 model QuestionKnowledgePoint {
@@ -282,9 +288,12 @@ model AgentRun {
   confidence Float?
   accepted   Boolean?
   draftId    String?
+  apiKeyId   String?
+  requestId  String?
   createdAt  DateTime  @default(now())
 
   draft       QuestionDraft? @relation(fields: [draftId], references: [id], onDelete: SetNull)
+  apiKey      ApiKey?        @relation(fields: [apiKeyId], references: [id], onDelete: SetNull)
   suggestions Suggestion[]
 }
 
@@ -348,4 +357,22 @@ model ApiKey {
   lastUsedAt DateTime?
   revokedAt  DateTime?
   createdAt  DateTime  @default(now())
+
+  agentRuns AgentRun[]
+}
+
+model IdempotencyRecord {
+  id             String   @id @default(cuid())
+  apiKeyId       String // real ApiKey.id, or sentinel "dev-agent"
+  key            String
+  method         String
+  path           String
+  requestHash    String
+  state          String // "in_progress" | "completed"
+  responseStatus Int?
+  responseBody   Json?
+  createdAt      DateTime @default(now())
+
+  @@unique([apiKeyId, key])
+  @@index([createdAt])
 }
