@@ -6,6 +6,7 @@ import { join } from "node:path";
 
 import {
   buildStorageKey,
+  removeLocalUpload,
   saveLocalUpload,
 } from "@/lib/storage/storage-service";
 
@@ -63,6 +64,9 @@ describe("storage service", () => {
 
       expect(savedPath).toBe(join(uploadDir, "raw/incoming/sample.txt"));
       await expect(readFile(savedPath, "utf8")).resolves.toBe("hello upload");
+
+      await removeLocalUpload("raw/incoming/sample.txt");
+      await expect(readFile(savedPath, "utf8")).rejects.toThrow();
     } finally {
       if (previousUploadDir === undefined) {
         delete process.env.LOCAL_UPLOAD_DIR;

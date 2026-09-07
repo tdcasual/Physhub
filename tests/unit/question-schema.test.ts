@@ -110,6 +110,21 @@ describe("validatePublishableQuestion", () => {
     expect(errors).toEqual(["答案必须匹配选项"]);
   });
 
+  it("does not throw when a multiple answer is missing value", () => {
+    const errors = validatePublishableQuestion({
+      type: "MULTIPLE_CHOICE",
+      stemMd: "选择所有正确选项。",
+      options: [
+        { label: "A", value: "选项 A" },
+        { label: "B", value: "选项 B" },
+      ],
+      answer: { type: "multiple" } as never,
+      knowledgePointIds: ["kp_1"],
+    });
+
+    expect(errors).toEqual(["必须填写答案"]);
+  });
+
   it("rejects multiple choice answer labels that do not match options", () => {
     const errors = validatePublishableQuestion({
       type: "MULTIPLE_CHOICE",

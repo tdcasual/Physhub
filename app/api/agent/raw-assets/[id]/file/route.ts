@@ -34,6 +34,7 @@ export async function GET(
     });
 
     if (!rawAsset?.storageKey) {
+      // Pasted text assets store textContent only; file GET is disk-only.
       return NextResponse.json(
         { error: "Raw asset not found" },
         { status: 404 },

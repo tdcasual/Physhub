@@ -106,6 +106,30 @@ describe("POST /api/agent/search-questions", () => {
     });
   });
 
+  it("defaults empty constraints.status to REVIEWED", async () => {
+    mockSearchQuestions.mockResolvedValue({
+      understanding: { rawQuery: "找题", terms: [], limit: 10 },
+      results: [],
+    });
+    const { POST } = await import("@/app/api/agent/search-questions/route");
+
+    const response = await POST(
+      authorizedRequest("http://localhost/api/agent/search-questions", {
+        method: "POST",
+        body: JSON.stringify({
+          query: "找题",
+          constraints: { status: [], limit: 2 },
+        }),
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(mockSearchQuestions).toHaveBeenCalledWith("找题", {
+      limit: 2,
+      status: ["REVIEWED"],
+    });
+  });
+
   it("returns stable 400 responses for invalid search bodies", async () => {
     const { POST } = await import("@/app/api/agent/search-questions/route");
 

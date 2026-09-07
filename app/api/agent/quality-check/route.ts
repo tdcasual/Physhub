@@ -62,10 +62,7 @@ function parseQualityCheckBody(body: unknown): {
 
   if (hasQuestion) {
     if (typeof question !== "object" || question === null || Array.isArray(question)) {
-      throw new QualityCheckError(
-        "Provide exactly one of draftId or question",
-        400,
-      );
+      throw new QualityCheckError("question must be an object", 400);
     }
 
     return { question: question as Record<string, unknown> };

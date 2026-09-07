@@ -63,7 +63,7 @@ function hasAnswer(answer: Partial<QuestionInput>["answer"]) {
   }
 
   if (answer.type === "multiple") {
-    return answer.value.some(hasText);
+    return Array.isArray(answer.value) && answer.value.some(hasText);
   }
 
   return false;
@@ -93,11 +93,15 @@ function answerMatchesOptions(input: Partial<QuestionInput>) {
   const optionLabels = new Set(input.options.map((option) => option.label));
 
   if (input.answer.type === "single") {
-    return optionLabels.has(input.answer.value);
+    return typeof input.answer.value !== "string"
+      ? true
+      : optionLabels.has(input.answer.value);
   }
 
   if (input.answer.type === "multiple") {
-    return input.answer.value.every((value) => optionLabels.has(value));
+    return !Array.isArray(input.answer.value)
+      ? true
+      : input.answer.value.every((value) => optionLabels.has(value));
   }
 
   return false;

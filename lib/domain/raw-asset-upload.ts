@@ -1,8 +1,16 @@
 import type { RawAssetKind } from "@prisma/client";
 
 import type { CanonicalMultipartInput } from "@/lib/domain/idempotency";
-import { createRawAsset, type RawAssetRecord } from "@/lib/domain/raw-asset-repository";
-import { buildStorageKey, saveLocalUpload } from "@/lib/storage/storage-service";
+import {
+  createRawAsset,
+  type CreateRawAssetInput,
+  type RawAssetRecord,
+} from "@/lib/domain/raw-asset-repository";
+import {
+  buildStorageKey,
+  removeLocalUpload,
+  saveLocalUpload,
+} from "@/lib/storage/storage-service";
 
 export const PASTED_TEXT_NAME = "pasted-text.txt";
 export const PASTED_TEXT_MIME_TYPE = "text/plain";
@@ -191,33 +199,72 @@ export async function parseRawAssetFormData(
   throw new RawAssetUploadError("Provide a non-empty file or text field");
 }
 
-export async function persistParsedRawAsset(
+export type PreparedRawAsset = {
+  input: CreateRawAssetInput;
+  bytes?: Buffer;
+};
+
+export function prepareParsedRawAsset(
   parsed: ParsedRawAssetUpload,
-  db?: RawAssetDbClient,
-): Promise<RawAssetRecord> {
+): PreparedRawAsset {
   if (parsed.source === "file") {
-    const storageKey = buildStorageKey("raw", parsed.file.originalName);
-
-    await saveLocalUpload(storageKey, parsed.file.bytes);
-
-    return createRawAsset(
-      {
+    return {
+      input: {
         kind: parsed.file.kind,
         originalName: parsed.file.originalName,
         mimeType: parsed.file.mimeType,
-        storageKey,
+        storageKey: buildStorageKey("raw", parsed.file.originalName),
       },
-      db,
-    );
+      bytes: parsed.file.bytes,
+    };
   }
 
-  return createRawAsset(
-    {
+  return {
+    input: {
       kind: "TEXT",
       originalName: PASTED_TEXT_NAME,
       mimeType: PASTED_TEXT_MIME_TYPE,
       textContent: parsed.text,
     },
-    db,
-  );
+  };
+}
+
+export async function writePreparedRawAssetFile(
+  prepared: PreparedRawAsset,
+): Promise<void> {
+  if (!prepared.bytes || !prepared.input.storageKey) {
+    return;
+  }
+
+  await saveLocalUpload(prepared.input.storageKey, prepared.bytes);
+}
+
+export async function discardPreparedRawAssetFile(
+  prepared: PreparedRawAsset,
+): Promise<void> {
+  if (!prepared.input.storageKey) {
+    return;
+  }
+
+  await removeLocalUpload(prepared.input.storageKey).catch(() => undefined);
+}
+
+export async function persistParsedRawAsset(
+  parsed: ParsedRawAssetUpload,
+  db?: RawAssetDbClient,
+): Promise<RawAssetRecord> {
+  const prepared = prepareParsedRawAsset(parsed);
+
+  if (prepared.bytes && prepared.input.storageKey) {
+    await writePreparedRawAssetFile(prepared);
+
+    try {
+      return await createRawAsset(prepared.input, db);
+    } catch (error) {
+      await discardPreparedRawAssetFile(prepared);
+      throw error;
+    }
+  }
+
+  return createRawAsset(prepared.input, db);
 }

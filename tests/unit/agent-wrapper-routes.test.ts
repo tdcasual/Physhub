@@ -218,6 +218,19 @@ describe("GET /api/agent/tags", () => {
     expect(mockPrisma.tag.findMany).not.toHaveBeenCalled();
   });
 
+  it("returns 401 when questions:read is missing from the key", async () => {
+    mockReadAgentAuth.mockResolvedValue(agentAuth(["questions:search"]));
+
+    const response = await getAgentTags(
+      new Request("http://localhost/api/agent/tags", {
+        headers: { Authorization: "Bearer dev-agent-key" },
+      }),
+    );
+
+    expect(response.status).toBe(401);
+    expect(mockPrisma.tag.findMany).not.toHaveBeenCalled();
+  });
+
   it("reuses listTags", async () => {
     const response = await getAgentTags(
       new Request("http://localhost/api/agent/tags", {
@@ -284,6 +297,20 @@ describe("POST /api/agent/quality-check", () => {
     });
     expect(mockPrisma.agentRun.create).not.toHaveBeenCalled();
     expect(mockPrisma.question.create).not.toHaveBeenCalled();
+  });
+
+  it("rejects a non-object question with a distinct 400", async () => {
+    const response = await postAgentQualityCheck(
+      agentJsonRequest("http://localhost/api/agent/quality-check", {
+        question: "hello",
+      }),
+    );
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toMatchObject({
+      error: "question must be an object",
+    });
+    expect(mockPrisma.agentRun.create).not.toHaveBeenCalled();
   });
 
   it("rejects an empty body", async () => {

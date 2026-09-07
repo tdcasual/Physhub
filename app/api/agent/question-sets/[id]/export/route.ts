@@ -1,12 +1,12 @@
 import { NextResponse } from "next/server";
 
+import { hasRequiredScopes, readAgentAuth } from "@/lib/auth/agent-auth";
 import {
   createQuestionSetExport,
   mapQuestionSetExportApiError,
   parseExportBody,
   readJsonBody,
-} from "@/app/api/question-sets/[id]/export/route";
-import { hasRequiredScopes, readAgentAuth } from "@/lib/auth/agent-auth";
+} from "@/lib/domain/question-set-export";
 import {
   IdempotencyError,
   idempotencyApiKeyId,

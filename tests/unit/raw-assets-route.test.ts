@@ -74,6 +74,65 @@ describe("raw asset upload limits", () => {
     });
   });
 
+  it("allows a PDF larger than the IMAGE 10MiB cap", async () => {
+    const form = new FormData();
+    form.append(
+      "file",
+      new File([new Uint8Array(RAW_ASSET_MAX_BYTES.IMAGE + 1)], "notes.pdf", {
+        type: "application/pdf",
+      }),
+    );
+
+    await expect(parseRawAssetFormData(form)).resolves.toMatchObject({
+      source: "file",
+      file: { kind: "PDF", mimeType: "application/pdf" },
+    });
+  });
+
+  it("rejects a PDF larger than 20MiB", async () => {
+    const form = new FormData();
+    form.append(
+      "file",
+      new File([new Uint8Array(RAW_ASSET_MAX_BYTES.PDF + 1)], "notes.pdf", {
+        type: "application/pdf",
+      }),
+    );
+
+    await expect(parseRawAssetFormData(form)).rejects.toMatchObject({
+      message: "File too large",
+    });
+  });
+
+  it("rejects markdown larger than 1MiB", async () => {
+    const form = new FormData();
+    form.append(
+      "file",
+      new File(
+        [new Uint8Array(RAW_ASSET_MAX_BYTES.MARKDOWN + 1)],
+        "stem.md",
+        { type: "text/markdown" },
+      ),
+    );
+
+    await expect(parseRawAssetFormData(form)).rejects.toMatchObject({
+      message: "File too large",
+    });
+  });
+
+  it("rejects a plain-text file larger than 1MiB", async () => {
+    const form = new FormData();
+    form.append(
+      "file",
+      new File([new Uint8Array(RAW_ASSET_MAX_BYTES.TEXT + 1)], "notes.txt", {
+        type: "text/plain",
+      }),
+    );
+
+    await expect(parseRawAssetFormData(form)).rejects.toMatchObject({
+      message: "File too large",
+    });
+  });
+
   it("rejects pasted text longer than 100_000 characters", async () => {
     const form = new FormData();
     form.append("text", "a".repeat(PASTED_TEXT_MAX_CHARS + 1));

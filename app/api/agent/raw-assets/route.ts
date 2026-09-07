@@ -8,10 +8,13 @@ import {
   readRequestId,
   withMultipartIdempotency,
 } from "@/lib/domain/idempotency";
+import { createRawAsset } from "@/lib/domain/raw-asset-repository";
 import {
+  discardPreparedRawAssetFile,
   parseRawAssetFormData,
-  persistParsedRawAsset,
+  prepareParsedRawAsset,
   RawAssetUploadError,
+  writePreparedRawAssetFile,
 } from "@/lib/domain/raw-asset-upload";
 
 function jsonWithRequestId(
@@ -33,6 +36,7 @@ export async function POST(request: Request) {
   try {
     const key = parseIdempotencyKey(request);
     const parsed = await parseRawAssetFormData(await request.formData());
+    const prepared = prepareParsedRawAsset(parsed);
     const result = await withMultipartIdempotency({
       apiKeyId: idempotencyApiKeyId(agent.apiKeyId),
       key,
@@ -40,32 +44,40 @@ export async function POST(request: Request) {
       path: new URL(request.url).pathname,
       multipart: parsed.multipart,
       execute: async (tx) => {
-        const rawAsset = await persistParsedRawAsset(parsed, tx);
+        try {
+          const rawAsset = await createRawAsset(prepared.input, tx);
 
-        await tx.agentRun.create({
-          data: {
-            agentName: agent.name,
-            toolName: "create_raw_asset",
-            status: "SUCCEEDED",
-            input:
-              parsed.source === "file"
-                ? {
-                    originalName: parsed.file.originalName,
-                    mimeType: parsed.file.mimeType,
-                    kind: parsed.file.kind,
-                    size: parsed.file.bytes.length,
-                  }
-                : { textLength: parsed.text.length },
-            output: { rawAssetId: rawAsset.id },
-            apiKeyId: agent.apiKeyId,
-            requestId,
-          },
-        });
+          await tx.agentRun.create({
+            data: {
+              agentName: agent.name,
+              toolName: "create_raw_asset",
+              status: "SUCCEEDED",
+              input:
+                parsed.source === "file"
+                  ? {
+                      originalName: parsed.file.originalName,
+                      mimeType: parsed.file.mimeType,
+                      kind: parsed.file.kind,
+                      size: parsed.file.bytes.length,
+                    }
+                  : { textLength: parsed.text.length },
+              output: { rawAssetId: rawAsset.id },
+              apiKeyId: agent.apiKeyId,
+              requestId,
+            },
+          });
 
-        return {
-          status: 201,
-          body: { request_id: requestId, rawAsset },
-        };
+          // Write after the DB rows so a create/AgentRun throw leaves no file.
+          await writePreparedRawAssetFile(prepared);
+
+          return {
+            status: 201,
+            body: { request_id: requestId, rawAsset },
+          };
+        } catch (error) {
+          await discardPreparedRawAssetFile(prepared);
+          throw error;
+        }
       },
     });
 

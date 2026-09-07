@@ -450,6 +450,26 @@ describe("GET /api/agent/raw-assets/:id/file", () => {
     expect(mockReadLocalUpload).not.toHaveBeenCalled();
   });
 
+  it("returns 404 for a text-only asset with no storageKey", async () => {
+    mockReadAgentAuth.mockResolvedValue(agentAuth(["drafts:create"]));
+    mockPrisma.rawAsset.findUnique.mockResolvedValue({
+      storageKey: null,
+      mimeType: "text/plain",
+      questions: [],
+      drafts: [],
+    });
+
+    const response = await getAgentRawAssetFile(fileRequest("raw_text"), {
+      params: Promise.resolve({ id: "raw_text" }),
+    });
+
+    expect(response.status).toBe(404);
+    await expect(response.json()).resolves.toEqual({
+      error: "Raw asset not found",
+    });
+    expect(mockReadLocalUpload).not.toHaveBeenCalled();
+  });
+
   it("serves a draft-linked asset with drafts:read", async () => {
     mockReadAgentAuth.mockResolvedValue(agentAuth(["drafts:read"]));
     mockPrisma.rawAsset.findUnique.mockResolvedValue({

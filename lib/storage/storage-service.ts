@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { mkdir, readFile, unlink, writeFile } from "node:fs/promises";
 import { dirname, isAbsolute, relative, resolve } from "node:path";
 
 function nextStorageId(): string {
@@ -93,4 +93,8 @@ export async function saveLocalUpload(
 
 export async function readLocalUpload(storageKey: string): Promise<Buffer> {
   return readFile(resolveUploadPath(storageKey));
+}
+
+export async function removeLocalUpload(storageKey: string): Promise<void> {
+  await unlink(resolveUploadPath(storageKey));
 }
