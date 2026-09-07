@@ -465,6 +465,11 @@ export async function promoteDraftToQuestion(
     throw new DraftNotFoundError();
   }
 
+  // Caller-supplied client already owns the transaction (ITX still has $transaction).
+  if (options?.db) {
+    return promoteInTransaction(db, id);
+  }
+
   return runWithPromoteRetry(db, (tx) => promoteInTransaction(tx, id));
 }
 

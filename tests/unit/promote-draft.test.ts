@@ -435,6 +435,17 @@ describe("legacy createQuestion", () => {
 
 describe("OQ-4a POST /api/questions", () => {
   it("creates a draft and promotes it in one transaction, including tags and source", async () => {
+    mockPrisma.$transaction.mockImplementation(
+      async (callback: (tx: typeof mockPrisma) => unknown) => {
+        expect(mockPrisma.questionDraft.create).not.toHaveBeenCalled();
+        expect(mockPrisma.question.create).not.toHaveBeenCalled();
+        const result = await callback(mockPrisma);
+        expect(mockPrisma.questionDraft.create).toHaveBeenCalled();
+        expect(mockPrisma.question.create).toHaveBeenCalled();
+        return result;
+      },
+    );
+
     const response = await postQuestions(
       editorSessionRequest("http://localhost/api/questions", {
         method: "POST",
@@ -460,7 +471,7 @@ describe("OQ-4a POST /api/questions", () => {
     await expect(response.json()).resolves.toMatchObject({
       question: { id: "question_1", status: "REVIEWED" },
     });
-    expect(mockPrisma.$transaction).toHaveBeenCalled();
+    expect(mockPrisma.$transaction).toHaveBeenCalledTimes(1);
     expect(mockPrisma.questionDraft.create).toHaveBeenCalledWith({
       data: expect.objectContaining({
         knowledgePointIds: ["kp_motion"],
