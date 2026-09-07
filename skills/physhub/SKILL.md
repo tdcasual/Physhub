@@ -26,6 +26,8 @@ Allowed writes: raw asset, draft, suggestion, question set, export, quality-chec
 
 There is no agent publish, delete, or promote tool, and no agent accept-suggestion tool. Agent PATCH may set draft `status` to `NEEDS_REVIEW` only. `PROMOTED` / `REJECTED` drafts → `409` `Draft is not updatable`.
 
+When `POST /api/agent/suggestions` is available, that is the suggestion write (contract in [api.md](references/api.md)). If it 404s, this checkout does not have the route yet; skip submit and keep `draft.id`. Do not invent another path.
+
 ## Required prelude
 
 Before sending `knowledgePointIds` or `tagIds`, `GET /api/agent/knowledge-points` and `GET /api/agent/tags`. Use returned `id` values. Names and slugs are not ids.
@@ -42,7 +44,7 @@ Stem figures: `![](/api/raw-assets/<id>/file)` (allowlist prefix `/api/raw-asset
 
 ## Persist `draft.id`
 
-`POST /api/agent/question-drafts` `201` includes `draft.id`. Save it. There is no agent list-drafts. Later `PATCH /api/agent/question-drafts/:id`, `POST /api/agent/suggestions`, and `POST /api/agent/quality-check` with `draftId` all need it. Losing it means a human must look it up in the UI.
+`POST /api/agent/question-drafts` `201` includes `draft.id`. Save it. There is no agent list-drafts. Later `PATCH /api/agent/question-drafts/:id` and `POST /api/agent/quality-check` with `draftId` need it. When `POST /api/agent/suggestions` is available, it needs the same id. Losing it means a human must look it up in the UI.
 
 ## 422 recovery
 
@@ -52,7 +54,7 @@ Stem figures: `![](/api/raw-assets/<id>/file)` (allowlist prefix `/api/raw-asset
 
 `POST /api/agent/search-questions` body is natural-language `query` plus optional `constraints`. Not SQL / Prisma `where`.
 
-Official questions are `REVIEWED`. Omit `constraints.status` (or send `[]`) and the server defaults to `["REVIEWED"]`. `PUBLISHED`-only search is empty; there is no publish tool.
+Official questions are `REVIEWED`. Omit `constraints.status` (or send `[]`) and the server defaults to `["REVIEWED"]`. `PUBLISHED` is a legal constraint; do not search `PUBLISHED`-only for official questions (v1 has no publish entry).
 
 `get_question` takes `results[].id` (internal cuid). `results[].question_id` is `publicId` and will 404.
 

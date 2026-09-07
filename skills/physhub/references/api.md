@@ -1,6 +1,6 @@
 # Agent Tool API
 
-Prefix: `/api/agent`. Auth failure or missing scope → `401` `{ "error": "Unauthorized" }`.
+Prefix: `/api/agent`. Auth failure or missing scope → `401` `{ "error": "Unauthorized" }`, unless noted (`get_raw_asset_file` 404s on missing linkage/scope).
 
 Mutating JSON successes (and errors, once a request id is known) include `"request_id"`. Optional header `X-Request-Id`; otherwise the server generates a UUID. Existing search / get-question / list routes do not add `request_id`.
 
@@ -29,7 +29,7 @@ Same key + same body replays the stored response. Same key + different body → 
 | `create_question_draft` | `POST /api/agent/question-drafts` | `drafts:create` | yes |
 | `update_question_draft` | `PATCH /api/agent/question-drafts/:id` | `drafts:update` | yes |
 | `get_question_draft` | `GET /api/agent/question-drafts/:id` | `drafts:read` | no |
-| `submit_suggestions` | `POST /api/agent/suggestions` | `suggestions:create` | yes |
+| `submit_suggestions` | `POST /api/agent/suggestions` | `suggestions:create` | yes (404 if route absent) |
 | `check_question_quality` | `POST /api/agent/quality-check` | `quality:check` | yes |
 | `create_question_set` | `POST /api/agent/question-sets` | `question_sets:create` | yes |
 | `export_question_set` | `POST /api/agent/question-sets/:id/export` | `exports:create` | yes |
@@ -124,7 +124,7 @@ Headers: `Authorization`
 `POST /api/agent/raw-assets`  
 Scope: `drafts:create`  
 Headers: `Authorization`, `Idempotency-Key`  
-`Content-Type: multipart/form-data`. Exactly one of `file` or `text`.
+`Content-Type: multipart/form-data`. `file` or `text` (file wins if both). Neither → `400` `Provide a non-empty file or text field`.
 
 Allowed MIME: `image/png`, `image/jpeg`, `image/webp`, `application/pdf`, `text/markdown`, `text/x-markdown`, `text/plain`. Caps: IMAGE 10 MiB, PDF 20 MiB, markdown/text file 1 MiB, `text` field 100_000 chars. Empty `file.type` is rejected.
 
@@ -155,12 +155,13 @@ Does not parse. Does not create a draft.
 
 `GET /api/agent/raw-assets/:id/file`  
 Headers: `Authorization`  
-Scope, first match: Question linkage + `questions:read`; else draft linkage + `drafts:read`; else unlinked + `drafts:create`. Else `404` (no existence leak). Pasted-text assets have no file bytes → `404`.
+No bearer → `401` `Unauthorized`. Authenticated but missing linkage/scope, unknown id, or pasted-text (no file bytes) → `404` `Raw asset not found`. Scope, first match: Question linkage + `questions:read`; else draft linkage + `drafts:read`; else unlinked + `drafts:create`.
 
 200: file bytes, `Content-Type` = stored mime.
 
 | HTTP | `error` |
 | --- | --- |
+| 401 | `Unauthorized` |
 | 404 | `Raw asset not found` |
 
 Markdown in stems uses `/api/raw-assets/<id>/file`, not this agent path.
@@ -221,6 +222,8 @@ Headers: `Authorization`
 `POST /api/agent/suggestions`  
 Scope: `suggestions:create`  
 Headers: `Authorization`, `Idempotency-Key`
+
+Intended write path (same `/api/agent` prefix). If this checkout has no `app/api/agent/suggestions`, the request 404s; skip submit and keep `draft.id`.
 
 Exactly one of `draftId` or `questionId` (`null` / omitted / `""` = absent). `kind`: `"metadata"`. Each `knowledge_points[]` entry needs `id` from `list_knowledge_points`. `tag_ids` from `list_tags`. Created `status` is `pending_review`.
 
