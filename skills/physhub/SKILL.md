@@ -26,7 +26,7 @@ Allowed writes: raw asset, draft, suggestion, question set, export, quality-chec
 
 There is no agent publish, delete, or promote tool, and no agent accept-suggestion tool. Agent PATCH may set draft `status` to `NEEDS_REVIEW` only. `PROMOTED` / `REJECTED` drafts → `409` `Draft is not updatable`.
 
-When `POST /api/agent/suggestions` is available, that is the suggestion write (contract in [api.md](references/api.md)). If it 404s, this checkout does not have the route yet; skip submit and keep `draft.id`. Do not invent another path.
+Submit suggestions with `POST /api/agent/suggestions` (contract in [api.md](references/api.md)). Do not invent another path.
 
 ## Required prelude
 
@@ -44,7 +44,7 @@ Stem figures: `![](/api/raw-assets/<id>/file)` (allowlist prefix `/api/raw-asset
 
 ## Persist `draft.id`
 
-`POST /api/agent/question-drafts` `201` includes `draft.id`. Save it. There is no agent list-drafts. Later `PATCH /api/agent/question-drafts/:id` and `POST /api/agent/quality-check` with `draftId` need it. When `POST /api/agent/suggestions` is available, it needs the same id. Losing it means a human must look it up in the UI.
+`POST /api/agent/question-drafts` `201` includes `draft.id`. Save it. There is no agent list-drafts. Later `PATCH /api/agent/question-drafts/:id`, `POST /api/agent/quality-check` with `draftId`, and `POST /api/agent/suggestions` need it. Losing it means a human must look it up in the UI.
 
 ## 422 recovery
 

@@ -3,10 +3,10 @@
 | 字段 | 值 |
 | --- | --- |
 | 日期 | 2026-09-07 |
-| 状态 | Ready（R2 交叉审计双方 Approve，0 open issues） |
+| 状态 | Shipped on `master`（`a730708`；R2 Approve 后落地并快进合栈） |
 | 前置 | [2026-09-06 harness-first](./2026-09-06-harness-first-agent-platform.md) 已交叉审计通过并按 PR-0…8 落地 |
-| 当前代码 | 栈顶 `execute-plan/2151bf2e-pr-8-demote-mock-workers-to-test-fixtures`（相对 `master` 17 commit）。**尚未合进 master。** |
-| 单测 | 栈顶 `npm test`：37 files / 356 passed（需 `prisma generate`） |
+| 当前代码 | GitHub `master` / `a730708`。harness-first 栈 + after-v1 工作台已合入。 |
+| 单测 | `npm test`：44 files / 374 passed（需 `prisma generate`） |
 | R1 审计 | [Kimi](./2026-09-07-after-v1-kimi-audit.md) Approve with issues；[Grok](./2026-09-07-after-v1-grok-audit.md) 同源码闭合 Doubts |
 | R2 审计 | [Kimi](./2026-09-07-after-v1-r2-kimi.md) Approve 0/0；[Grok](./2026-09-07-after-v1-r2-grok.md) Approve |
 
@@ -29,46 +29,36 @@
 
 ## Overview
 
-v1 的领域闭环已经在栈上实现：外部 harness 只写 Draft / Suggestion，人 promote 才插入正式 `Question`，Agent API、幂等、HMAC session、题图鉴权读取、skill 手册都在。**下一步不是再加模型，也不是上 MCP / Meilisearch。**
+v1 的领域闭环和工作台已在 **`master`** 上：外部 harness 只写 Draft / Suggestion，人 promote 才插入正式 `Question`，解锁页锁读、Agent API、幂等、HMAC session、题图鉴权读取、skill 手册、正式题 PATCH、组题篮、知识点写 API 都在。**下一步不是再加模型，也不是上 MCP / Meilisearch。**
 
-下一阶段分三层，必须按序：
+分层（A、B 已落地；C 仍等使用证据）：
 
-1. **把 v1 变成可发布的主线**（解锁页锁读、文档、真实验收，然后一次合栈）。
-2. **让老师不用 curl 也能用**（组题 UI、入库后改题、知识点写 API、人用上传）。
-3. **再谈检索增强和分发层**（全文搜索、MCP、OCR 服务）。
+1. **把 v1 变成可发布的主线** — 已合 `master`。
+2. **让老师不用 curl 也能用** — 已合；体验仍粗（知识点逗号 id、组题篮内存）。
+3. **再谈检索增强和分发层**（全文搜索、MCP、OCR 服务）— 未做。
 
-第 3 层在第 1、2 层没跑通一次真实 promote 之前不做。
-
-**合进 master 的那一次，必须已经能在浏览器里解锁并 promote。** 当前 `master` 是无认证还能写的 MVP；若只合鉴权、不合解锁页，老师会变成「能看见答案、不能写、又没法登录」，比现在更差。
+第 3 层在没跑通一次真实 Postgres promote 之前不做。
 
 ---
 
-## 当前真实缺口（以栈顶为准）
+## 当前真实缺口（以 `master` 为准）
 
-已有、可依赖：
+已合入、可依赖：
 
-- Human API 全部门（`requireHumanApiAuth`）；agent 打 `POST /api/questions` → 403 `Agent cannot publish questions`；人无 cookie → 401 `Unauthorized`。
+- Human API 全部门；agent 打 `POST /api/questions` → 403；人无 cookie → 401。Dashboard page 级解锁，无 cookie 不查 Prisma。
 - Draft CRUD、promote、suggestion accept、agent wrappers、skill、`ENABLE_MOCK_*` 默认关。
-- `POST /api/raw-assets` 已鉴权（multipart / 文本）；草稿字段已有 `sourceRawAssetId`。
-- `QuestionVersion` 表已在；promote 事务里写 `version: 1`。
-- 导航 Questions / Drafts / New draft。
-- 教师搜索面板显式 `status: ["PUBLISHED","REVIEWED"]`；列表页同；agent 省略 status 时默认 **只有 `REVIEWED`**。
+- 正式题 human PATCH + `QuestionVersion` n+1；KP/tag 写 API 与 `/taxonomy`；组题篮 UI；人用上传控件。
+- 教师搜索与 agent 默认 `REVIEWED+PUBLISHED`。`scripts/create-api-key.ts` 已在。方案文档已跟踪。
 
-还缺、会挡住「老师明天能用」：
+还开放（不挡「能用」，挡「好用 / 已验收」）：
 
 | 缺口 | 影响 |
 | --- | --- |
-| 9 个功能分支未合 master、未开 GitHub PR | 主线仍是无认证 MVP（`origin/master` = `d59047f`） |
-| 设计文档 `docs/plans/2026-09-06-harness-first-*.md` 与本文未跟踪 | 方案不在仓库历史里 |
-| README / `docs/development.md` 多处过期 | 仍写未鉴权、POST 直写 REVIEWED、skill 以后才有、Promote is upcoming、mock 路由仍未鉴权 |
-| **没有解锁页，且 dashboard RSC 未鉴权** | `POST /api/auth/editor-session` 在；`app/(dashboard)/` 无 layout。`/questions` 渲题干；`/drafts` 渲草稿题干；**`/drafts/[id]` 把 `answerJson` / `solutionMd` / `sourceRawAsset.textContent` 序列化进客户端**。写 API 401，读侧公开。 |
-| 没有 `scripts/create-api-key.ts` | 生产 `ApiKey` 表无法按设计轮转 |
-| 组题 / 导出只有 API，没有 UI | 老师不能在网页里组卷 |
-| 正式题没有内容 PATCH（OQ-6） | promote 后改错字只能 SQL 或新草稿；版本表已在，缺 n+1 写路径 |
-| 知识点 / 标签 **写 API 和 UI 都没有** | `GET /api/knowledge-points`、`GET /api/tags` 已在；无 POST/PATCH/DELETE。树增长只能 seed/SQL |
-| 没有人用上传控件 | API 已在；编辑器 / 校对台没有 `fetch /api/raw-assets` |
-| 没有栈顶 E2E | Playwright 只有 `smoke.spec.ts`（home → New draft → KaTeX），**不查数据库** |
-| 没有在真实 Postgres + 浏览器上验收 promote | 仓库内无证据；smoke 绿了也不证明 |
+| Playwright Chromium 在部分环境装不上；E2E 不含 promote | 解锁/KaTeX 规格在仓库里，真实浏览器绿未在本环境证明 |
+| 真实 Postgres promote | **API 主链路已在本地 Postgres 跑通**（解锁 → draft → promote → 搜索命中 → agent 403）。Playwright 浏览器仍未绿 |
+| 知识点编辑是逗号 id；组题篮刷新即丢 | 老师体验粗 |
+| 对外导出未强制 `PUBLISHED` | B5 文档写了，代码仍导出篮中题目 |
+| 首页/手册曾有过期句 | 已扫 README；首页与本文表头需与 `master` 同步 |
 
 明确仍不做（沿用 v1 边界）：
 

@@ -53,10 +53,11 @@ export default function Home() {
             <p className="text-sm font-semibold uppercase tracking-[0.18em] text-lime-800">
               Current layer
             </p>
-            <p className="mt-4 text-3xl font-semibold">Next.js App Router</p>
+            <p className="mt-4 text-3xl font-semibold">Harness-first workbench</p>
             <p className="mt-4 leading-7 text-stone-900/70">
-              TypeScript, Tailwind, linting, and package foundations are ready
-              for database, renderer, and worker modules.
+              Unlock the editor, save drafts, promote official questions, and
+              search the bank. External harnesses write drafts only; humans
+              publish.
             </p>
           </aside>
         </div>

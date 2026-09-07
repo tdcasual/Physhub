@@ -47,7 +47,7 @@ v1 does not include an MCP server or an in-process model.
    npm run dev
    ```
 
-Workbench navigation is **Questions** / **Drafts** / **New draft**. Dashboard routes stay locked until the editor secret is accepted.
+Workbench navigation is **Questions** / **Drafts** / **New draft** / **Taxonomy**. Dashboard routes stay locked until the editor secret is accepted.
 
 ## Secrets
 
