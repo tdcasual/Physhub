@@ -245,18 +245,36 @@ describe("DraftReviewWorkspace", () => {
     expect(screen.getByText(/Promoted/)).toBeInTheDocument();
   });
 
-  it("posts promote and shows validation errors from the API", async () => {
-    const fetchMock = vi.fn().mockResolvedValue({
-      ok: false,
-      json: async () => ({ error: "答案必须匹配选项" }),
-    });
+  it("persists editor fields then shows validation errors from promote", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ draft: { id: "draft_1", status: "NEEDS_REVIEW" } }),
+      })
+      .mockResolvedValueOnce({
+        ok: false,
+        json: async () => ({ error: "答案必须匹配选项" }),
+      });
     vi.stubGlobal("fetch", fetchMock);
 
     render(<DraftReviewWorkspace draft={draft} />);
 
     fireEvent.click(screen.getByRole("button", { name: "Promote" }));
-    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
-    expect(fetchMock).toHaveBeenCalledWith(
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
+    expect(fetchMock.mock.calls[0]?.[0]).toBe("/api/drafts/draft_1");
+    expect(fetchMock.mock.calls[0]?.[1]).toEqual(
+      expect.objectContaining({
+        method: "PATCH",
+        credentials: "include",
+      }),
+    );
+    expect(JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body))).toMatchObject({
+      stemMd: draft.stemMd,
+      answer: { type: "single", value: "B" },
+    });
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      2,
       "/api/drafts/draft_1/promote",
       expect.objectContaining({
         method: "POST",
@@ -267,18 +285,10 @@ describe("DraftReviewWorkspace", () => {
     expect(screen.getByRole("button", { name: "Promote" })).toBeInTheDocument();
   });
 
-  it("shows promotedAt and the new question id after a successful promote", async () => {
+  it("does not promote if persisting editor fields fails", async () => {
     const fetchMock = vi.fn().mockResolvedValue({
-      ok: true,
-      json: async () => ({
-        draft: {
-          id: "draft_1",
-          status: "PROMOTED",
-          promotedAt: "2026-05-16T10:20:00.000Z",
-          promotedQuestionId: "question_1",
-        },
-        question: { id: "question_1" },
-      }),
+      ok: false,
+      json: async () => ({ error: "Unable to update draft" }),
     });
     vi.stubGlobal("fetch", fetchMock);
 
@@ -286,6 +296,41 @@ describe("DraftReviewWorkspace", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Promote" }));
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+    expect(fetchMock.mock.calls[0]?.[0]).toBe("/api/drafts/draft_1");
+    expect(fetchMock.mock.calls[0]?.[1]).toEqual(
+      expect.objectContaining({ method: "PATCH" }),
+    );
+    expect(screen.getByText("Unable to update draft")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Promote" })).toBeInTheDocument();
+  });
+
+  it("shows promotedAt and the new question id after a successful promote", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ draft: { id: "draft_1", status: "NEEDS_REVIEW" } }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          draft: {
+            id: "draft_1",
+            status: "PROMOTED",
+            promotedAt: "2026-05-16T10:20:00.000Z",
+            promotedQuestionId: "question_1",
+          },
+          question: { id: "question_1" },
+        }),
+      });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<DraftReviewWorkspace draft={draft} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Promote" }));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
+    expect(fetchMock.mock.calls[0]?.[0]).toBe("/api/drafts/draft_1");
+    expect(fetchMock.mock.calls[1]?.[0]).toBe("/api/drafts/draft_1/promote");
 
     expect(screen.queryByRole("button", { name: "Promote" })).not.toBeInTheDocument();
     expect(screen.getByText(/Question question_1/)).toBeInTheDocument();

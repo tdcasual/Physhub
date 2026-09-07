@@ -257,11 +257,46 @@ export function DraftReviewWorkspace({ draft }: { draft: DraftReviewWorkspaceDra
     return patchDraft("send-back", { ...buildEditorFields(), status: "DRAFT" });
   }
 
+  async function persistEditorFields(): Promise<boolean> {
+    try {
+      const response = await fetch(`/api/drafts/${draft.id}`, {
+        method: "PATCH",
+        credentials: "include",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(buildEditorFields()),
+      });
+      const payload = (await response.json()) as {
+        error?: string;
+        draft?: { status?: DraftStatus };
+      };
+
+      if (!response.ok) {
+        setActionError(payload.error ?? "Unable to update draft");
+        return false;
+      }
+
+      if (payload.draft?.status) {
+        setStatus(payload.draft.status);
+      }
+
+      return true;
+    } catch {
+      setActionError("Unable to update draft");
+      return false;
+    }
+  }
+
   async function handlePromote() {
     setPendingAction("promote");
     setActionError(null);
 
     try {
+      const saved = await persistEditorFields();
+
+      if (!saved) {
+        return;
+      }
+
       const response = await fetch(`/api/drafts/${draft.id}/promote`, {
         method: "POST",
         credentials: "include",

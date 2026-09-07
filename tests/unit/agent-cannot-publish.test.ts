@@ -1,20 +1,23 @@
+import { readFileSync } from "node:fs";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const { mockCreateQuestion, mockQuestionCreate } = vi.hoisted(() => ({
-  mockCreateQuestion: vi.fn(),
-  mockQuestionCreate: vi.fn(),
-}));
-
-vi.mock("@/lib/domain/question-repository", () => ({
-  createQuestion: mockCreateQuestion,
-  listQuestions: vi.fn(),
-  getQuestion: vi.fn(),
-}));
+const { mockQuestionCreate, mockDraftCreate, mockDraftUpdateMany } = vi.hoisted(
+  () => ({
+    mockQuestionCreate: vi.fn(),
+    mockDraftCreate: vi.fn(),
+    mockDraftUpdateMany: vi.fn(),
+  }),
+);
 
 vi.mock("@/lib/db/prisma", () => ({
   prisma: {
     question: {
       create: mockQuestionCreate,
+    },
+    questionDraft: {
+      create: mockDraftCreate,
+      updateMany: mockDraftUpdateMany,
+      findUnique: vi.fn(),
     },
     apiKey: {
       findUnique: vi.fn(),
@@ -30,8 +33,9 @@ const originalDevKey = process.env.AGENT_API_KEY_DEV;
 
 beforeEach(() => {
   process.env.AGENT_API_KEY_DEV = "dev-agent-key";
-  mockCreateQuestion.mockReset();
   mockQuestionCreate.mockReset();
+  mockDraftCreate.mockReset();
+  mockDraftUpdateMany.mockReset();
 });
 
 afterEach(() => {
@@ -60,7 +64,14 @@ describe("agent cannot publish questions", () => {
     await expect(response.json()).resolves.toEqual({
       error: "Agent cannot publish questions",
     });
-    expect(mockCreateQuestion).not.toHaveBeenCalled();
+    expect(mockDraftCreate).not.toHaveBeenCalled();
+    expect(mockDraftUpdateMany).not.toHaveBeenCalled();
     expect(mockQuestionCreate).not.toHaveBeenCalled();
+  });
+
+  it("does not import the legacy createQuestion insert from the questions route", () => {
+    const source = readFileSync("app/api/questions/route.ts", "utf8");
+
+    expect(source).not.toMatch(/\bcreateQuestion\b/);
   });
 });

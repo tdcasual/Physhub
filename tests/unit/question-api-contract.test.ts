@@ -5,6 +5,7 @@ import { validatePublishableQuestion } from "@/lib/domain/question-schema";
 import {
   buildManualPublicQuestionId,
   buildPersistedQuestionContract,
+  createQuestion,
   QuestionPersistenceError,
   QuestionRelationError,
   QuestionValidationError,
@@ -102,6 +103,14 @@ describe("buildManualPublicQuestionId", () => {
   it("rejects entropy that cannot form a valid slug suffix", () => {
     expect(() => buildManualPublicQuestionId("not-valid!")).toThrow(
       "public question id entropy must contain at least 10 hex characters",
+    );
+  });
+});
+
+describe("createQuestion", () => {
+  it("does not insert REVIEWED questions outside promote", async () => {
+    await expect(createQuestion(validQuestionInput())).rejects.toThrow(
+      "Official questions must be created by promoting a draft",
     );
   });
 });

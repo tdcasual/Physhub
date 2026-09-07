@@ -3,6 +3,10 @@ import { ZodError } from "zod";
 
 import { OWNER_SEED_EMAIL } from "@/lib/auth/human-auth";
 import {
+  omitAbsentDraftFields,
+  questionDraftFieldSchema,
+} from "@/lib/domain/draft-schema";
+import {
   createQuestionDraft,
   DraftNotFoundError,
   DraftRelationError,
@@ -240,18 +244,84 @@ function isUniquePublicIdConflict(error: unknown) {
   );
 }
 
-function isPromotedQuestionIdConflict(error: unknown) {
+function isPrismaUniqueConflict(error: unknown) {
   return (
     error instanceof Prisma.PrismaClientKnownRequestError &&
-    error.code === "P2002" &&
-    constraintIncludes(error, "promotedQuestionId")
+    error.code === "P2002"
   );
 }
 
-function isRelationFailure(error: unknown) {
+function isRelationFailure(
+  error: unknown,
+): error is Prisma.PrismaClientKnownRequestError {
   return (
     error instanceof Prisma.PrismaClientKnownRequestError &&
     (error.code === "P2003" || error.code === "P2025")
+  );
+}
+
+function relationFailureError(error: Prisma.PrismaClientKnownRequestError) {
+  const blob = JSON.stringify(error.meta ?? {}).toLowerCase();
+
+  if (blob.includes("rawasset") || blob.includes("sourcerawasset")) {
+    return new DraftRelationError("Raw asset not found");
+  }
+
+  if (blob.includes("tag")) {
+    return new DraftRelationError("Tag not found");
+  }
+
+  return new QuestionRelationError("Knowledge point not found");
+}
+
+function parseQuestionPromoteExtras(rawInput: unknown): {
+  tagIds?: string[];
+  sourceRawAssetId?: string;
+} {
+  const parsed = questionDraftFieldSchema
+    .pick({ tagIds: true, sourceRawAssetId: true })
+    .safeParse(omitAbsentDraftFields(rawInput));
+
+  if (!parsed.success) {
+    throw new QuestionValidationError(getValidationMessage(parsed.error));
+  }
+
+  return parsed.data;
+}
+
+async function runWithPromoteRetry<T>(
+  db: DraftDbClient,
+  work: (tx: DraftDbClient) => Promise<T>,
+): Promise<T> {
+  if (!("$transaction" in db)) {
+    return work(db);
+  }
+
+  const prisma = db as PrismaClientSingleton;
+
+  for (let attempt = 0; attempt < maxPublicIdAttempts; attempt += 1) {
+    try {
+      return await prisma.$transaction((tx) => work(tx));
+    } catch (error) {
+      if (isUniquePublicIdConflict(error)) {
+        continue;
+      }
+
+      // Any unique conflict in this tx except publicId (including missing target).
+      if (isPrismaUniqueConflict(error)) {
+        throw new DraftNotPromotableError();
+      }
+
+      if (isRelationFailure(error)) {
+        throw relationFailureError(error);
+      }
+
+      throw error;
+    }
+  }
+
+  throw new QuestionPersistenceError(
+    "Unable to generate a unique public question id",
   );
 }
 
@@ -297,12 +367,6 @@ async function promoteInTransaction(
   });
 
   if (claimed.count === 0) {
-    const raced = await tx.questionDraft.findUnique({ where: { id } });
-
-    if (!raced) {
-      throw new DraftNotFoundError();
-    }
-
     throw new DraftNotPromotableError();
   }
 
@@ -401,55 +465,34 @@ export async function promoteDraftToQuestion(
     throw new DraftNotFoundError();
   }
 
-  const run = (client: DraftDbClient) => promoteInTransaction(client, id);
-
-  if (!("$transaction" in db)) {
-    return run(db);
-  }
-
-  for (let attempt = 0; attempt < maxPublicIdAttempts; attempt += 1) {
-    try {
-      return await (db as PrismaClientSingleton).$transaction((tx) => run(tx));
-    } catch (error) {
-      if (isUniquePublicIdConflict(error)) {
-        continue;
-      }
-
-      if (isPromotedQuestionIdConflict(error)) {
-        throw new DraftNotPromotableError();
-      }
-
-      if (isRelationFailure(error)) {
-        throw new QuestionRelationError();
-      }
-
-      throw error;
-    }
-  }
-
-  throw new QuestionPersistenceError(
-    "Unable to generate a unique public question id",
-  );
+  return runWithPromoteRetry(db, (tx) => promoteInTransaction(tx, id));
 }
 
 export async function createQuestionByPromotingDraft(
   rawInput: unknown,
 ): Promise<PromoteDraftResult> {
   const input = parseAndValidateQuestionInput(rawInput);
-  const draft = await createQuestionDraft(
-    {
-      type: input.type,
-      stemMd: input.stemMd,
-      options: input.options,
-      answer: input.answer,
-      solutionMd: input.solutionMd,
-      difficulty: input.difficulty,
-      knowledgePointIds: input.knowledgePointIds,
-    },
-    { actor: "human" },
-  );
+  const extras = parseQuestionPromoteExtras(rawInput);
+  const db = await getDb();
 
-  return promoteDraftToQuestion(draft.id);
+  return runWithPromoteRetry(db, async (tx) => {
+    const draft = await createQuestionDraft(
+      {
+        type: input.type,
+        stemMd: input.stemMd,
+        options: input.options,
+        answer: input.answer,
+        solutionMd: input.solutionMd,
+        difficulty: input.difficulty,
+        knowledgePointIds: input.knowledgePointIds,
+        tagIds: extras.tagIds,
+        sourceRawAssetId: extras.sourceRawAssetId,
+      },
+      { actor: "human", db: tx },
+    );
+
+    return promoteDraftToQuestion(draft.id, { db: tx });
+  });
 }
 
 export function mapPromoteApiError(error: unknown): {

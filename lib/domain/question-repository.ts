@@ -12,7 +12,6 @@ import {
 } from "@/lib/domain/question-service";
 
 const manualPublicIdSlug = "manual";
-const maxPublicIdAttempts = 5;
 
 const questionInclude = {
   primaryKnowledgePoint: true,
@@ -111,52 +110,11 @@ export function parseAndValidateQuestionInput(rawInput: unknown) {
 }
 
 type PrismaClientSingleton = typeof import("@/lib/db/prisma").prisma;
-type TransactionClient = Omit<
-  PrismaClientSingleton,
-  "$connect" | "$disconnect" | "$on" | "$transaction" | "$use" | "$extends"
->;
 
 async function getDb(): Promise<PrismaClientSingleton> {
   const { prisma } = await import("@/lib/db/prisma");
 
   return prisma;
-}
-
-function isUniquePublicIdConflict(error: unknown) {
-  return (
-    error instanceof Prisma.PrismaClientKnownRequestError &&
-    error.code === "P2002" &&
-    Array.isArray(error.meta?.target) &&
-    error.meta.target.includes("publicId")
-  );
-}
-
-function isRelationFailure(error: unknown) {
-  return (
-    error instanceof Prisma.PrismaClientKnownRequestError &&
-    (error.code === "P2003" || error.code === "P2025")
-  );
-}
-
-async function createQuestionWithCandidate(
-  tx: TransactionClient,
-  input: QuestionInput,
-  persistedQuestion: PersistedQuestionContract,
-  publicId: string,
-) {
-  return tx.question.create({
-    data: {
-      ...persistedQuestion,
-      publicId,
-      knowledgePoints: {
-        create: input.knowledgePointIds.map((knowledgePointId, index) => ({
-          knowledgePointId,
-          role: index === 0 ? "primary" : "secondary",
-        })),
-      },
-    },
-    include: questionInclude,
-  });
 }
 
 export async function listQuestions(): Promise<QuestionWithRelations[]> {
@@ -182,33 +140,9 @@ export async function getQuestion(
 }
 
 export async function createQuestion(
-  rawInput: unknown,
-): Promise<QuestionWithRelations> {
-  const input = parseAndValidateQuestionInput(rawInput);
-  const persistedQuestion = buildPersistedQuestionContract(input);
-  const db = await getDb();
-
-  for (let attempt = 0; attempt < maxPublicIdAttempts; attempt += 1) {
-    try {
-      const publicId = buildManualPublicQuestionId();
-
-      return await db.$transaction((tx) =>
-        createQuestionWithCandidate(tx, input, persistedQuestion, publicId),
-      );
-    } catch (error) {
-      if (isUniquePublicIdConflict(error)) {
-        continue;
-      }
-
-      if (isRelationFailure(error)) {
-        throw new QuestionRelationError();
-      }
-
-      throw error;
-    }
-  }
-
+  _rawInput?: unknown,
+): Promise<never> {
   throw new QuestionPersistenceError(
-    "Unable to generate a unique public question id",
+    "Official questions must be created by promoting a draft",
   );
 }

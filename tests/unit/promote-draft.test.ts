@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { POST as postPromoteDraft } from "@/app/api/drafts/[id]/promote/route";
 import { POST as postQuestions } from "@/app/api/questions/route";
+import { createQuestion } from "@/lib/domain/question-repository";
 import { editorSessionRequest } from "@/tests/unit/helpers/editor-session";
 
 const { mockPrisma } = vi.hoisted(() => {
@@ -210,6 +211,43 @@ describe("POST /api/drafts/:id/promote", () => {
     });
   });
 
+  it("maps a unique conflict without a publicId target to 409", async () => {
+    mockPrisma.$transaction.mockRejectedValue(
+      new Prisma.PrismaClientKnownRequestError("Unique constraint failed", {
+        code: "P2002",
+        clientVersion: "7.8.0",
+        meta: {},
+      }),
+    );
+
+    const response = await promoteRequest();
+
+    expect(response.status).toBe(409);
+    await expect(response.json()).resolves.toEqual({
+      error: "Draft is not promotable",
+    });
+  });
+
+  it("maps a tag foreign-key failure to 422 Tag not found", async () => {
+    mockPrisma.$transaction.mockRejectedValue(
+      new Prisma.PrismaClientKnownRequestError("Foreign key constraint failed", {
+        code: "P2003",
+        clientVersion: "7.8.0",
+        meta: {
+          field_name: "tagId",
+          constraint: "QuestionTag_tagId_fkey",
+        },
+      }),
+    );
+
+    const response = await promoteRequest();
+
+    expect(response.status).toBe(422);
+    await expect(response.json()).resolves.toEqual({
+      error: "Tag not found",
+    });
+  });
+
   it("returns 403 Agent cannot publish questions for an agent bearer", async () => {
     const response = await postPromoteDraft(
       new Request("http://localhost/api/drafts/draft_1/promote", {
@@ -293,6 +331,81 @@ describe("POST /api/drafts/:id/promote", () => {
       where: { id: "raw_1" },
       select: { id: true },
     });
+    expect(mockPrisma.rawAsset.findUnique).toHaveBeenCalledTimes(1);
+  });
+
+  it("validates the post-claim re-read, not the outer existence snapshot", async () => {
+    mockPrisma.questionDraft.findUnique
+      .mockResolvedValueOnce(
+        publishableDraft({
+          answerJson: { type: "single", value: "C" },
+        }),
+      )
+      .mockResolvedValueOnce(publishableDraft());
+
+    const response = await promoteRequest();
+
+    expect(response.status).toBe(201);
+    expect(mockPrisma.question.create).toHaveBeenCalled();
+  });
+
+  it("returns 409 for an already promoted draft without the existing questionId", async () => {
+    mockPrisma.questionDraft.findUnique.mockResolvedValue(
+      publishableDraft({
+        status: "PROMOTED",
+        promotedQuestionId: "question_existing",
+        promotedAt: new Date("2026-09-07T00:30:00.000Z"),
+      }),
+    );
+    mockPrisma.questionDraft.updateMany.mockResolvedValue({ count: 0 });
+
+    const response = await promoteRequest();
+    const body = await response.json();
+
+    expect(response.status).toBe(409);
+    expect(body).toEqual({ error: "Draft is not promotable" });
+    expect(body).not.toHaveProperty("questionId");
+    expect(body).not.toHaveProperty("question");
+    expect(mockPrisma.question.create).not.toHaveBeenCalled();
+  });
+
+  it("returns 409 for a rejected draft", async () => {
+    mockPrisma.questionDraft.findUnique.mockResolvedValue(
+      publishableDraft({ status: "REJECTED" }),
+    );
+    mockPrisma.questionDraft.updateMany.mockResolvedValue({ count: 0 });
+
+    const response = await promoteRequest();
+
+    expect(response.status).toBe(409);
+    await expect(response.json()).resolves.toEqual({
+      error: "Draft is not promotable",
+    });
+    expect(mockPrisma.question.create).not.toHaveBeenCalled();
+  });
+
+  it("returns 422 when a knowledge point is missing", async () => {
+    mockPrisma.knowledgePoint.findMany.mockResolvedValue([]);
+
+    const response = await promoteRequest();
+
+    expect(response.status).toBe(422);
+    await expect(response.json()).resolves.toEqual({
+      error: "Knowledge point not found",
+    });
+    expect(mockPrisma.question.create).not.toHaveBeenCalled();
+  });
+
+  it("returns 422 when the source raw asset is missing", async () => {
+    mockPrisma.rawAsset.findUnique.mockResolvedValue(null);
+
+    const response = await promoteRequest();
+
+    expect(response.status).toBe(422);
+    await expect(response.json()).resolves.toEqual({
+      error: "Raw asset not found",
+    });
+    expect(mockPrisma.question.create).not.toHaveBeenCalled();
   });
 
   it("returns 404 when the draft does not exist", async () => {
@@ -308,8 +421,20 @@ describe("POST /api/drafts/:id/promote", () => {
   });
 });
 
+describe("legacy createQuestion", () => {
+  it("refuses to insert a REVIEWED question outside promote", async () => {
+    await expect(
+      createQuestion({
+        type: "SINGLE_CHOICE",
+        stemMd: "题干",
+      }),
+    ).rejects.toThrow("Official questions must be created by promoting a draft");
+    expect(mockPrisma.question.create).not.toHaveBeenCalled();
+  });
+});
+
 describe("OQ-4a POST /api/questions", () => {
-  it("creates a draft and promotes it instead of calling createQuestion directly", async () => {
+  it("creates a draft and promotes it in one transaction, including tags and source", async () => {
     const response = await postQuestions(
       editorSessionRequest("http://localhost/api/questions", {
         method: "POST",
@@ -325,6 +450,8 @@ describe("OQ-4a POST /api/questions", () => {
           solutionMd: "由 $v = v_0 + at$ 可知速度随时间均匀变化。",
           difficulty: 2,
           knowledgePointIds: ["kp_motion"],
+          tagIds: ["tag_image", "tag_example"],
+          sourceRawAssetId: "raw_1",
         }),
       }),
     );
@@ -333,8 +460,23 @@ describe("OQ-4a POST /api/questions", () => {
     await expect(response.json()).resolves.toMatchObject({
       question: { id: "question_1", status: "REVIEWED" },
     });
-    expect(mockPrisma.questionDraft.create).toHaveBeenCalled();
-    expect(mockPrisma.question.create).toHaveBeenCalled();
+    expect(mockPrisma.$transaction).toHaveBeenCalled();
+    expect(mockPrisma.questionDraft.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        knowledgePointIds: ["kp_motion"],
+        tagIds: ["tag_image", "tag_example"],
+        sourceRawAssetId: "raw_1",
+      }),
+    });
+    expect(mockPrisma.question.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        sourceRawAssetId: "raw_1",
+        tags: {
+          create: [{ tagId: "tag_image" }, { tagId: "tag_example" }],
+        },
+      }),
+      include: expect.any(Object),
+    });
     expect(mockPrisma.questionVersion.create).toHaveBeenCalled();
     expect(mockPrisma.reviewRecord.create).toHaveBeenCalled();
   });
