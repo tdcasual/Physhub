@@ -7,12 +7,13 @@ import { timingSafeEqualString } from "@/lib/auth/secure-compare";
 export const EDITOR_SESSION_COOKIE_NAME = "physhub_editor";
 export const EDITOR_SESSION_HEADER_NAME = "X-Physhub-Editor-Session";
 export const EDITOR_SESSION_HMAC_MESSAGE = "physhub_editor.v1";
+export const CLIENT_IP_HEADER_NAME = "X-Physhub-Client-Ip";
 export const OWNER_PLACEHOLDER_USER_ID = "seed-owner";
 export const OWNER_SEED_EMAIL = "owner@example.com";
 
 const UNLOCK_FAILURE_LIMIT = 5;
 const UNLOCK_FAILURE_WINDOW_MS = 60_000;
-const UNKNOWN_CONNECTING_IP = "unknown";
+const LOCAL_CONNECTING_IP = "local";
 
 export type EditorSession = {
   userId: string;
@@ -130,11 +131,16 @@ export function getConnectingIp(request: Request): string {
     }
   }
 
-  const socketIp = (
-    request as Request & { socket?: { remoteAddress?: string } }
-  ).socket?.remoteAddress?.trim();
+  // App Router Request has no TCP socket, so production without TRUST_PROXY shares one local bucket.
+  if (process.env.NODE_ENV !== "production") {
+    const testClientIp = request.headers.get(CLIENT_IP_HEADER_NAME)?.trim();
 
-  return socketIp || UNKNOWN_CONNECTING_IP;
+    if (testClientIp) {
+      return testClientIp;
+    }
+  }
+
+  return LOCAL_CONNECTING_IP;
 }
 
 function getUnlockFailureWindow(

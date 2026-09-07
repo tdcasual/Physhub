@@ -26,6 +26,7 @@ import { POST as postSearchQuestions } from "@/app/api/search/questions/route";
 import { PATCH as patchSuggestion } from "@/app/api/suggestions/[id]/route";
 import { GET as getTags } from "@/app/api/tags/route";
 import {
+  CLIENT_IP_HEADER_NAME,
   computeEditorSessionCookieValue,
   EDITOR_SESSION_COOKIE_NAME,
   EDITOR_SESSION_HEADER_NAME,
@@ -268,11 +269,32 @@ describe("connecting IP", () => {
       headers: { "X-Forwarded-For": "203.0.113.10, 10.0.0.1" },
     });
 
-    expect(getConnectingIp(request)).toBe("unknown");
+    expect(getConnectingIp(request)).toBe("local");
 
     process.env.TRUST_PROXY = "true";
 
     expect(getConnectingIp(request)).toBe("203.0.113.10");
+  });
+
+  it("uses X-Physhub-Client-Ip as the rate-limit key outside production", () => {
+    const request = new Request("http://localhost/api/auth/editor-session", {
+      headers: {
+        "X-Forwarded-For": "203.0.113.10",
+        [CLIENT_IP_HEADER_NAME]: "192.0.2.10",
+      },
+    });
+
+    expect(getConnectingIp(request)).toBe("192.0.2.10");
+  });
+
+  it("ignores X-Physhub-Client-Ip in production", () => {
+    vi.stubEnv("NODE_ENV", "production");
+
+    const request = new Request("http://localhost/api/auth/editor-session", {
+      headers: { [CLIENT_IP_HEADER_NAME]: "192.0.2.10" },
+    });
+
+    expect(getConnectingIp(request)).toBe("local");
   });
 });
 
@@ -312,13 +334,19 @@ describe("POST /api/auth/editor-session", () => {
   });
 
   it("returns 429 after 6 wrong secrets from the same connecting IP", async () => {
+    const clientIp = { [CLIENT_IP_HEADER_NAME]: "192.0.2.50" };
+
     for (let attempt = 0; attempt < 5; attempt += 1) {
-      const response = await postEditorSession(unlockRequest("wrong-secret"));
+      const response = await postEditorSession(
+        unlockRequest("wrong-secret", clientIp),
+      );
 
       expect(response.status).toBe(401);
     }
 
-    const limited = await postEditorSession(unlockRequest("wrong-secret"));
+    const limited = await postEditorSession(
+      unlockRequest("wrong-secret", clientIp),
+    );
 
     expect(limited.status).toBe(429);
     await expect(limited.json()).resolves.toEqual({
@@ -338,6 +366,26 @@ describe("POST /api/auth/editor-session", () => {
     );
 
     expect(limited.status).toBe(429);
+  });
+
+  it("keys non-production unlock failures on X-Physhub-Client-Ip", async () => {
+    for (let attempt = 0; attempt < 5; attempt += 1) {
+      await postEditorSession(
+        unlockRequest("wrong-secret", {
+          [CLIENT_IP_HEADER_NAME]: "192.0.2.10",
+        }),
+      );
+    }
+
+    const otherIp = await postEditorSession(
+      unlockRequest("wrong-secret", { [CLIENT_IP_HEADER_NAME]: "192.0.2.20" }),
+    );
+    const sameIp = await postEditorSession(
+      unlockRequest("wrong-secret", { [CLIENT_IP_HEADER_NAME]: "192.0.2.10" }),
+    );
+
+    expect(otherIp.status).toBe(401);
+    expect(sameIp.status).toBe(429);
   });
 
   it("uses X-Forwarded-For only when TRUST_PROXY=true", async () => {
