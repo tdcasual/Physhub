@@ -153,6 +153,9 @@ export async function parseRawAssetWithClient({
       },
     });
 
+    // Sequential on purpose: ParseJob.failedStep is the audit if a later write
+    // throws. $transaction would expand ParseWorkflowDb (the test double) for
+    // an opt-in fixture, not product OCR.
     failedStep = "update_parse_job_succeeded";
     await db.parseJob.update({
       where: {
@@ -177,18 +180,22 @@ export async function parseRawAssetWithClient({
       draft: questionDraft,
     };
   } catch (error) {
-    await db.parseJob.update({
-      where: {
-        id: parseJob.id,
-      },
-      data: {
-        status: "FAILED",
-        errorCode: "PARSE_WORKFLOW_FAILED",
-        errorMessage: "Failed to parse raw asset",
-        rawError: serializeRawError(error),
-        failedStep,
-      },
-    });
+    try {
+      await db.parseJob.update({
+        where: {
+          id: parseJob.id,
+        },
+        data: {
+          status: "FAILED",
+          errorCode: "PARSE_WORKFLOW_FAILED",
+          errorMessage: "Failed to parse raw asset",
+          rawError: serializeRawError(error),
+          failedStep,
+        },
+      });
+    } catch {
+      // Keep flipping the asset even if the job row cannot be updated.
+    }
 
     await db.rawAsset.update({
       where: { id: rawAsset.id },

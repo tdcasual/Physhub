@@ -149,4 +149,28 @@ describe("parseRawAssetWithClient", () => {
       [{ where: { id: "raw_1" }, data: { status: "FAILED" } }],
     ]);
   });
+
+  it("marks the raw asset failed even if recording the parse job failure throws", async () => {
+    const db = buildDb();
+    db.rawAsset.findUnique.mockResolvedValue({
+      id: "raw_1",
+      textContent: "raw text",
+    });
+    db.parseJob.create.mockResolvedValue({ id: "job_1" });
+    db.parseJob.update.mockRejectedValue(new Error("job update exploded"));
+
+    const result = await parseRawAssetWithClient({
+      db,
+      rawAssetId: "raw_1",
+      parseTextToDraft: vi.fn(() => {
+        throw new Error("parser exploded");
+      }),
+    });
+
+    expect(result).toEqual({ status: "failed" });
+    expect(db.rawAsset.update.mock.calls).toEqual([
+      [{ where: { id: "raw_1" }, data: { status: "PROCESSING" } }],
+      [{ where: { id: "raw_1" }, data: { status: "FAILED" } }],
+    ]);
+  });
 });
