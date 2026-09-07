@@ -336,4 +336,77 @@ describe("DraftReviewWorkspace", () => {
     expect(screen.getByText(/Question question_1/)).toBeInTheDocument();
     expect(screen.getByText(/Promoted/)).toBeInTheDocument();
   });
+
+  it("accepts and rejects pending suggestions through PATCH /api/suggestions/:id", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        suggestion: { id: "suggestion_1", status: "accepted" },
+      }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<DraftReviewWorkspace draft={draft} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Accept suggestion" }));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/suggestions/suggestion_1",
+      expect.objectContaining({
+        method: "PATCH",
+        credentials: "include",
+      }),
+    );
+    expect(JSON.parse(String(fetchMock.mock.calls[0][1]?.body))).toEqual({
+      status: "accepted",
+    });
+  });
+
+  it("rejects a pending suggestion through PATCH /api/suggestions/:id", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        suggestion: { id: "suggestion_1", status: "rejected" },
+      }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<DraftReviewWorkspace draft={draft} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Reject suggestion" }));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+    expect(JSON.parse(String(fetchMock.mock.calls[0][1]?.body))).toEqual({
+      status: "rejected",
+    });
+  });
+
+  it("disables Accept when a knowledge point in the payload lacks id", () => {
+    render(
+      <DraftReviewWorkspace
+        draft={{
+          ...draft,
+          suggestions: [
+            {
+              ...draft.suggestions[0],
+              kind: "metadata",
+              payload: {
+                knowledge_points: [
+                  {
+                    value: "v-t 图像面积表示位移",
+                    confidence: 0.86,
+                    reason: "规则无法带 id",
+                  },
+                ],
+                difficulty: { value: 2, confidence: 0.72, reason: "基础" },
+                risks: [],
+              },
+            },
+          ],
+        }}
+      />,
+    );
+
+    expect(screen.getByRole("button", { name: "Accept suggestion" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Reject suggestion" })).toBeEnabled();
+  });
 });

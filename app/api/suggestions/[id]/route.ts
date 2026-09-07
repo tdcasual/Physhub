@@ -2,6 +2,13 @@ import { NextResponse } from "next/server";
 
 import { requireHumanApiAuth } from "@/lib/auth/human-auth";
 import { prisma } from "@/lib/db/prisma";
+import {
+  applyAcceptedMetadataSuggestion,
+  canSuggestionWriteDirectlyToQuestion,
+  parseMetadataSuggestionPayload,
+  SuggestionPayloadError,
+  SuggestionRelationError,
+} from "@/lib/domain/suggestion-policy";
 
 const suggestionReviewStatuses = [
   "accepted",
@@ -28,6 +35,15 @@ function isSuggestionReviewStatus(
 
 function isRequestBody(body: unknown): body is Record<string, unknown> {
   return typeof body === "object" && body !== null && !Array.isArray(body);
+}
+
+function isUniqueConflict(error: unknown) {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    "code" in error &&
+    error.code === "P2002"
+  );
 }
 
 export async function PATCH(
@@ -79,7 +95,21 @@ export async function PATCH(
       );
     }
 
+    if (status === "accepted") {
+      parseMetadataSuggestionPayload(suggestion.payload);
+    }
+
     const updatedSuggestion = await prisma.$transaction(async (tx) => {
+      if (
+        status === "accepted" &&
+        canSuggestionWriteDirectlyToQuestion({
+          actor: "human",
+          kind: suggestion.kind,
+        })
+      ) {
+        await applyAcceptedMetadataSuggestion(tx, suggestion, "human");
+      }
+
       const reviewedSuggestion = await tx.suggestion.update({
         where: { id: suggestion.id },
         data: { status },
@@ -98,7 +128,22 @@ export async function PATCH(
     });
 
     return NextResponse.json({ suggestion: updatedSuggestion });
-  } catch {
+  } catch (error) {
+    if (error instanceof SuggestionPayloadError) {
+      return NextResponse.json({ error: error.message }, { status: 422 });
+    }
+
+    if (error instanceof SuggestionRelationError) {
+      return NextResponse.json({ error: error.message }, { status: 422 });
+    }
+
+    if (isUniqueConflict(error)) {
+      return NextResponse.json(
+        { error: "Failed to review suggestion" },
+        { status: 409 },
+      );
+    }
+
     return NextResponse.json(
       { error: "Failed to review suggestion" },
       { status: 500 },

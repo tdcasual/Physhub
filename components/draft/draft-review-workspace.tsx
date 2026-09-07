@@ -6,6 +6,7 @@ import type { DraftStatus, JobStatus, QuestionType, RawAssetKind, RawAssetStatus
 import { AnswerEditor, type SingleAnswer } from "@/components/question/answer-editor";
 import { OptionEditor, type EditableOption } from "@/components/question/option-editor";
 import { QuestionPreview } from "@/components/question/question-preview";
+import { suggestionPayloadMissingKnowledgePointId } from "@/lib/domain/suggestion-policy";
 
 export type JsonPrimitive = string | number | boolean | null;
 export type JsonValue = JsonPrimitive | JsonValue[] | { [key: string]: JsonValue };
@@ -180,6 +181,7 @@ export function DraftReviewWorkspace({ draft }: { draft: DraftReviewWorkspaceDra
   );
   const [pendingAction, setPendingAction] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [suggestions, setSuggestions] = useState(draft.suggestions);
 
   const previewOptions = useMemo(() => validOptions(options), [options]);
   const sourceText = draft.sourceRawAsset?.textContent?.trim();
@@ -328,6 +330,44 @@ export function DraftReviewWorkspace({ draft }: { draft: DraftReviewWorkspaceDra
       );
     } catch {
       setActionError("Unable to promote draft");
+    } finally {
+      setPendingAction(null);
+    }
+  }
+
+  async function reviewSuggestion(
+    suggestionId: string,
+    nextStatus: "accepted" | "rejected",
+  ) {
+    setPendingAction(`suggestion:${suggestionId}:${nextStatus}`);
+    setActionError(null);
+
+    try {
+      const response = await fetch(`/api/suggestions/${suggestionId}`, {
+        method: "PATCH",
+        credentials: "include",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ status: nextStatus }),
+      });
+      const payload = (await response.json()) as {
+        error?: string;
+        suggestion?: { status?: string };
+      };
+
+      if (!response.ok) {
+        setActionError(payload.error ?? "Unable to review suggestion");
+        return;
+      }
+
+      setSuggestions((current) =>
+        current.map((item) =>
+          item.id === suggestionId
+            ? { ...item, status: payload.suggestion?.status ?? nextStatus }
+            : item,
+        ),
+      );
+    } catch {
+      setActionError("Unable to review suggestion");
     } finally {
       setPendingAction(null);
     }
@@ -594,39 +634,73 @@ export function DraftReviewWorkspace({ draft }: { draft: DraftReviewWorkspaceDra
 
             <section className="space-y-3 border border-stone-900/15 bg-white p-4">
               <h2 className="text-xl font-semibold">Suggestions</h2>
-              {draft.suggestions.length > 0 ? (
+              {suggestions.length > 0 ? (
                 <ul className="space-y-3">
-                  {draft.suggestions.map((suggestion) => (
-                    <li
-                      key={suggestion.id}
-                      className="border border-stone-900/15 bg-stone-50 p-3"
-                    >
-                      <div className="flex flex-wrap items-start justify-between gap-2">
-                        <div>
-                          <p className="text-sm font-semibold">
-                            {suggestion.knowledgePoint?.name ?? suggestion.kind}
-                          </p>
-                          <p className="mt-1 text-xs uppercase tracking-[0.12em] text-stone-900/55">
-                            {suggestion.status.replaceAll("_", " ")}
-                          </p>
+                  {suggestions.map((suggestion) => {
+                    const acceptDisabled =
+                      suggestionPayloadMissingKnowledgePointId(
+                        suggestion.payload,
+                      );
+                    const reviewBusy = pendingAction !== null;
+
+                    return (
+                      <li
+                        key={suggestion.id}
+                        className="border border-stone-900/15 bg-stone-50 p-3"
+                      >
+                        <div className="flex flex-wrap items-start justify-between gap-2">
+                          <div>
+                            <p className="text-sm font-semibold">
+                              {suggestion.knowledgePoint?.name ?? suggestion.kind}
+                            </p>
+                            <p className="mt-1 text-xs uppercase tracking-[0.12em] text-stone-900/55">
+                              {suggestion.status.replaceAll("_", " ")}
+                            </p>
+                          </div>
+                          <span className="text-sm font-medium text-orange-800">
+                            {formatConfidence(suggestion.confidence)}
+                          </span>
                         </div>
-                        <span className="text-sm font-medium text-orange-800">
-                          {formatConfidence(suggestion.confidence)}
-                        </span>
-                      </div>
-                      {suggestion.createdByAgentRun ? (
-                        <p className="mt-3 text-xs text-stone-900/60">
-                          {suggestion.createdByAgentRun.agentName}
-                          {suggestion.createdByAgentRun.toolName
-                            ? ` · ${suggestion.createdByAgentRun.toolName}`
-                            : ""}
-                        </p>
-                      ) : null}
-                      <pre className="mt-3 max-h-36 overflow-auto bg-white p-2 text-xs leading-5 text-stone-700">
-                        {jsonPreview(suggestion.payload)}
-                      </pre>
-                    </li>
-                  ))}
+                        {suggestion.createdByAgentRun ? (
+                          <p className="mt-3 text-xs text-stone-900/60">
+                            {suggestion.createdByAgentRun.agentName}
+                            {suggestion.createdByAgentRun.toolName
+                              ? ` · ${suggestion.createdByAgentRun.toolName}`
+                              : ""}
+                          </p>
+                        ) : null}
+                        <pre className="mt-3 max-h-36 overflow-auto bg-white p-2 text-xs leading-5 text-stone-700">
+                          {jsonPreview(suggestion.payload)}
+                        </pre>
+                        {suggestion.status === "pending_review" ? (
+                          <div className="mt-3 flex flex-wrap gap-2">
+                            <button
+                              type="button"
+                              aria-label="Accept suggestion"
+                              onClick={() => {
+                                void reviewSuggestion(suggestion.id, "accepted");
+                              }}
+                              disabled={reviewBusy || acceptDisabled}
+                              className="border border-stone-900 bg-stone-900 px-3 py-1.5 text-sm font-semibold text-white disabled:opacity-50"
+                            >
+                              Accept
+                            </button>
+                            <button
+                              type="button"
+                              aria-label="Reject suggestion"
+                              onClick={() => {
+                                void reviewSuggestion(suggestion.id, "rejected");
+                              }}
+                              disabled={reviewBusy}
+                              className="border border-stone-900/30 bg-white px-3 py-1.5 text-sm font-semibold disabled:opacity-50"
+                            >
+                              Reject
+                            </button>
+                          </div>
+                        ) : null}
+                      </li>
+                    );
+                  })}
                 </ul>
               ) : (
                 <p className="text-sm leading-6 text-stone-900/65">
