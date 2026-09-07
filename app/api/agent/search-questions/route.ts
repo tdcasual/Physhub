@@ -16,7 +16,11 @@ export async function POST(request: Request) {
 
   try {
     const body = parseQuestionSearchRequestBody(await request.json());
-    const result = await searchQuestions(body.query, body.constraints);
+    const constraints = {
+      ...(body.constraints ?? {}),
+      status: body.constraints?.status ?? ["REVIEWED"],
+    };
+    const result = await searchQuestions(body.query, constraints);
 
     return NextResponse.json(result);
   } catch (error) {

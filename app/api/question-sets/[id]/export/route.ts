@@ -9,9 +9,18 @@ import {
 
 type ExportFormat = "markdown" | "latex";
 
-type ExportBody = {
+export type ExportBody = {
   format: ExportFormat;
   teacher: boolean;
+};
+
+type QuestionSetExportDb = {
+  questionSet: {
+    findUnique: (typeof prisma)["questionSet"]["findUnique"];
+  };
+  exportJob: {
+    create: (typeof prisma)["exportJob"]["create"];
+  };
 };
 
 type ExportApiErrorResponse = {
@@ -37,7 +46,7 @@ function toExportJobDto(exportJob: ExportJobDto): ExportJobDto {
   };
 }
 
-function parseExportBody(input: unknown): ExportBody {
+export function parseExportBody(input: unknown): ExportBody {
   if (input === undefined) {
     return { format: "markdown", teacher: true };
   }
@@ -59,7 +68,7 @@ function parseExportBody(input: unknown): ExportBody {
   };
 }
 
-async function readJsonBody(request: Request) {
+export async function readJsonBody(request: Request) {
   const rawBody = await request.text();
 
   if (!rawBody.trim()) {
@@ -67,6 +76,42 @@ async function readJsonBody(request: Request) {
   }
 
   return JSON.parse(rawBody) as unknown;
+}
+
+export async function createQuestionSetExport(
+  id: string,
+  body: ExportBody,
+  db: QuestionSetExportDb = prisma,
+) {
+  const questionSet = await db.questionSet.findUnique({
+    where: { id },
+    include: {
+      items: { orderBy: { sortOrder: "asc" }, include: { question: true } },
+    },
+  });
+
+  if (!questionSet) {
+    throw new Error("Question set not found");
+  }
+
+  const content = questionSet.items
+    .map((item) =>
+      body.format === "latex"
+        ? renderQuestionToLatex(item.question, body.teacher)
+        : renderQuestionToMarkdown(item.question, body.teacher),
+    )
+    .join("\n\n---\n\n");
+
+  const exportJob = await db.exportJob.create({
+    data: {
+      questionSetId: questionSet.id,
+      format: body.format,
+      status: "SUCCEEDED",
+      outputKey: null,
+    },
+  });
+
+  return { exportJob: toExportJobDto(exportJob), content };
 }
 
 export function mapQuestionSetExportApiError(
@@ -104,35 +149,9 @@ export async function POST(
   try {
     const { id } = await params;
     const body = parseExportBody(await readJsonBody(request));
-    const questionSet = await prisma.questionSet.findUnique({
-      where: { id },
-      include: {
-        items: { orderBy: { sortOrder: "asc" }, include: { question: true } },
-      },
-    });
+    const result = await createQuestionSetExport(id, body);
 
-    if (!questionSet) {
-      throw new Error("Question set not found");
-    }
-
-    const content = questionSet.items
-      .map((item) =>
-        body.format === "latex"
-          ? renderQuestionToLatex(item.question, body.teacher)
-          : renderQuestionToMarkdown(item.question, body.teacher),
-      )
-      .join("\n\n---\n\n");
-
-    const exportJob = await prisma.exportJob.create({
-      data: {
-        questionSetId: questionSet.id,
-        format: body.format,
-        status: "SUCCEEDED",
-        outputKey: null,
-      },
-    });
-
-    return NextResponse.json({ exportJob: toExportJobDto(exportJob), content });
+    return NextResponse.json(result);
   } catch (error) {
     const response = mapQuestionSetExportApiError(error);
 

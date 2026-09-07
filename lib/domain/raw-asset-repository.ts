@@ -9,6 +9,11 @@ export type CreateRawAssetInput = {
 };
 
 type PrismaClientSingleton = typeof import("@/lib/db/prisma").prisma;
+type TransactionClient = Omit<
+  PrismaClientSingleton,
+  "$connect" | "$disconnect" | "$on" | "$transaction" | "$use" | "$extends"
+>;
+export type RawAssetDbClient = PrismaClientSingleton | TransactionClient;
 
 async function getDb(): Promise<PrismaClientSingleton> {
   const { prisma } = await import("@/lib/db/prisma");
@@ -20,10 +25,11 @@ export type RawAssetRecord = Prisma.RawAssetGetPayload<Record<string, never>>;
 
 export async function createRawAsset(
   input: CreateRawAssetInput,
+  db?: RawAssetDbClient,
 ): Promise<RawAssetRecord> {
-  const db = await getDb();
+  const client = db ?? (await getDb());
 
-  return db.rawAsset.create({
+  return client.rawAsset.create({
     data: {
       kind: input.kind,
       originalName: input.originalName,

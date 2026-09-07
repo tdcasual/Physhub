@@ -77,11 +77,20 @@ export function validateQuestionSetInput(input: unknown): QuestionSetInput {
   return { title, questionIds };
 }
 
-export async function createQuestionSet(input: unknown) {
+type QuestionSetDbClient = {
+  questionSet: {
+    create: (typeof prisma)["questionSet"]["create"];
+  };
+};
+
+export async function createQuestionSet(
+  input: unknown,
+  db: QuestionSetDbClient = prisma,
+) {
   const questionSetInput = validateQuestionSetInput(input);
 
   try {
-    return await prisma.questionSet.create({
+    return await db.questionSet.create({
       data: {
         title: questionSetInput.title,
         items: { create: buildQuestionSetItems(questionSetInput.questionIds) },

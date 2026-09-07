@@ -124,6 +124,14 @@ describe("understandQuestionSearchQuery", () => {
 });
 
 describe("buildQuestionSearchWhere", () => {
+  it("defaults omitted status to REVIEWED", () => {
+    expect(
+      buildQuestionSearchWhere(understandQuestionSearchQuery("找题")),
+    ).toMatchObject({
+      status: { in: ["REVIEWED"] },
+    });
+  });
+
   it("builds a Prisma where input from understanding and constraints", () => {
     const understanding = understandQuestionSearchQuery(
       "找 3 道高一运动学 v-t 图像面积表示位移的基础题，适合随堂练习，最好有图",
@@ -177,6 +185,20 @@ describe("buildQuestionSearchWhere", () => {
 });
 
 describe("searchQuestions", () => {
+  it("defaults omitted status to REVIEWED", async () => {
+    findManyMock.mockResolvedValueOnce([]);
+
+    await searchQuestions("找题");
+
+    expect(findManyMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          status: { in: ["REVIEWED"] },
+        }),
+      }),
+    );
+  });
+
   it("returns query understanding and repository results without a live database", async () => {
     const question = searchableQuestion();
     findManyMock.mockResolvedValueOnce([question]);
