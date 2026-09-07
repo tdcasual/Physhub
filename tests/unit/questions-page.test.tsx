@@ -50,5 +50,13 @@ describe("QuestionsPage", () => {
     expect(
       screen.getByRole("heading", { name: "q_motion_0001" }),
     ).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Drafts" })).toHaveAttribute(
+      "href",
+      "/drafts",
+    );
+    expect(screen.getByRole("link", { name: "New draft" })).toHaveAttribute(
+      "href",
+      "/questions/new",
+    );
   });
 });

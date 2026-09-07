@@ -1,9 +1,9 @@
 import { expect, test } from "@playwright/test";
 
-test("home opens the manual editor with rendered math preview", async ({ page }) => {
+test("home opens the new draft editor with rendered math preview", async ({ page }) => {
   await page.goto("/");
 
-  await page.getByRole("link", { name: "Open manual editor" }).click();
+  await page.getByRole("main").getByRole("link", { name: "New draft" }).click();
 
   await expect(
     page.getByRole("heading", { name: "Manual Question Editor" }),

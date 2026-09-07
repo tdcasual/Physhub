@@ -1,9 +1,12 @@
 import type { Metadata } from "next";
+
+import { Nav } from "@/components/nav";
+
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Physics Question Bank",
-  description: "Cloud backend for reviewed high-school physics questions.",
+  title: "Physhub",
+  description: "Cloud workbench for curating existing high-school physics questions.",
 };
 
 export default function RootLayout({
@@ -13,7 +16,10 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body>{children}</body>
+      <body>
+        <Nav />
+        {children}
+      </body>
     </html>
   );
 }

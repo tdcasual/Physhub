@@ -1,4 +1,5 @@
 import { Prisma } from "@prisma/client";
+import Link from "next/link";
 
 import {
   QuestionList,
@@ -81,9 +82,25 @@ export default async function QuestionsPage() {
             </p>
             <h1 className="mt-2 text-3xl font-semibold">Questions</h1>
           </div>
-          <p className="text-sm text-stone-900/60">
-            Showing the 50 most recently updated questions.
-          </p>
+          <div className="flex flex-col items-start gap-3 sm:items-end">
+            <div className="flex flex-wrap gap-3 text-sm font-semibold">
+              <Link
+                href="/drafts"
+                className="border border-stone-900/20 bg-white px-3 py-2 text-stone-900 hover:bg-stone-100"
+              >
+                Drafts
+              </Link>
+              <Link
+                href="/questions/new"
+                className="border border-stone-900/20 bg-stone-950 px-3 py-2 text-white hover:bg-stone-800"
+              >
+                New draft
+              </Link>
+            </div>
+            <p className="text-sm text-stone-900/60">
+              Showing the 50 most recently updated questions.
+            </p>
+          </div>
         </header>
 
         <QuestionSearchPanel />

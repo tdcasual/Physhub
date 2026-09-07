@@ -46,16 +46,17 @@ export default function Home() {
               A cloud workbench for teacher-owned physics question curation.
             </h1>
             <p className="mt-7 max-w-2xl text-lg leading-8 text-stone-900/70">
-              The workbench organizes teacher-owned questions for classification,
-              quality checks, and precise search. AI can assist with structure and
-              retrieval, while final content stays under human review.
+              The workbench organizes existing teacher-owned questions for
+              classification, quality checks, and precise search. External agents
+              can assist with structure and retrieval; the platform does not embed
+              an LLM, and final content stays under human review.
             </p>
             <Link
               href="/questions/new"
               className="mt-8 inline-flex items-center gap-2 border border-stone-900/20 bg-stone-950 px-4 py-3 text-sm font-semibold text-white hover:bg-stone-800"
             >
               <PencilLine aria-hidden="true" className="size-4" />
-              Open manual editor
+              New draft
             </Link>
           </div>
 
