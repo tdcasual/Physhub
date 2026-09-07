@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { hasRequiredScopes, readDevAgentScopes } from "@/lib/auth/agent-auth";
+import { hasRequiredScopes, readAgentAuth } from "@/lib/auth/agent-auth";
 import { getQuestion } from "@/lib/domain/question-repository";
 
 type AgentQuestionRouteContext = {
@@ -13,9 +13,9 @@ export async function GET(
   request: Request,
   context: AgentQuestionRouteContext,
 ) {
-  const scopes = readDevAgentScopes(request);
+  const agent = await readAgentAuth(request);
 
-  if (!scopes || !hasRequiredScopes(scopes, ["questions:read"])) {
+  if (!agent || !hasRequiredScopes(agent.scopes, ["questions:read"])) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 

@@ -16,6 +16,12 @@ vi.mock("@/lib/db/prisma", () => ({
   },
 }));
 
+import { editorSessionRequest } from "@/tests/unit/helpers/editor-session";
+
+function exportRequest(init: RequestInit = {}) {
+  return editorSessionRequest("http://localhost", { method: "POST", ...init });
+}
+
 import {
   renderQuestionToLatex,
   renderQuestionToMarkdown,
@@ -129,7 +135,7 @@ describe("question set export route", () => {
     );
 
     const response = await POST(
-      new Request("http://localhost", {
+      exportRequest({
         method: "POST",
         body: JSON.stringify({}),
       }),
@@ -180,7 +186,7 @@ describe("question set export route", () => {
     );
 
     const response = await POST(
-      new Request("http://localhost", { method: "POST", body: "" }),
+      exportRequest({ method: "POST", body: "" }),
       { params: Promise.resolve({ id: "set_1" }) },
     );
 
@@ -224,7 +230,7 @@ describe("question set export route", () => {
     );
 
     const response = await POST(
-      new Request("http://localhost", {
+      exportRequest({
         method: "POST",
         body: JSON.stringify({ format: "latex" }),
       }),
@@ -264,7 +270,7 @@ describe("question set export route", () => {
     );
 
     const response = await POST(
-      new Request("http://localhost", {
+      exportRequest({
         method: "POST",
         body: JSON.stringify({ format: "markdown" }),
       }),
@@ -283,7 +289,7 @@ describe("question set export route", () => {
     );
 
     const malformedResponse = await POST(
-      new Request("http://localhost", {
+      exportRequest({
         method: "POST",
         body: "{",
       }),
@@ -295,7 +301,7 @@ describe("question set export route", () => {
     });
 
     const arrayResponse = await POST(
-      new Request("http://localhost", {
+      exportRequest({
         method: "POST",
         body: JSON.stringify([]),
       }),
@@ -313,7 +319,7 @@ describe("question set export route", () => {
     );
 
     const invalidFormatResponse = await POST(
-      new Request("http://localhost", {
+      exportRequest({
         method: "POST",
         body: JSON.stringify({ format: "pdf" }),
       }),
@@ -326,7 +332,7 @@ describe("question set export route", () => {
 
     mockQuestionSetFindUnique.mockResolvedValue(null);
     const missingSetResponse = await POST(
-      new Request("http://localhost", {
+      exportRequest({
         method: "POST",
         body: JSON.stringify({ format: "markdown" }),
       }),
@@ -345,7 +351,7 @@ describe("question set export route", () => {
     );
 
     const response = await POST(
-      new Request("http://localhost", {
+      exportRequest({
         method: "POST",
         body: JSON.stringify({ format: "markdown" }),
       }),

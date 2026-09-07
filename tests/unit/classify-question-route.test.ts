@@ -20,6 +20,8 @@ vi.mock("@/lib/db/prisma", () => ({
   prisma: mockPrisma,
 }));
 
+import { editorSessionRequest } from "@/tests/unit/helpers/editor-session";
+
 describe("question classify route", () => {
   beforeEach(() => {
     mockPrisma.question.findUnique.mockReset();
@@ -36,7 +38,7 @@ describe("question classify route", () => {
     mockPrisma.question.findUnique.mockResolvedValue(null);
     const { POST } = await import("@/app/api/questions/[id]/classify/route");
 
-    const response = await POST(new Request("http://localhost"), {
+    const response = await POST(editorSessionRequest("http://localhost"), {
       params: Promise.resolve({ id: "missing" }),
     });
 
@@ -56,7 +58,7 @@ describe("question classify route", () => {
     );
     const { POST } = await import("@/app/api/questions/[id]/classify/route");
 
-    const response = await POST(new Request("http://localhost"), {
+    const response = await POST(editorSessionRequest("http://localhost"), {
       params: Promise.resolve({ id: "question_1" }),
     });
 
@@ -91,7 +93,7 @@ describe("question classify route", () => {
     mockPrisma.suggestion.create.mockResolvedValue(suggestion);
 
     const { POST } = await import("@/app/api/questions/[id]/classify/route");
-    const response = await POST(new Request("http://localhost"), {
+    const response = await POST(editorSessionRequest("http://localhost"), {
       params: Promise.resolve({ id: question.id }),
     });
 
@@ -149,7 +151,7 @@ describe("question classify route", () => {
     );
 
     const { POST } = await import("@/app/api/questions/[id]/classify/route");
-    const response = await POST(new Request("http://localhost"), {
+    const response = await POST(editorSessionRequest("http://localhost"), {
       params: Promise.resolve({ id: question.id }),
     });
 
@@ -173,7 +175,7 @@ describe("question classify route", () => {
     );
     const { POST } = await import("@/app/api/questions/[id]/classify/route");
 
-    const response = await POST(new Request("http://localhost"), {
+    const response = await POST(editorSessionRequest("http://localhost"), {
       params: Promise.resolve({ id: "question_1" }),
     });
 

@@ -11,6 +11,7 @@ import {
   POST,
   parseQuestionSearchRequestBody,
 } from "@/app/api/search/questions/route";
+import { editorSessionRequest } from "@/tests/unit/helpers/editor-session";
 
 const findManyMock = vi.hoisted(() => vi.fn());
 
@@ -300,7 +301,7 @@ describe("POST /api/search/questions", () => {
     findManyMock.mockResolvedValueOnce([searchableQuestion()]);
 
     const response = await POST(
-      new Request("http://localhost/api/search/questions", {
+      editorSessionRequest("http://localhost/api/search/questions", {
         method: "POST",
         body: JSON.stringify({
           query: "找 2 道高二电磁感应题",
@@ -343,7 +344,7 @@ describe("POST /api/search/questions", () => {
 
   it("returns stable 400 responses for malformed nested constraints", async () => {
     const response = await POST(
-      new Request("http://localhost/api/search/questions", {
+      editorSessionRequest("http://localhost/api/search/questions", {
         method: "POST",
         body: JSON.stringify({
           query: "找题",
@@ -363,7 +364,7 @@ describe("POST /api/search/questions", () => {
     findManyMock.mockRejectedValueOnce(new Error("database unavailable"));
 
     const response = await POST(
-      new Request("http://localhost/api/search/questions", {
+      editorSessionRequest("http://localhost/api/search/questions", {
         method: "POST",
         body: JSON.stringify({
           query: "找题",

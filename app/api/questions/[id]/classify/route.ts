@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 
+import { requireHumanApiAuth } from "@/lib/auth/human-auth";
 import { prisma } from "@/lib/db/prisma";
 import { suggestMetadata } from "@/lib/workers/mock-classification-agent";
 
@@ -10,9 +11,15 @@ type QuestionClassifyRouteContext = {
 };
 
 export async function POST(
-  _request: Request,
+  request: Request,
   context: QuestionClassifyRouteContext,
 ) {
+  const auth = await requireHumanApiAuth(request);
+
+  if (!auth.ok) {
+    return auth.response;
+  }
+
   const { id } = await context.params;
 
   try {

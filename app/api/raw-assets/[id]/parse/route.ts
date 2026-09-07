@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 
+import { requireHumanApiAuth } from "@/lib/auth/human-auth";
 import { parseRawAsset } from "@/lib/domain/parse-raw-asset-workflow";
 
 type RawAssetParseRouteContext = {
@@ -9,9 +10,15 @@ type RawAssetParseRouteContext = {
 };
 
 export async function POST(
-  _request: Request,
+  request: Request,
   context: RawAssetParseRouteContext,
 ) {
+  const auth = await requireHumanApiAuth(request);
+
+  if (!auth.ok) {
+    return auth.response;
+  }
+
   const { id } = await context.params;
 
   let result: Awaited<ReturnType<typeof parseRawAsset>>;

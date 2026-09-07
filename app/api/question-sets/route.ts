@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 
+import { requireHumanApiAuth } from "@/lib/auth/human-auth";
 import {
   createQuestionSet,
   QuestionSetPersistenceError,
@@ -35,6 +36,12 @@ export function mapQuestionSetApiError(
 }
 
 export async function POST(request: Request) {
+  const auth = await requireHumanApiAuth(request);
+
+  if (!auth.ok) {
+    return auth.response;
+  }
+
   try {
     const questionSet = await createQuestionSet(await request.json());
 

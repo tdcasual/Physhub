@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 
+import { requireHumanApiAuth } from "@/lib/auth/human-auth";
 import { prisma } from "@/lib/db/prisma";
 import {
   renderQuestionToLatex,
@@ -94,6 +95,12 @@ export async function POST(
   request: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
+  const auth = await requireHumanApiAuth(request);
+
+  if (!auth.ok) {
+    return auth.response;
+  }
+
   try {
     const { id } = await params;
     const body = parseExportBody(await readJsonBody(request));

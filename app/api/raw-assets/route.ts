@@ -1,6 +1,7 @@
 import type { RawAssetKind } from "@prisma/client";
 import { NextResponse } from "next/server";
 
+import { requireHumanApiAuth } from "@/lib/auth/human-auth";
 import { createRawAsset } from "@/lib/domain/raw-asset-repository";
 import { buildStorageKey, saveLocalUpload } from "@/lib/storage/storage-service";
 
@@ -75,6 +76,12 @@ async function createAssetFromText(textContent: string) {
 }
 
 export async function POST(request: Request) {
+  const auth = await requireHumanApiAuth(request);
+
+  if (!auth.ok) {
+    return auth.response;
+  }
+
   const formData = await request.formData();
   const file = getFileValue(formData);
 

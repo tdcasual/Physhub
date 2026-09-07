@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 
+import { requireHumanApiAuth } from "@/lib/auth/human-auth";
 import { getQuestion } from "@/lib/domain/question-repository";
 
 type QuestionRouteContext = {
@@ -8,7 +9,13 @@ type QuestionRouteContext = {
   }>;
 };
 
-export async function GET(_request: Request, context: QuestionRouteContext) {
+export async function GET(request: Request, context: QuestionRouteContext) {
+  const auth = await requireHumanApiAuth(request);
+
+  if (!auth.ok) {
+    return auth.response;
+  }
+
   const { id } = await context.params;
   const question = await getQuestion(id);
 

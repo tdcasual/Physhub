@@ -4,9 +4,23 @@ const { mockParseRawAsset } = vi.hoisted(() => ({
   mockParseRawAsset: vi.fn(),
 }));
 
+vi.mock("@/lib/db/prisma", () => ({
+  prisma: {
+    user: {
+      findUnique: vi.fn().mockResolvedValue(null),
+    },
+    apiKey: {
+      findUnique: vi.fn().mockResolvedValue(null),
+      update: vi.fn(),
+    },
+  },
+}));
+
 vi.mock("@/lib/domain/parse-raw-asset-workflow", () => ({
   parseRawAsset: mockParseRawAsset,
 }));
+
+import { editorSessionRequest } from "@/tests/unit/helpers/editor-session";
 
 describe("raw asset parse route", () => {
   beforeEach(() => {
@@ -17,7 +31,7 @@ describe("raw asset parse route", () => {
     mockParseRawAsset.mockResolvedValue({ status: "not_found" });
     const { POST } = await import("@/app/api/raw-assets/[id]/parse/route");
 
-    const response = await POST(new Request("http://localhost"), {
+    const response = await POST(editorSessionRequest("http://localhost"), {
       params: Promise.resolve({ id: "missing" }),
     });
 
@@ -32,7 +46,7 @@ describe("raw asset parse route", () => {
     mockParseRawAsset.mockResolvedValue({ status: "created", draft });
     const { POST } = await import("@/app/api/raw-assets/[id]/parse/route");
 
-    const response = await POST(new Request("http://localhost"), {
+    const response = await POST(editorSessionRequest("http://localhost"), {
       params: Promise.resolve({ id: "raw_1" }),
     });
 
@@ -44,7 +58,7 @@ describe("raw asset parse route", () => {
     mockParseRawAsset.mockResolvedValue({ status: "failed" });
     const { POST } = await import("@/app/api/raw-assets/[id]/parse/route");
 
-    const response = await POST(new Request("http://localhost"), {
+    const response = await POST(editorSessionRequest("http://localhost"), {
       params: Promise.resolve({ id: "raw_1" }),
     });
 
@@ -58,7 +72,7 @@ describe("raw asset parse route", () => {
     mockParseRawAsset.mockRejectedValue(new Error("database password leaked"));
     const { POST } = await import("@/app/api/raw-assets/[id]/parse/route");
 
-    const response = await POST(new Request("http://localhost"), {
+    const response = await POST(editorSessionRequest("http://localhost"), {
       params: Promise.resolve({ id: "raw_1" }),
     });
 

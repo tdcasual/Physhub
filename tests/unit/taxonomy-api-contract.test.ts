@@ -24,6 +24,18 @@ const {
   mockListTags: vi.fn(),
 }));
 
+vi.mock("@/lib/db/prisma", () => ({
+  prisma: {
+    user: {
+      findUnique: vi.fn().mockResolvedValue(null),
+    },
+    apiKey: {
+      findUnique: vi.fn().mockResolvedValue(null),
+      update: vi.fn(),
+    },
+  },
+}));
+
 vi.mock("@/lib/domain/taxonomy-repository", async (importOriginal) => {
   const actual =
     await importOriginal<typeof import("@/lib/domain/taxonomy-repository")>();
@@ -34,6 +46,8 @@ vi.mock("@/lib/domain/taxonomy-repository", async (importOriginal) => {
     listTags: mockListTags,
   };
 });
+
+import { editorSessionRequest } from "@/tests/unit/helpers/editor-session";
 
 describe("taxonomy repository query contracts", () => {
   it("selects stable knowledge point DTO fields and orders by sort order then name", async () => {
@@ -129,7 +143,9 @@ describe("taxonomy API response contracts", () => {
     mockListKnowledgePoints.mockResolvedValue(knowledgePoints);
     const { GET } = await import("@/app/api/knowledge-points/route");
 
-    const response = await GET();
+    const response = await GET(
+      editorSessionRequest("http://localhost/api/knowledge-points"),
+    );
 
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toEqual({ knowledgePoints });
@@ -139,7 +155,9 @@ describe("taxonomy API response contracts", () => {
     mockListKnowledgePoints.mockRejectedValue(new Error("connection refused"));
     const { GET } = await import("@/app/api/knowledge-points/route");
 
-    const response = await GET();
+    const response = await GET(
+      editorSessionRequest("http://localhost/api/knowledge-points"),
+    );
 
     expect(response.status).toBe(500);
     await expect(response.json()).resolves.toEqual({
@@ -154,7 +172,7 @@ describe("taxonomy API response contracts", () => {
     mockListTags.mockResolvedValue(tags);
     const { GET } = await import("@/app/api/tags/route");
 
-    const response = await GET();
+    const response = await GET(editorSessionRequest("http://localhost/api/tags"));
 
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toEqual({ tags });
@@ -164,7 +182,7 @@ describe("taxonomy API response contracts", () => {
     mockListTags.mockRejectedValue(new Error("connection refused"));
     const { GET } = await import("@/app/api/tags/route");
 
-    const response = await GET();
+    const response = await GET(editorSessionRequest("http://localhost/api/tags"));
 
     expect(response.status).toBe(500);
     await expect(response.json()).resolves.toEqual({

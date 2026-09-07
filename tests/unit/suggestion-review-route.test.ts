@@ -20,8 +20,10 @@ vi.mock("@/lib/db/prisma", () => ({
   prisma: mockPrisma,
 }));
 
+import { editorSessionRequest } from "@/tests/unit/helpers/editor-session";
+
 function patchRequest(body: unknown) {
-  return new Request("http://localhost/api/suggestions/suggestion_1", {
+  return editorSessionRequest("http://localhost/api/suggestions/suggestion_1", {
     method: "PATCH",
     body: JSON.stringify(body),
   });
@@ -43,7 +45,7 @@ describe("suggestion review route", () => {
     const { PATCH } = await import("@/app/api/suggestions/[id]/route");
 
     const response = await PATCH(
-      new Request("http://localhost/api/suggestions/suggestion_1", {
+      editorSessionRequest("http://localhost/api/suggestions/suggestion_1", {
         method: "PATCH",
         body: "{",
       }),

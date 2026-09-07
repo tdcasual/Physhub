@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 
+import { requireHumanApiAuth } from "@/lib/auth/human-auth";
 import { prisma } from "@/lib/db/prisma";
 
 const suggestionReviewStatuses = [
@@ -33,6 +34,12 @@ export async function PATCH(
   request: Request,
   context: SuggestionRouteContext,
 ) {
+  const auth = await requireHumanApiAuth(request);
+
+  if (!auth.ok) {
+    return auth.response;
+  }
+
   const { id } = await context.params;
 
   let body: unknown;

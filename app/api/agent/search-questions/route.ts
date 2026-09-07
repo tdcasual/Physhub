@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { hasRequiredScopes, readDevAgentScopes } from "@/lib/auth/agent-auth";
+import { hasRequiredScopes, readAgentAuth } from "@/lib/auth/agent-auth";
 import {
   mapQuestionSearchApiError,
   parseQuestionSearchRequestBody,
@@ -8,9 +8,9 @@ import {
 import { searchQuestions } from "@/lib/search/question-search";
 
 export async function POST(request: Request) {
-  const scopes = readDevAgentScopes(request);
+  const agent = await readAgentAuth(request);
 
-  if (!scopes || !hasRequiredScopes(scopes, ["questions:search"])) {
+  if (!agent || !hasRequiredScopes(agent.scopes, ["questions:search"])) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 

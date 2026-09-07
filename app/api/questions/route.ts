@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 
+import { requireHumanApiAuth } from "@/lib/auth/human-auth";
 import {
   createQuestion,
   listQuestions,
@@ -33,13 +34,25 @@ export function mapQuestionApiError(error: unknown): QuestionApiErrorResponse {
   return { error: "Unable to create question", status: 500 };
 }
 
-export async function GET() {
+export async function GET(request: Request) {
+  const auth = await requireHumanApiAuth(request);
+
+  if (!auth.ok) {
+    return auth.response;
+  }
+
   const questions = await listQuestions();
 
   return NextResponse.json({ questions });
 }
 
 export async function POST(request: Request) {
+  const auth = await requireHumanApiAuth(request, { publishRoute: true });
+
+  if (!auth.ok) {
+    return auth.response;
+  }
+
   try {
     const question = await createQuestion(await request.json());
 

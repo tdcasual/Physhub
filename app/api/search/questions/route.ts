@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 
+import { requireHumanApiAuth } from "@/lib/auth/human-auth";
 import {
   QuestionSearchPersistenceError,
   SearchRequestValidationError,
@@ -63,6 +64,12 @@ export function mapQuestionSearchApiError(
 }
 
 export async function POST(request: Request) {
+  const auth = await requireHumanApiAuth(request);
+
+  if (!auth.ok) {
+    return auth.response;
+  }
+
   try {
     const body = parseQuestionSearchRequestBody(await request.json());
     const result = await searchQuestions(body.query, body.constraints);
