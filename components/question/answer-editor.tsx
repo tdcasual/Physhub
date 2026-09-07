@@ -9,9 +9,15 @@ type AnswerEditorProps = {
   answer: SingleAnswer;
   options: EditableOption[];
   onChange: (answer: SingleAnswer) => void;
+  disabled?: boolean;
 };
 
-export function AnswerEditor({ answer, options, onChange }: AnswerEditorProps) {
+export function AnswerEditor({
+  answer,
+  options,
+  onChange,
+  disabled = false,
+}: AnswerEditorProps) {
   const hasOptions = options.length > 0;
 
   return (
@@ -30,11 +36,11 @@ export function AnswerEditor({ answer, options, onChange }: AnswerEditorProps) {
           Correct option
           <select
             value={answer.value}
-            disabled={!hasOptions}
+            disabled={disabled || !hasOptions}
             onChange={(event) =>
               onChange({ type: "single", value: event.currentTarget.value })
             }
-            className="w-full border border-stone-900/20 bg-white px-3 py-2 text-stone-950"
+            className="w-full border border-stone-900/20 bg-white px-3 py-2 text-stone-950 disabled:bg-stone-100"
           >
             {options.map((option, index) => (
               <option key={`${index}-${option.label}`} value={option.label}>

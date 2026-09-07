@@ -214,22 +214,42 @@ export function DraftReviewWorkspace({ draft }: { draft: DraftReviewWorkspaceDra
     }
   }
 
-  function handleSave() {
-    return patchDraft("save", {
-      type: draft.type ?? undefined,
+  function buildEditorFields() {
+    const body: Record<string, unknown> = {
       stemMd,
-      options: previewOptions,
-      answer,
       solutionMd,
-    });
+    };
+
+    if (draft.type) {
+      body.type = draft.type;
+    }
+
+    if (previewOptions.length > 0) {
+      body.options = previewOptions;
+    }
+
+    const canSendSingleAnswer =
+      (draft.type === "SINGLE_CHOICE" || draft.type == null) &&
+      answer.value.trim().length > 0 &&
+      previewOptions.some((option) => option.label === answer.value);
+
+    if (canSendSingleAnswer) {
+      body.answer = answer;
+    }
+
+    return body;
+  }
+
+  function handleSave() {
+    return patchDraft("save", buildEditorFields());
   }
 
   function handleReject() {
-    return patchDraft("reject", { status: "REJECTED" });
+    return patchDraft("reject", { ...buildEditorFields(), status: "REJECTED" });
   }
 
   function handleSendBack() {
-    return patchDraft("send-back", { status: "DRAFT" });
+    return patchDraft("send-back", { ...buildEditorFields(), status: "DRAFT" });
   }
 
   function handleOptionsChange(nextOptions: EditableOption[]) {
@@ -403,12 +423,22 @@ export function DraftReviewWorkspace({ draft }: { draft: DraftReviewWorkspaceDra
                 value={stemMd}
                 onChange={(event) => setStemMd(event.currentTarget.value)}
                 rows={8}
-                className="w-full resize-y border border-stone-900/20 bg-white px-4 py-3 font-mono text-sm text-stone-950 shadow-sm"
+                disabled={!canEdit}
+                className="w-full resize-y border border-stone-900/20 bg-white px-4 py-3 font-mono text-sm text-stone-950 shadow-sm disabled:bg-stone-100"
               />
             </label>
 
-            <OptionEditor options={options} onChange={handleOptionsChange} />
-            <AnswerEditor answer={answer} options={previewOptions} onChange={setAnswer} />
+            <OptionEditor
+              options={options}
+              onChange={handleOptionsChange}
+              disabled={!canEdit}
+            />
+            <AnswerEditor
+              answer={answer}
+              options={previewOptions}
+              onChange={setAnswer}
+              disabled={!canEdit}
+            />
 
             <label className="block space-y-2 text-sm font-medium text-stone-900/70">
               Solution Markdown
@@ -416,7 +446,8 @@ export function DraftReviewWorkspace({ draft }: { draft: DraftReviewWorkspaceDra
                 value={solutionMd}
                 onChange={(event) => setSolutionMd(event.currentTarget.value)}
                 rows={6}
-                className="w-full resize-y border border-stone-900/20 bg-white px-4 py-3 font-mono text-sm text-stone-950 shadow-sm"
+                disabled={!canEdit}
+                className="w-full resize-y border border-stone-900/20 bg-white px-4 py-3 font-mono text-sm text-stone-950 shadow-sm disabled:bg-stone-100"
               />
             </label>
 

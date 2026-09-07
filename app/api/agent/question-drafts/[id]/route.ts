@@ -33,10 +33,11 @@ export async function GET(
   request: Request,
   context: AgentQuestionDraftRouteContext,
 ) {
+  const requestId = readRequestId(request);
   const agent = await readAgentAuth(request);
 
   if (!agent || !hasRequiredScopes(agent.scopes, ["drafts:read"])) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return jsonWithRequestId({ error: "Unauthorized" }, 401, requestId);
   }
 
   const { id } = await context.params;
@@ -45,14 +46,15 @@ export async function GET(
     const draft = await getQuestionDraft(id);
 
     if (!draft) {
-      return NextResponse.json({ error: "Draft not found" }, { status: 404 });
+      return jsonWithRequestId({ error: "Draft not found" }, 404, requestId);
     }
 
     return NextResponse.json({ draft });
   } catch {
-    return NextResponse.json(
+    return jsonWithRequestId(
       { error: "Failed to load question draft" },
-      { status: 500 },
+      500,
+      requestId,
     );
   }
 }
@@ -65,7 +67,7 @@ export async function PATCH(
   const agent = await readAgentAuth(request);
 
   if (!agent || !hasRequiredScopes(agent.scopes, ["drafts:update"])) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return jsonWithRequestId({ error: "Unauthorized" }, 401, requestId);
   }
 
   const { id } = await context.params;

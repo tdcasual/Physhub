@@ -385,6 +385,24 @@ function buildCreateData(
   };
 }
 
+const UPDATABLE_STATUSES: DraftStatus[] = ["DRAFT", "NEEDS_REVIEW"];
+
+function buildUpdateWhere(
+  id: string,
+  currentStatus: DraftStatus,
+  nextStatus: DraftStatus | undefined,
+): Prisma.QuestionDraftWhereInput {
+  if (nextStatus && nextStatus !== currentStatus) {
+    if (nextStatus === "REJECTED") {
+      return { id, status: { in: UPDATABLE_STATUSES } };
+    }
+
+    return { id, status: currentStatus };
+  }
+
+  return { id, status: { in: UPDATABLE_STATUSES } };
+}
+
 function buildUpdateData(
   input: QuestionDraftWriteInput,
   currentStatus: DraftStatus,
@@ -521,10 +539,33 @@ export async function updateQuestionDraft(
     return toQuestionDraftDto(current);
   }
 
-  const draft = await db.questionDraft.update({
-    where: { id },
+  const written = await db.questionDraft.updateMany({
+    where: buildUpdateWhere(id, current.status, normalized.status),
     data,
   });
+
+  if (written.count === 0) {
+    const raced = await db.questionDraft.findUnique({ where: { id } });
+
+    if (!raced) {
+      throw new DraftNotFoundError();
+    }
+
+    const racedSameStatus =
+      input.status !== undefined && input.status === raced.status;
+
+    if (racedSameStatus && !contentUpdates) {
+      return toQuestionDraftDto(raced);
+    }
+
+    throw new DraftNotUpdatableError();
+  }
+
+  const draft = await db.questionDraft.findUnique({ where: { id } });
+
+  if (!draft) {
+    throw new DraftNotFoundError();
+  }
 
   return toQuestionDraftDto(draft);
 }

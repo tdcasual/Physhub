@@ -126,10 +126,16 @@ export function hashMultipartRequest(
 }
 
 export function parseIdempotencyKey(request: Request): string {
-  const key = request.headers.get(IDEMPOTENCY_KEY_HEADER)?.trim() ?? "";
+  const header = request.headers.get(IDEMPOTENCY_KEY_HEADER);
 
-  if (!key || key.length > 128 || !/^[A-Za-z0-9._-]+$/.test(key)) {
+  if (header == null || header.trim() === "") {
     throw new IdempotencyError("Idempotency-Key is required", 400);
+  }
+
+  const key = header.trim();
+
+  if (key.length > 128 || !/^[A-Za-z0-9._-]+$/.test(key)) {
+    throw new IdempotencyError("Invalid Idempotency-Key", 400);
   }
 
   return key;

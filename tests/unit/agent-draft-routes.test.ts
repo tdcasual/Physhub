@@ -26,6 +26,7 @@ const { mockPrisma, mockReadAgentAuth } = vi.hoisted(() => {
     questionDraft: {
       create: vi.fn(),
       update: vi.fn(),
+      updateMany: vi.fn(),
       findUnique: vi.fn(),
       findMany: vi.fn(),
     },
@@ -133,6 +134,7 @@ beforeEach(() => {
   mockPrisma.idempotencyRecord.findFirst.mockResolvedValue(null);
   mockPrisma.questionDraft.create.mockResolvedValue(draftRow());
   mockPrisma.questionDraft.update.mockResolvedValue(draftRow());
+  mockPrisma.questionDraft.updateMany.mockResolvedValue({ count: 1 });
   mockPrisma.questionDraft.findUnique.mockResolvedValue(null);
   mockPrisma.questionDraft.findMany.mockResolvedValue([]);
   mockPrisma.agentRun.create.mockResolvedValue({ id: "run_1" });
@@ -164,7 +166,7 @@ describe("POST /api/agent/question-drafts", () => {
     );
 
     expect(response.status).toBe(401);
-    await expect(response.json()).resolves.toEqual({ error: "Unauthorized" });
+    await expect(response.json()).resolves.toMatchObject({ error: "Unauthorized" });
     expect(mockPrisma.questionDraft.create).not.toHaveBeenCalled();
   });
 
@@ -246,6 +248,46 @@ describe("POST /api/agent/question-drafts", () => {
     expect(mockPrisma.rawAsset.findUnique).not.toHaveBeenCalled();
   });
 
+  it("returns 422 for unknown knowledgePointIds", async () => {
+    mockPrisma.knowledgePoint.findMany.mockResolvedValue([]);
+
+    const response = await postAgentDrafts(
+      agentRequest("http://localhost/api/agent/question-drafts", {
+        method: "POST",
+        body: JSON.stringify({
+          stemMd: "题干",
+          knowledgePointIds: ["missing_kp"],
+        }),
+      }),
+    );
+
+    expect(response.status).toBe(422);
+    await expect(response.json()).resolves.toMatchObject({
+      error: "Knowledge point not found",
+    });
+    expect(mockPrisma.questionDraft.create).not.toHaveBeenCalled();
+  });
+
+  it("returns 422 for unknown tagIds", async () => {
+    mockPrisma.tag.findMany.mockResolvedValue([]);
+
+    const response = await postAgentDrafts(
+      agentRequest("http://localhost/api/agent/question-drafts", {
+        method: "POST",
+        body: JSON.stringify({
+          stemMd: "题干",
+          tagIds: ["missing_tag"],
+        }),
+      }),
+    );
+
+    expect(response.status).toBe(422);
+    await expect(response.json()).resolves.toMatchObject({
+      error: "Tag not found",
+    });
+    expect(mockPrisma.questionDraft.create).not.toHaveBeenCalled();
+  });
+
   it("normalizes choice labels when options and answer are present", async () => {
     mockPrisma.questionDraft.create.mockResolvedValue(
       draftRow({
@@ -292,8 +334,8 @@ describe("PATCH /api/agent/question-drafts/:id", () => {
     );
 
     expect(response.status).toBe(401);
-    await expect(response.json()).resolves.toEqual({ error: "Unauthorized" });
-    expect(mockPrisma.questionDraft.update).not.toHaveBeenCalled();
+    await expect(response.json()).resolves.toMatchObject({ error: "Unauthorized" });
+    expect(mockPrisma.questionDraft.updateMany).not.toHaveBeenCalled();
   });
 
   it("rejects agent REJECTED with 400 Invalid draft status", async () => {
@@ -310,6 +352,48 @@ describe("PATCH /api/agent/question-drafts/:id", () => {
       error: "Invalid draft status",
     });
     expect(mockPrisma.questionDraft.findUnique).not.toHaveBeenCalled();
+  });
+
+  it.each(["DRAFT", "PROMOTED"] as const)(
+    "rejects agent status %s with 400 Invalid draft status",
+    async (status) => {
+      const response = await patchAgentDraft(
+        agentRequest("http://localhost/api/agent/question-drafts/draft_1", {
+          method: "PATCH",
+          body: JSON.stringify({ status }),
+        }),
+        { params: Promise.resolve({ id: "draft_1" }) },
+      );
+
+      expect(response.status).toBe(400);
+      await expect(response.json()).resolves.toMatchObject({
+        error: "Invalid draft status",
+      });
+      expect(mockPrisma.questionDraft.findUnique).not.toHaveBeenCalled();
+    },
+  );
+
+  it("moves DRAFT to NEEDS_REVIEW with a conditional update", async () => {
+    mockPrisma.questionDraft.findUnique
+      .mockResolvedValueOnce(draftRow({ status: "DRAFT" }))
+      .mockResolvedValueOnce(draftRow({ status: "NEEDS_REVIEW" }));
+
+    const response = await patchAgentDraft(
+      agentRequest("http://localhost/api/agent/question-drafts/draft_1", {
+        method: "PATCH",
+        body: JSON.stringify({ status: "NEEDS_REVIEW" }),
+      }),
+      { params: Promise.resolve({ id: "draft_1" }) },
+    );
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({
+      draft: { id: "draft_1", status: "NEEDS_REVIEW" },
+    });
+    expect(mockPrisma.questionDraft.updateMany).toHaveBeenCalledWith({
+      where: { id: "draft_1", status: "DRAFT" },
+      data: { status: "NEEDS_REVIEW" },
+    });
   });
 
   it("returns 200 no-op when status is already NEEDS_REVIEW", async () => {
@@ -330,13 +414,34 @@ describe("PATCH /api/agent/question-drafts/:id", () => {
       request_id: "req-1",
       draft: { id: "draft_1", status: "NEEDS_REVIEW" },
     });
-    expect(mockPrisma.questionDraft.update).not.toHaveBeenCalled();
+    expect(mockPrisma.questionDraft.updateMany).not.toHaveBeenCalled();
   });
 
   it("returns 409 when the draft is already promoted", async () => {
     mockPrisma.questionDraft.findUnique.mockResolvedValue(
       draftRow({ status: "PROMOTED" }),
     );
+
+    const response = await patchAgentDraft(
+      agentRequest("http://localhost/api/agent/question-drafts/draft_1", {
+        method: "PATCH",
+        body: JSON.stringify({ stemMd: "改题干" }),
+      }),
+      { params: Promise.resolve({ id: "draft_1" }) },
+    );
+
+    expect(response.status).toBe(409);
+    await expect(response.json()).resolves.toMatchObject({
+      error: "Draft is not updatable",
+    });
+    expect(mockPrisma.questionDraft.updateMany).not.toHaveBeenCalled();
+  });
+
+  it("returns 409 when a concurrent reject wins the conditional update", async () => {
+    mockPrisma.questionDraft.findUnique
+      .mockResolvedValueOnce(draftRow({ status: "DRAFT" }))
+      .mockResolvedValueOnce(draftRow({ status: "REJECTED" }));
+    mockPrisma.questionDraft.updateMany.mockResolvedValue({ count: 0 });
 
     const response = await patchAgentDraft(
       agentRequest("http://localhost/api/agent/question-drafts/draft_1", {
@@ -368,7 +473,7 @@ describe("GET /api/agent/question-drafts/:id", () => {
     );
 
     expect(response.status).toBe(401);
-    await expect(response.json()).resolves.toEqual({ error: "Unauthorized" });
+    await expect(response.json()).resolves.toMatchObject({ error: "Unauthorized" });
     expect(mockPrisma.questionDraft.findUnique).not.toHaveBeenCalled();
   });
 
@@ -384,7 +489,10 @@ describe("GET /api/agent/question-drafts/:id", () => {
     );
 
     expect(response.status).toBe(404);
-    await expect(response.json()).resolves.toEqual({ error: "Draft not found" });
+    await expect(response.json()).resolves.toMatchObject({
+      error: "Draft not found",
+      request_id: "req-1",
+    });
   });
 
   it("returns the draft without requiring an Idempotency-Key", async () => {
@@ -427,10 +535,9 @@ describe("human draft routes", () => {
 
   it("lets a human reject a draft", async () => {
     mockReadAgentAuth.mockResolvedValue(null);
-    mockPrisma.questionDraft.findUnique.mockResolvedValue(draftRow());
-    mockPrisma.questionDraft.update.mockResolvedValue(
-      draftRow({ status: "REJECTED" }),
-    );
+    mockPrisma.questionDraft.findUnique
+      .mockResolvedValueOnce(draftRow())
+      .mockResolvedValueOnce(draftRow({ status: "REJECTED" }));
 
     const response = await patchHumanDraft(
       editorSessionRequest("http://localhost/api/drafts/draft_1", {
@@ -444,18 +551,17 @@ describe("human draft routes", () => {
     await expect(response.json()).resolves.toMatchObject({
       draft: { id: "draft_1", status: "REJECTED" },
     });
-    expect(mockPrisma.questionDraft.update).toHaveBeenCalledWith({
-      where: { id: "draft_1" },
+    expect(mockPrisma.questionDraft.updateMany).toHaveBeenCalledWith({
+      where: { id: "draft_1", status: { in: ["DRAFT", "NEEDS_REVIEW"] } },
       data: { status: "REJECTED" },
     });
   });
 
   it("lets a human send a NEEDS_REVIEW draft back to DRAFT", async () => {
     mockReadAgentAuth.mockResolvedValue(null);
-    mockPrisma.questionDraft.findUnique.mockResolvedValue(
-      draftRow({ status: "NEEDS_REVIEW" }),
-    );
-    mockPrisma.questionDraft.update.mockResolvedValue(draftRow({ status: "DRAFT" }));
+    mockPrisma.questionDraft.findUnique
+      .mockResolvedValueOnce(draftRow({ status: "NEEDS_REVIEW" }))
+      .mockResolvedValueOnce(draftRow({ status: "DRAFT" }));
 
     const response = await patchHumanDraft(
       editorSessionRequest("http://localhost/api/drafts/draft_1", {
@@ -466,8 +572,8 @@ describe("human draft routes", () => {
     );
 
     expect(response.status).toBe(200);
-    expect(mockPrisma.questionDraft.update).toHaveBeenCalledWith({
-      where: { id: "draft_1" },
+    expect(mockPrisma.questionDraft.updateMany).toHaveBeenCalledWith({
+      where: { id: "draft_1", status: "NEEDS_REVIEW" },
       data: { status: "DRAFT" },
     });
   });
@@ -485,7 +591,7 @@ describe("human draft routes", () => {
     );
 
     expect(response.status).toBe(200);
-    expect(mockPrisma.questionDraft.update).not.toHaveBeenCalled();
+    expect(mockPrisma.questionDraft.updateMany).not.toHaveBeenCalled();
   });
 
   it("lists drafts for an editor session", async () => {

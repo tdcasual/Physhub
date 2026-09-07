@@ -23,6 +23,7 @@ const { mockPrisma, mockReadAgentAuth } = vi.hoisted(() => {
     questionDraft: {
       create: vi.fn(),
       update: vi.fn(),
+      updateMany: vi.fn(),
       findUnique: vi.fn(),
       findMany: vi.fn(),
     },
@@ -340,6 +341,26 @@ describe("POST /api/agent/question-drafts idempotency", () => {
     expect(response.status).toBe(400);
     await expect(response.json()).resolves.toMatchObject({
       error: "Idempotency-Key is required",
+    });
+    expect(mockPrisma.questionDraft.create).not.toHaveBeenCalled();
+  });
+
+  it("returns 400 Invalid Idempotency-Key for illegal key characters", async () => {
+    const response = await postAgentDrafts(
+      new Request("http://localhost/api/agent/question-drafts", {
+        method: "POST",
+        headers: {
+          Authorization: "Bearer dev-agent-key",
+          "content-type": "application/json",
+          "Idempotency-Key": "not a valid key",
+        },
+        body: JSON.stringify({ stemMd: "题干" }),
+      }),
+    );
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toMatchObject({
+      error: "Invalid Idempotency-Key",
     });
     expect(mockPrisma.questionDraft.create).not.toHaveBeenCalled();
   });

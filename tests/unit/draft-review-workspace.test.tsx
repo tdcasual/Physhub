@@ -147,15 +147,61 @@ describe("DraftReviewWorkspace", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Send back" }));
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
-    expect(JSON.parse(String(fetchMock.mock.calls[1][1]?.body))).toEqual({
+    expect(JSON.parse(String(fetchMock.mock.calls[1][1]?.body))).toMatchObject({
       status: "DRAFT",
+      stemMd: draft.stemMd,
+      answer: { type: "single", value: "B" },
     });
 
     fireEvent.click(screen.getByRole("button", { name: "Reject" }));
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(3));
-    expect(JSON.parse(String(fetchMock.mock.calls[2][1]?.body))).toEqual({
+    expect(JSON.parse(String(fetchMock.mock.calls[2][1]?.body))).toMatchObject({
       status: "REJECTED",
+      stemMd: draft.stemMd,
     });
+  });
+
+  it("omits an empty single-choice answer when saving an incomplete draft", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ draft: { id: "draft_1", status: "DRAFT" } }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(
+      <DraftReviewWorkspace
+        draft={{
+          ...draft,
+          status: "DRAFT",
+          type: null,
+          optionsJson: null,
+          answerJson: null,
+        }}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalled());
+
+    const body = JSON.parse(String(fetchMock.mock.calls[0][1]?.body)) as Record<
+      string,
+      unknown
+    >;
+    expect(body).toMatchObject({ stemMd: draft.stemMd });
+    expect(body).not.toHaveProperty("answer");
+    expect(body).not.toHaveProperty("options");
+  });
+
+  it("makes rejected drafts read-only", () => {
+    render(<DraftReviewWorkspace draft={{ ...draft, status: "REJECTED" }} />);
+
+    expect(screen.queryByRole("button", { name: "Save" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Reject" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Send back" })).not.toBeInTheDocument();
+    expect(screen.getByLabelText("Stem Markdown")).toBeDisabled();
+    expect(screen.getByLabelText("Solution Markdown")).toBeDisabled();
+    expect(screen.getByLabelText("Correct option")).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Add option" })).toBeDisabled();
   });
 
   it("renders the source image through the raw asset file route", () => {

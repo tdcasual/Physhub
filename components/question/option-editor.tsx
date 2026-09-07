@@ -6,11 +6,16 @@ export type EditableOption = {
 type OptionEditorProps = {
   options: EditableOption[];
   onChange: (options: EditableOption[]) => void;
+  disabled?: boolean;
 };
 
 const nextLabels = ["A", "B", "C", "D", "E", "F"];
 
-export function OptionEditor({ options, onChange }: OptionEditorProps) {
+export function OptionEditor({
+  options,
+  onChange,
+  disabled = false,
+}: OptionEditorProps) {
   function updateOption(index: number, field: keyof EditableOption, value: string) {
     onChange(
       options.map((option, optionIndex) =>
@@ -35,7 +40,8 @@ export function OptionEditor({ options, onChange }: OptionEditorProps) {
         <button
           type="button"
           onClick={addOption}
-          className="border border-stone-900/20 bg-white px-3 py-2 text-sm font-medium hover:bg-sky-50"
+          disabled={disabled}
+          className="border border-stone-900/20 bg-white px-3 py-2 text-sm font-medium hover:bg-sky-50 disabled:opacity-50"
         >
           Add option
         </button>
@@ -55,10 +61,11 @@ export function OptionEditor({ options, onChange }: OptionEditorProps) {
                 <input
                   aria-label={`Option ${index + 1} label`}
                   value={option.label}
+                  disabled={disabled}
                   onChange={(event) =>
                     updateOption(index, "label", event.currentTarget.value)
                   }
-                  className="w-full border border-stone-900/20 bg-white px-3 py-2 text-stone-950"
+                  className="w-full border border-stone-900/20 bg-white px-3 py-2 text-stone-950 disabled:bg-stone-100"
                 />
               </label>
               <label className="space-y-1 text-sm font-medium text-stone-900/70">
@@ -66,18 +73,20 @@ export function OptionEditor({ options, onChange }: OptionEditorProps) {
                 <textarea
                   aria-label={`Option ${index + 1} ${rowLabel} value markdown`}
                   value={option.value}
+                  disabled={disabled}
                   onChange={(event) =>
                     updateOption(index, "value", event.currentTarget.value)
                   }
                   rows={2}
-                  className="w-full resize-y border border-stone-900/20 bg-white px-3 py-2 text-stone-950"
+                  className="w-full resize-y border border-stone-900/20 bg-white px-3 py-2 text-stone-950 disabled:bg-stone-100"
                 />
               </label>
               <button
                 type="button"
                 aria-label={`Remove option row ${index + 1} (${rowLabel})`}
                 onClick={() => removeOption(index)}
-                className="self-end border border-stone-900/20 bg-white px-3 py-2 text-sm font-medium text-stone-700 hover:bg-orange-50"
+                disabled={disabled}
+                className="self-end border border-stone-900/20 bg-white px-3 py-2 text-sm font-medium text-stone-700 hover:bg-orange-50 disabled:opacity-50"
               >
                 Remove
               </button>

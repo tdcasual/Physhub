@@ -27,7 +27,7 @@ export async function POST(request: Request) {
   const agent = await readAgentAuth(request);
 
   if (!agent || !hasRequiredScopes(agent.scopes, ["drafts:create"])) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return jsonWithRequestId({ error: "Unauthorized" }, 401, requestId);
   }
 
   try {
