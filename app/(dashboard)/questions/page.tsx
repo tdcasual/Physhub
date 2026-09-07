@@ -1,11 +1,10 @@
 import { Prisma } from "@prisma/client";
 import Link from "next/link";
 
-import {
-  QuestionList,
-  type QuestionListItem,
-} from "@/components/question/question-list";
-import { QuestionSearchPanel } from "@/components/search/question-search-panel";
+import { UnlockForm } from "@/components/auth/unlock-form";
+import { QuestionsWorkbench } from "@/components/question/questions-workbench";
+import { type QuestionListItem } from "@/components/question/question-list";
+import { readEditorSessionFromCookies } from "@/lib/auth/human-auth";
 import { prisma } from "@/lib/db/prisma";
 
 export const dynamic = "force-dynamic";
@@ -70,6 +69,12 @@ async function getRecentQuestions(): Promise<QuestionListItem[]> {
 }
 
 export default async function QuestionsPage() {
+  const session = await readEditorSessionFromCookies();
+
+  if (!session) {
+    return <UnlockForm />;
+  }
+
   const questions = await getRecentQuestions();
 
   return (
@@ -103,8 +108,7 @@ export default async function QuestionsPage() {
           </div>
         </header>
 
-        <QuestionSearchPanel />
-        <QuestionList questions={questions} />
+        <QuestionsWorkbench questions={questions} />
       </div>
     </main>
   );

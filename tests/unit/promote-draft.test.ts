@@ -384,6 +384,20 @@ describe("POST /api/drafts/:id/promote", () => {
     expect(mockPrisma.question.create).not.toHaveBeenCalled();
   });
 
+  it("returns 400 when the draft has no knowledge points", async () => {
+    mockPrisma.questionDraft.findUnique.mockResolvedValue(
+      publishableDraft({ knowledgePointIds: [] }),
+    );
+
+    const response = await promoteRequest();
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toEqual({
+      error: expect.stringContaining("必须确认知识点"),
+    });
+    expect(mockPrisma.question.create).not.toHaveBeenCalled();
+  });
+
   it("returns 422 when a knowledge point is missing", async () => {
     mockPrisma.knowledgePoint.findMany.mockResolvedValue([]);
 

@@ -54,7 +54,7 @@ Stem figures: `![](/api/raw-assets/<id>/file)` (allowlist prefix `/api/raw-asset
 
 `POST /api/agent/search-questions` body is natural-language `query` plus optional `constraints`. Not SQL / Prisma `where`.
 
-Official questions are `REVIEWED`. Omit `constraints.status` (or send `[]`) and the server defaults to `["REVIEWED"]`. `PUBLISHED` is a legal constraint; do not search `PUBLISHED`-only for official questions (v1 has no publish entry).
+Official questions are `REVIEWED` or `PUBLISHED`. Omit `constraints.status` (or send `[]`) and the server defaults to `["REVIEWED","PUBLISHED"]`. `DEPRECATED` is excluded unless you pass it explicitly.
 
 `get_question` takes `results[].id` (internal cuid). `results[].question_id` is `publicId` and will 404.
 

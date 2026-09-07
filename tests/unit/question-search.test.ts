@@ -124,21 +124,21 @@ describe("understandQuestionSearchQuery", () => {
 });
 
 describe("buildQuestionSearchWhere", () => {
-  it("defaults omitted status to REVIEWED", () => {
+  it("defaults omitted status to REVIEWED and PUBLISHED", () => {
     expect(
       buildQuestionSearchWhere(understandQuestionSearchQuery("找题")),
     ).toMatchObject({
-      status: { in: ["REVIEWED"] },
+      status: { in: ["REVIEWED", "PUBLISHED"] },
     });
   });
 
-  it("treats empty status as omitted and defaults to REVIEWED", () => {
+  it("treats empty status as omitted and defaults to REVIEWED and PUBLISHED", () => {
     expect(
       buildQuestionSearchWhere(understandQuestionSearchQuery("找题"), {
         status: [],
       }),
     ).toMatchObject({
-      status: { in: ["REVIEWED"] },
+      status: { in: ["REVIEWED", "PUBLISHED"] },
     });
   });
 
@@ -195,7 +195,7 @@ describe("buildQuestionSearchWhere", () => {
 });
 
 describe("searchQuestions", () => {
-  it("defaults omitted status to REVIEWED", async () => {
+  it("defaults omitted status to REVIEWED and PUBLISHED", async () => {
     findManyMock.mockResolvedValueOnce([]);
 
     await searchQuestions("找题");
@@ -203,13 +203,13 @@ describe("searchQuestions", () => {
     expect(findManyMock).toHaveBeenCalledWith(
       expect.objectContaining({
         where: expect.objectContaining({
-          status: { in: ["REVIEWED"] },
+          status: { in: ["REVIEWED", "PUBLISHED"] },
         }),
       }),
     );
   });
 
-  it("defaults empty status to REVIEWED", async () => {
+  it("defaults empty status to REVIEWED and PUBLISHED", async () => {
     findManyMock.mockResolvedValueOnce([]);
 
     await searchQuestions("找题", { status: [] });
@@ -217,7 +217,7 @@ describe("searchQuestions", () => {
     expect(findManyMock).toHaveBeenCalledWith(
       expect.objectContaining({
         where: expect.objectContaining({
-          status: { in: ["REVIEWED"] },
+          status: { in: ["REVIEWED", "PUBLISHED"] },
         }),
       }),
     );

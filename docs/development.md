@@ -2,7 +2,7 @@
 
 This project is the cloud workbench for curating **existing** high-school physics questions. See the root [README](../README.md) for product setup, secrets, and the harness-first boundary.
 
-The platform does not embed an LLM and does not ship an MCP server. External coding-agent harnesses structure source material; humans review drafts before they become official questions. Promote is upcoming.
+The platform does not embed an LLM and does not ship an MCP server. External coding-agent harnesses structure source material; humans review drafts before they become official questions. Promote is the only official insert path.
 
 ## Setup
 
@@ -12,7 +12,7 @@ The platform does not embed an LLM and does not ship an MCP server. External cod
    cp .env.example .env
    ```
 
-   Generate `EDITOR_SESSION_SECRET` with a CSPRNG (`openssl rand -hex 32`) and add it to `.env` now. After editor-session auth, a missing secret fail-closes human APIs; this branch does not yet reject unauthenticated human requests. `AGENT_API_KEY_DEV` is non-production only; production is designed to use the `ApiKey` table.
+   Generate `EDITOR_SESSION_SECRET` with a CSPRNG (`openssl rand -hex 32`) and add it to `.env`. A missing secret fail-closes human APIs with 401. `AGENT_API_KEY_DEV` is non-production only; production is designed to use the `ApiKey` table.
 
 2. Start PostgreSQL and set `DATABASE_URL` in `.env`.
 
@@ -48,6 +48,8 @@ The platform does not embed an LLM and does not ship an MCP server. External cod
    npm run dev
    ```
 
+Open `/questions` and enter the editor secret. Dashboard pages do not query drafts or questions until that cookie is set.
+
 ## Quality Commands
 
 Run the main local quality gate before handing off changes:
@@ -70,7 +72,7 @@ Run E2E tests when changing user flows, routing, production startup, or browser 
 npm run test:e2e
 ```
 
-The E2E command builds the app and starts the production server on port 3100.
+The E2E command builds the app and starts the production server on port 3100. Playwright injects a test `EDITOR_SESSION_SECRET` via `webServer.env`; it does not rely on a developer `.env`.
 
 ## AI Boundary
 
@@ -86,7 +88,7 @@ Harness / AI may:
 
 Agents must not:
 
-- Publish final questions. Official insert is human promote (`POST /api/drafts/:id/promote`). Human `POST /api/questions` is a create-draft + promote wrapper.
+- Publish final questions. Official insert is human promote (`POST /api/drafts/:id/promote`). Human `POST /api/questions` is a create-draft + promote wrapper. Agent `POST /api/questions` returns `403` `Agent cannot publish questions`.
 - Delete final questions.
 - Generate original questions.
 - Directly overwrite confirmed metadata.

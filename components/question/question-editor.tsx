@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { RawAssetUpload } from "@/components/raw-asset/raw-asset-upload";
 import { QuestionPreview } from "./question-preview";
 import { AnswerEditor, type SingleAnswer } from "./answer-editor";
 import { OptionEditor, type EditableOption } from "./option-editor";
@@ -67,6 +68,7 @@ export function QuestionEditor() {
   const [solutionMd, setSolutionMd] = useState(initialSolution);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [sourceRawAssetId, setSourceRawAssetId] = useState<string | null>(null);
 
   const previewOptions = useMemo(() => validOptions(options), [options]);
 
@@ -85,6 +87,7 @@ export function QuestionEditor() {
           options: previewOptions,
           answer,
           solutionMd,
+          ...(sourceRawAssetId ? { sourceRawAssetId } : {}),
         }),
       });
       const payload = (await response.json()) as {
@@ -137,6 +140,8 @@ export function QuestionEditor() {
             className="w-full resize-y border border-stone-900/20 bg-white px-4 py-3 font-mono text-sm text-stone-950 shadow-sm"
           />
         </label>
+
+        <RawAssetUpload onUploaded={setSourceRawAssetId} />
 
         <OptionEditor options={options} onChange={handleOptionsChange} />
 

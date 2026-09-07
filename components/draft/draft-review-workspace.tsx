@@ -6,6 +6,7 @@ import type { DraftStatus, JobStatus, QuestionType, RawAssetKind, RawAssetStatus
 import { AnswerEditor, type SingleAnswer } from "@/components/question/answer-editor";
 import { OptionEditor, type EditableOption } from "@/components/question/option-editor";
 import { QuestionPreview } from "@/components/question/question-preview";
+import { RawAssetUpload } from "@/components/raw-asset/raw-asset-upload";
 import { suggestionPayloadMissingKnowledgePointId } from "@/lib/domain/suggestion-policy";
 
 export type JsonPrimitive = string | number | boolean | null;
@@ -544,6 +545,13 @@ export function DraftReviewWorkspace({ draft }: { draft: DraftReviewWorkspaceDra
                 This draft is not linked to a raw asset.
               </p>
             )}
+            {canEdit ? (
+              <RawAssetUpload
+                onUploaded={(rawAssetId) => {
+                  void patchDraft("attach-source", { sourceRawAssetId: rawAssetId });
+                }}
+              />
+            ) : null}
           </section>
 
           <section aria-labelledby="structured-draft-heading" className="space-y-5">

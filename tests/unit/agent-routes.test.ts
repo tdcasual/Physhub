@@ -102,11 +102,11 @@ describe("POST /api/agent/search-questions", () => {
     expect(response.status).toBe(200);
     expect(mockSearchQuestions).toHaveBeenCalledWith("找题", {
       limit: 3,
-      status: ["REVIEWED"],
+      status: ["REVIEWED", "PUBLISHED"],
     });
   });
 
-  it("defaults empty constraints.status to REVIEWED", async () => {
+  it("defaults empty constraints.status to REVIEWED and PUBLISHED", async () => {
     mockSearchQuestions.mockResolvedValue({
       understanding: { rawQuery: "找题", terms: [], limit: 10 },
       results: [],
@@ -126,7 +126,7 @@ describe("POST /api/agent/search-questions", () => {
     expect(response.status).toBe(200);
     expect(mockSearchQuestions).toHaveBeenCalledWith("找题", {
       limit: 2,
-      status: ["REVIEWED"],
+      status: ["REVIEWED", "PUBLISHED"],
     });
   });
 

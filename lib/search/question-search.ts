@@ -255,9 +255,9 @@ export function normalizeQuestionSearchConstraints(
 
   if (constraints.status !== undefined) {
     const statuses = uniqueStatuses(normalizeStatus(constraints.status));
-    normalized.status = statuses.length > 0 ? statuses : ["REVIEWED"];
+    normalized.status = statuses.length > 0 ? statuses : ["REVIEWED", "PUBLISHED"];
   } else {
-    normalized.status = ["REVIEWED"];
+    normalized.status = ["REVIEWED", "PUBLISHED"];
   }
 
   return normalized;

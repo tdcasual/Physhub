@@ -1,7 +1,14 @@
 import { render, screen } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import DraftsPage from "@/app/(dashboard)/drafts/page";
+import {
+  dashboardCookieStore,
+  setDashboardCookie,
+} from "@/tests/unit/helpers/dashboard-cookies";
+
+vi.mock("next/headers", () => ({
+  cookies: async () => dashboardCookieStore,
+}));
 
 const mocks = vi.hoisted(() => ({
   findMany: vi.fn(),
@@ -15,7 +22,25 @@ vi.mock("@/lib/db/prisma", () => ({
   },
 }));
 
+import DraftsPage from "@/app/(dashboard)/drafts/page";
+
 describe("DraftsPage", () => {
+  beforeEach(() => {
+    mocks.findMany.mockReset();
+    dashboardCookieStore.get.mockReset();
+    setDashboardCookie(true);
+  });
+
+  it("renders unlock form and does not query Prisma without a session cookie", async () => {
+    setDashboardCookie(false);
+
+    render(await DraftsPage());
+
+    expect(screen.getByRole("heading", { name: "Unlock editor" })).toBeInTheDocument();
+    expect(mocks.findMany).not.toHaveBeenCalled();
+    expect(screen.queryByText("No unpromoted drafts.")).not.toBeInTheDocument();
+  });
+
   it("lists unpromoted drafts with status, updated time, and truncated stem", async () => {
     const longStem = `${"如图所示为某物体做直线运动的 v-t 图像。".repeat(8)} extra`;
 

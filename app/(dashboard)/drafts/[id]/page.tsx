@@ -1,11 +1,13 @@
 import { Prisma } from "@prisma/client";
 import { notFound } from "next/navigation";
 
+import { UnlockForm } from "@/components/auth/unlock-form";
 import {
   DraftReviewWorkspace,
   type DraftReviewWorkspaceDraft,
   type JsonValue,
 } from "@/components/draft/draft-review-workspace";
+import { readEditorSessionFromCookies } from "@/lib/auth/human-auth";
 import { prisma } from "@/lib/db/prisma";
 
 export const dynamic = "force-dynamic";
@@ -162,6 +164,12 @@ export default async function DraftReviewPage({
 }: {
   params: Promise<{ id: string }>;
 }) {
+  const session = await readEditorSessionFromCookies();
+
+  if (!session) {
+    return <UnlockForm />;
+  }
+
   const { id } = await params;
   const draft = await getDraft(id);
 

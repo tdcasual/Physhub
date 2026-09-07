@@ -112,6 +112,33 @@ export async function readEditorSession(
   return null;
 }
 
+export async function readEditorSessionFromCookies(): Promise<EditorSession | null> {
+  const secret = process.env.EDITOR_SESSION_SECRET;
+
+  if (!secret) {
+    return null;
+  }
+
+  const { cookies } = await import("next/headers");
+  const store = await cookies();
+  const cookieValue = store.get(EDITOR_SESSION_COOKIE_NAME)?.value ?? null;
+
+  if (cookieValue === null) {
+    return null;
+  }
+
+  const expected = computeEditorSessionCookieValue(secret);
+
+  if (!timingSafeEqualString(cookieValue, expected)) {
+    return null;
+  }
+
+  return {
+    userId: OWNER_PLACEHOLDER_USER_ID,
+    role: "OWNER",
+  };
+}
+
 export function getConnectingIp(request: Request): string {
   if (process.env.TRUST_PROXY === "true") {
     const forwarded = request.headers.get("x-forwarded-for");

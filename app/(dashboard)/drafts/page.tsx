@@ -2,6 +2,8 @@ import { Prisma } from "@prisma/client";
 import { FileQuestion } from "lucide-react";
 import Link from "next/link";
 
+import { UnlockForm } from "@/components/auth/unlock-form";
+import { readEditorSessionFromCookies } from "@/lib/auth/human-auth";
 import { prisma } from "@/lib/db/prisma";
 
 export const dynamic = "force-dynamic";
@@ -56,6 +58,12 @@ async function getUnpromotedDrafts(): Promise<UnpromotedDraft[]> {
 }
 
 export default async function DraftsPage() {
+  const session = await readEditorSessionFromCookies();
+
+  if (!session) {
+    return <UnlockForm />;
+  }
+
   const drafts = await getUnpromotedDrafts();
 
   return (

@@ -1,4 +1,5 @@
 import { FileQuestion, Tags } from "lucide-react";
+import Link from "next/link";
 
 import { MarkdownLatex } from "@/lib/renderer/render-markdown";
 
@@ -25,7 +26,13 @@ function formatUpdatedAt(value: string) {
   }).format(new Date(value));
 }
 
-export function QuestionList({ questions }: { questions: QuestionListItem[] }) {
+export function QuestionList({
+  questions,
+  onAddToBasket,
+}: {
+  questions: QuestionListItem[];
+  onAddToBasket?: (questionId: string) => void;
+}) {
   if (questions.length === 0) {
     return (
       <section className="border border-stone-900/15 bg-stone-50 p-6">
@@ -48,7 +55,14 @@ export function QuestionList({ questions }: { questions: QuestionListItem[] }) {
         >
           <div className="flex flex-col gap-3 border-b border-stone-900/10 pb-4 sm:flex-row sm:items-start sm:justify-between">
             <div>
-              <h2 className="text-xl font-semibold">{question.publicId}</h2>
+              <h2 className="text-xl font-semibold">
+                <Link
+                  href={`/questions/${question.id}`}
+                  className="hover:underline"
+                >
+                  {question.publicId}
+                </Link>
+              </h2>
               <p className="mt-1 text-sm text-stone-900/60">
                 Updated {formatUpdatedAt(question.updatedAt)}
               </p>
@@ -91,6 +105,15 @@ export function QuestionList({ questions }: { questions: QuestionListItem[] }) {
                   </span>
                 ))}
               </span>
+            ) : null}
+            {onAddToBasket ? (
+              <button
+                type="button"
+                onClick={() => onAddToBasket(question.id)}
+                className="border border-stone-900/20 bg-white px-2 py-1 text-xs font-semibold"
+              >
+                Add to basket
+              </button>
             ) : null}
           </footer>
         </article>

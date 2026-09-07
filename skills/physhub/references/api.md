@@ -48,7 +48,7 @@ Headers: `Authorization`
 
 Body: `{ "query": string, "constraints"?: { status?, limit?, grade?, chapter?, knowledge_points?, difficulty?, usage?, has_image? } }`.
 
-Omitted or empty `constraints.status` → `["REVIEWED"]`.
+Omitted or empty `constraints.status` → `["REVIEWED","PUBLISHED"]`.
 
 200:
 

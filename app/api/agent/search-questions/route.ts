@@ -22,7 +22,7 @@ export async function POST(request: Request) {
       status:
         requestedStatus && requestedStatus.length > 0
           ? requestedStatus
-          : ["REVIEWED"],
+          : ["REVIEWED", "PUBLISHED"],
     };
     const result = await searchQuestions(body.query, constraints);
 
