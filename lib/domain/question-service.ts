@@ -44,15 +44,42 @@ function normalizeAnswer(answer: QuestionInput["answer"]): QuestionInput["answer
   };
 }
 
-export function normalizeQuestionInput(input: QuestionInput): QuestionInput {
+type DraftNormalizable = {
+  stemMd?: string;
+  solutionMd?: string;
+  options?: QuestionInput["options"];
+  answer?: QuestionInput["answer"];
+};
+
+export function normalizeQuestionDraftInput<T extends DraftNormalizable>(
+  input: T,
+): T {
   return {
     ...input,
-    stemMd: input.stemMd.trim(),
-    solutionMd: input.solutionMd?.trim(),
-    options: input.options?.map((option) => ({
-      label: normalizeChoiceLabel(option.label),
-      value: option.value.trim(),
-    })),
-    answer: normalizeAnswer(input.answer),
+    ...(input.stemMd !== undefined ? { stemMd: input.stemMd.trim() } : {}),
+    ...(input.solutionMd !== undefined
+      ? { solutionMd: input.solutionMd.trim() }
+      : {}),
+    ...(input.options !== undefined
+      ? {
+          options: input.options.map((option) => ({
+            label: normalizeChoiceLabel(option.label),
+            value: option.value.trim(),
+          })),
+        }
+      : {}),
+    ...(input.answer !== undefined
+      ? { answer: normalizeAnswer(input.answer) }
+      : {}),
+  };
+}
+
+export function normalizeQuestionInput(input: QuestionInput): QuestionInput {
+  const normalized = normalizeQuestionDraftInput(input);
+
+  return {
+    ...normalized,
+    stemMd: normalized.stemMd.trim(),
+    answer: normalized.answer,
   };
 }

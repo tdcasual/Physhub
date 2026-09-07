@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import { QuestionPreview } from "./question-preview";
 import { AnswerEditor, type SingleAnswer } from "./answer-editor";
 import { OptionEditor, type EditableOption } from "./option-editor";
@@ -56,6 +57,7 @@ function alignAnswerValue(
 }
 
 export function QuestionEditor() {
+  const router = useRouter();
   const [stemMd, setStemMd] = useState(initialStem);
   const [options, setOptions] = useState(initialOptions);
   const [answer, setAnswer] = useState<SingleAnswer>({
@@ -63,8 +65,45 @@ export function QuestionEditor() {
     value: "B",
   });
   const [solutionMd, setSolutionMd] = useState(initialSolution);
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   const previewOptions = useMemo(() => validOptions(options), [options]);
+
+  async function handleSaveAsDraft() {
+    setSaving(true);
+    setSaveError(null);
+
+    try {
+      const response = await fetch("/api/drafts", {
+        method: "POST",
+        credentials: "include",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          type: "SINGLE_CHOICE",
+          stemMd,
+          options: previewOptions,
+          answer,
+          solutionMd,
+        }),
+      });
+      const payload = (await response.json()) as {
+        error?: string;
+        draft?: { id?: string };
+      };
+
+      if (!response.ok || !payload.draft?.id) {
+        setSaveError(payload.error ?? "Unable to save draft");
+        return;
+      }
+
+      router.push(`/drafts/${payload.draft.id}`);
+    } catch {
+      setSaveError("Unable to save draft");
+    } finally {
+      setSaving(false);
+    }
+  }
 
   function handleOptionsChange(nextOptions: EditableOption[]) {
     const nextAnswerValue = alignAnswerValue(options, nextOptions, answer.value);
@@ -112,6 +151,22 @@ export function QuestionEditor() {
             className="w-full resize-y border border-stone-900/20 bg-white px-4 py-3 font-mono text-sm text-stone-950 shadow-sm"
           />
         </label>
+
+        <div className="flex flex-wrap items-center gap-3">
+          <button
+            type="button"
+            onClick={() => {
+              void handleSaveAsDraft();
+            }}
+            disabled={saving}
+            className="border border-stone-900 bg-stone-900 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
+          >
+            Save as draft
+          </button>
+          {saveError ? (
+            <p className="text-sm text-red-800">{saveError}</p>
+          ) : null}
+        </div>
 
         <section className="border border-stone-900/15 bg-stone-50 p-4">
           <h2 className="text-lg font-semibold">JSON Contract</h2>

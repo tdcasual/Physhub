@@ -8,7 +8,8 @@ function isSafeImageSrc(src: string) {
   return (
     trimmedSrc.startsWith("/assets/") ||
     trimmedSrc.startsWith("/uploads/") ||
-    trimmedSrc.startsWith("/api/assets/")
+    trimmedSrc.startsWith("/api/assets/") ||
+    trimmedSrc.startsWith("/api/raw-assets/")
   );
 }
 

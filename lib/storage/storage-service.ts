@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { mkdir, writeFile } from "node:fs/promises";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, isAbsolute, relative, resolve } from "node:path";
 
 function nextStorageId(): string {
@@ -63,7 +63,7 @@ function getLocalUploadDir(): string {
   return process.env.LOCAL_UPLOAD_DIR ?? "./uploads";
 }
 
-function resolveUploadPath(storageKey: string): string {
+export function resolveUploadPath(storageKey: string): string {
   if (isAbsolute(storageKey)) {
     throw new Error("storage key must be relative");
   }
@@ -89,4 +89,8 @@ export async function saveLocalUpload(
   await writeFile(destinationPath, bytes);
 
   return destinationPath;
+}
+
+export async function readLocalUpload(storageKey: string): Promise<Buffer> {
+  return readFile(resolveUploadPath(storageKey));
 }

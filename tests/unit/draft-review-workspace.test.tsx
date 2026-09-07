@@ -1,5 +1,5 @@
-import { fireEvent, render, screen, within } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
   DraftReviewWorkspace,
@@ -68,12 +68,21 @@ const draft: DraftReviewWorkspaceDraft = {
 };
 
 describe("DraftReviewWorkspace", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  });
+
   it("renders source material, editable draft fields, preview, and suggestions", () => {
     render(<DraftReviewWorkspace draft={draft} />);
 
     expect(screen.getByRole("heading", { name: "Draft Review" })).toBeInTheDocument();
     expect(screen.getByText("motion.txt")).toBeInTheDocument();
     expect(screen.getByText(/Original pasted source/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Save" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Reject" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Send back" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /promote/i })).not.toBeInTheDocument();
 
     expect(screen.getByLabelText("Stem Markdown")).toHaveValue(draft.stemMd);
     expect(screen.getByLabelText("Correct option")).toHaveValue("B");
@@ -101,5 +110,72 @@ describe("DraftReviewWorkspace", () => {
     const preview = screen.getByRole("region", { name: "Live Preview" });
     expect(within(preview).getByText(/Edited stem/)).toBeInTheDocument();
     expect(within(preview).getByText(/Edited solution/)).toBeInTheDocument();
+  });
+
+  it("saves, sends a draft back, and rejects through PATCH /api/drafts/:id", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ draft: { id: "draft_1", status: "NEEDS_REVIEW" } }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ draft: { id: "draft_1", status: "DRAFT" } }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ draft: { id: "draft_1", status: "REJECTED" } }),
+      });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<DraftReviewWorkspace draft={draft} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/drafts/draft_1",
+      expect.objectContaining({
+        method: "PATCH",
+        credentials: "include",
+      }),
+    );
+    expect(JSON.parse(String(fetchMock.mock.calls[0][1]?.body))).toMatchObject({
+      stemMd: draft.stemMd,
+      answer: { type: "single", value: "B" },
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Send back" }));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
+    expect(JSON.parse(String(fetchMock.mock.calls[1][1]?.body))).toEqual({
+      status: "DRAFT",
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Reject" }));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(3));
+    expect(JSON.parse(String(fetchMock.mock.calls[2][1]?.body))).toEqual({
+      status: "REJECTED",
+    });
+  });
+
+  it("renders the source image through the raw asset file route", () => {
+    render(
+      <DraftReviewWorkspace
+        draft={{
+          ...draft,
+          sourceRawAsset: {
+            ...draft.sourceRawAsset!,
+            kind: "IMAGE",
+            originalName: "vt.png",
+            mimeType: "image/png",
+          },
+        }}
+      />,
+    );
+
+    expect(screen.getByRole("img", { name: "vt.png" })).toHaveAttribute(
+      "src",
+      "/api/raw-assets/raw_1/file",
+    );
   });
 });

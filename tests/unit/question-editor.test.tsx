@@ -1,6 +1,14 @@
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { QuestionEditor } from "@/components/question/question-editor";
+
+const { mockPush } = vi.hoisted(() => ({
+  mockPush: vi.fn(),
+}));
+
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ push: mockPush }),
+}));
 
 function readContract() {
   const contract = screen
@@ -123,5 +131,35 @@ describe("QuestionEditor", () => {
       ],
       answer: { type: "single", value: "A" },
     });
+  });
+
+  it("saves as a draft then navigates to the workspace", async () => {
+    mockPush.mockReset();
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ draft: { id: "draft_9" } }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    try {
+      render(<QuestionEditor />);
+      fireEvent.click(screen.getByRole("button", { name: "Save as draft" }));
+
+      await waitFor(() => expect(fetchMock).toHaveBeenCalled());
+      expect(fetchMock).toHaveBeenCalledWith(
+        "/api/drafts",
+        expect.objectContaining({
+          method: "POST",
+          credentials: "include",
+        }),
+      );
+      expect(JSON.parse(String(fetchMock.mock.calls[0][1]?.body))).toMatchObject({
+        type: "SINGLE_CHOICE",
+        answer: { type: "single", value: "B" },
+      });
+      expect(mockPush).toHaveBeenCalledWith("/drafts/draft_9");
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 });

@@ -172,9 +172,65 @@ export function DraftReviewWorkspace({ draft }: { draft: DraftReviewWorkspaceDra
     parseSingleAnswer(draft.answerJson),
   );
   const [solutionMd, setSolutionMd] = useState(draft.solutionMd ?? "");
+  const [status, setStatus] = useState(draft.status);
+  const [pendingAction, setPendingAction] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
 
   const previewOptions = useMemo(() => validOptions(options), [options]);
   const sourceText = draft.sourceRawAsset?.textContent?.trim();
+  const canEdit = status === "DRAFT" || status === "NEEDS_REVIEW";
+
+  async function patchDraft(
+    action: string,
+    body: Record<string, unknown>,
+  ) {
+    setPendingAction(action);
+    setActionError(null);
+
+    try {
+      const response = await fetch(`/api/drafts/${draft.id}`, {
+        method: "PATCH",
+        credentials: "include",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      const payload = (await response.json()) as {
+        error?: string;
+        draft?: { status?: DraftStatus };
+      };
+
+      if (!response.ok) {
+        setActionError(payload.error ?? "Unable to update draft");
+        return;
+      }
+
+      if (payload.draft?.status) {
+        setStatus(payload.draft.status);
+      }
+    } catch {
+      setActionError("Unable to update draft");
+    } finally {
+      setPendingAction(null);
+    }
+  }
+
+  function handleSave() {
+    return patchDraft("save", {
+      type: draft.type ?? undefined,
+      stemMd,
+      options: previewOptions,
+      answer,
+      solutionMd,
+    });
+  }
+
+  function handleReject() {
+    return patchDraft("reject", { status: "REJECTED" });
+  }
+
+  function handleSendBack() {
+    return patchDraft("send-back", { status: "DRAFT" });
+  }
 
   function handleOptionsChange(nextOptions: EditableOption[]) {
     const nextAnswerValue = alignAnswerValue(options, nextOptions, answer.value);
@@ -202,7 +258,7 @@ export function DraftReviewWorkspace({ draft }: { draft: DraftReviewWorkspaceDra
           <dl className="grid grid-cols-2 gap-3 text-sm sm:grid-cols-4 md:text-right">
             <div>
               <dt className="font-medium text-stone-900/55">Status</dt>
-              <dd className="mt-1 font-semibold">{draft.status.replaceAll("_", " ")}</dd>
+              <dd className="mt-1 font-semibold">{status.replaceAll("_", " ")}</dd>
             </div>
             <div>
               <dt className="font-medium text-stone-900/55">Type</dt>
@@ -220,6 +276,46 @@ export function DraftReviewWorkspace({ draft }: { draft: DraftReviewWorkspaceDra
             </div>
           </dl>
         </header>
+
+        {canEdit ? (
+          <div className="flex flex-wrap items-center gap-3">
+            <button
+              type="button"
+              onClick={() => {
+                void handleSave();
+              }}
+              disabled={pendingAction !== null}
+              className="border border-stone-900 bg-stone-900 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
+            >
+              Save
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                void handleReject();
+              }}
+              disabled={pendingAction !== null}
+              className="border border-stone-900/30 bg-white px-4 py-2 text-sm font-semibold disabled:opacity-50"
+            >
+              Reject
+            </button>
+            {status === "NEEDS_REVIEW" ? (
+              <button
+                type="button"
+                onClick={() => {
+                  void handleSendBack();
+                }}
+                disabled={pendingAction !== null}
+                className="border border-stone-900/30 bg-white px-4 py-2 text-sm font-semibold disabled:opacity-50"
+              >
+                Send back
+              </button>
+            ) : null}
+            {actionError ? (
+              <p className="text-sm text-red-800">{actionError}</p>
+            ) : null}
+          </div>
+        ) : null}
 
         <div className="grid gap-5 xl:grid-cols-[minmax(18rem,0.75fr)_minmax(24rem,1fr)_minmax(22rem,0.9fr)]">
           <section
@@ -260,9 +356,18 @@ export function DraftReviewWorkspace({ draft }: { draft: DraftReviewWorkspaceDra
                   ) : null}
                 </dl>
 
-                <pre className="max-h-[34rem] overflow-auto whitespace-pre-wrap border border-stone-900/15 bg-white p-3 text-sm leading-6 text-stone-900">
-                  {sourceText || "No extracted text is available for this raw asset."}
-                </pre>
+                {draft.sourceRawAsset.kind === "IMAGE" ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={`/api/raw-assets/${draft.sourceRawAsset.id}/file`}
+                    alt={draft.sourceRawAsset.originalName}
+                    className="max-h-[34rem] w-full border border-stone-900/15 bg-white object-contain"
+                  />
+                ) : (
+                  <pre className="max-h-[34rem] overflow-auto whitespace-pre-wrap border border-stone-900/15 bg-white p-3 text-sm leading-6 text-stone-900">
+                    {sourceText || "No extracted text is available for this raw asset."}
+                  </pre>
+                )}
 
                 {draft.sourceRawAsset.metadata ? (
                   <details className="border border-stone-900/15 bg-white p-3">

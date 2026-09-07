@@ -44,4 +44,15 @@ describe("MarkdownLatex", () => {
     const image = screen.getByRole("img", { name: "Experiment diagram" });
     expect(image).toHaveAttribute("src", "/assets/diagram.png");
   });
+
+  it("renders authenticated raw asset file paths", () => {
+    render(
+      <MarkdownLatex content="![Source scan](/api/raw-assets/raw_1/file)" />,
+    );
+
+    expect(screen.getByRole("img", { name: "Source scan" })).toHaveAttribute(
+      "src",
+      "/api/raw-assets/raw_1/file",
+    );
+  });
 });

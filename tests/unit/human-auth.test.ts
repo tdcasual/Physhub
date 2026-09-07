@@ -14,6 +14,8 @@ vi.mock("@/lib/db/prisma", () => ({
 }));
 
 import { POST as postEditorSession } from "@/app/api/auth/editor-session/route";
+import { GET as listDrafts, POST as postDrafts } from "@/app/api/drafts/route";
+import { GET as getDraft, PATCH as patchDraft } from "@/app/api/drafts/[id]/route";
 import { GET as getKnowledgePoints } from "@/app/api/knowledge-points/route";
 import { POST as postQuestionSets } from "@/app/api/question-sets/route";
 import { POST as postQuestionSetExport } from "@/app/api/question-sets/[id]/export/route";
@@ -21,6 +23,7 @@ import { GET as getQuestions, POST as postQuestions } from "@/app/api/questions/
 import { POST as postClassifyQuestion } from "@/app/api/questions/[id]/classify/route";
 import { GET as getQuestion } from "@/app/api/questions/[id]/route";
 import { POST as postRawAssets } from "@/app/api/raw-assets/route";
+import { GET as getRawAssetFile } from "@/app/api/raw-assets/[id]/file/route";
 import { POST as postParseRawAsset } from "@/app/api/raw-assets/[id]/parse/route";
 import { POST as postSearchQuestions } from "@/app/api/search/questions/route";
 import { PATCH as patchSuggestion } from "@/app/api/suggestions/[id]/route";
@@ -113,10 +116,42 @@ const unauthenticatedHumanRoutes: Array<{
     call: () => getTags(new Request("http://localhost/api/tags")),
   },
   {
+    name: "POST /api/drafts",
+    call: () =>
+      postDrafts(new Request("http://localhost/api/drafts", { method: "POST" })),
+  },
+  {
+    name: "GET /api/drafts",
+    call: () => listDrafts(new Request("http://localhost/api/drafts")),
+  },
+  {
+    name: "GET /api/drafts/[id]",
+    call: () =>
+      getDraft(new Request("http://localhost/api/drafts/draft_1"), {
+        params: Promise.resolve({ id: "draft_1" }),
+      }),
+  },
+  {
+    name: "PATCH /api/drafts/[id]",
+    call: () =>
+      patchDraft(
+        new Request("http://localhost/api/drafts/draft_1", { method: "PATCH" }),
+        { params: Promise.resolve({ id: "draft_1" }) },
+      ),
+  },
+  {
     name: "POST /api/raw-assets",
     call: () =>
       postRawAssets(
         new Request("http://localhost/api/raw-assets", { method: "POST" }),
+      ),
+  },
+  {
+    name: "GET /api/raw-assets/[id]/file",
+    call: () =>
+      getRawAssetFile(
+        new Request("http://localhost/api/raw-assets/raw_1/file"),
+        { params: Promise.resolve({ id: "raw_1" }) },
       ),
   },
   {
