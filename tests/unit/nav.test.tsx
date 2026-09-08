@@ -23,5 +23,16 @@ describe("Nav", () => {
       "href",
       "/taxonomy",
     );
+    expect(
+      screen.queryByRole("button", { name: "Lock", exact: true }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("shows Lock only when unlocked", () => {
+    render(<Nav unlocked />);
+
+    expect(
+      screen.getByRole("button", { name: "Lock", exact: true }),
+    ).toBeInTheDocument();
   });
 });

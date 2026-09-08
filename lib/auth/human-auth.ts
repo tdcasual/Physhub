@@ -213,6 +213,10 @@ export function recordEditorUnlockFailure(request: Request): void {
   existing.count += 1;
 }
 
+export function recordEditorUnlockSuccess(request: Request): void {
+  unlockFailures.delete(getConnectingIp(request));
+}
+
 export function resetEditorUnlockRateLimitForTests(): void {
   unlockFailures.clear();
 }

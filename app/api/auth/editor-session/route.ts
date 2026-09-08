@@ -5,6 +5,7 @@ import {
   EDITOR_SESSION_COOKIE_NAME,
   isEditorUnlockRateLimited,
   recordEditorUnlockFailure,
+  recordEditorUnlockSuccess,
 } from "@/lib/auth/human-auth";
 import { timingSafeEqualString } from "@/lib/auth/secure-compare";
 
@@ -54,6 +55,8 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  recordEditorUnlockSuccess(request);
+
   const response = NextResponse.json({ ok: true });
 
   response.cookies.set({
@@ -65,5 +68,23 @@ export async function POST(request: Request) {
     secure: process.env.NODE_ENV === "production",
   });
 
+  return response;
+}
+
+function expireEditorSessionCookie(response: NextResponse) {
+  response.cookies.set({
+    name: EDITOR_SESSION_COOKIE_NAME,
+    value: "",
+    httpOnly: true,
+    sameSite: "lax",
+    path: "/",
+    maxAge: 0,
+    secure: process.env.NODE_ENV === "production",
+  });
+}
+
+export async function DELETE() {
+  const response = NextResponse.json({ ok: true });
+  expireEditorSessionCookie(response);
   return response;
 }

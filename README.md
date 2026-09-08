@@ -55,8 +55,9 @@ Physhub is designed around two authentication classes. They are not interchangea
 
 | Variable | Who | Notes |
 | --- | --- | --- |
-| `EDITOR_SESSION_SECRET` | Human editor session | Generate with `openssl rand -hex 32`. Missing or invalid session fail-closes human APIs with `401` `Unauthorized`. Dashboard pages render the unlock form and do not load draft or question fields. |
+| `EDITOR_SESSION_SECRET` | Human editor session | Generate with `openssl rand -hex 32`. Missing or invalid session fail-closes human APIs with `401` `Unauthorized`. Dashboard pages render the unlock form and do not load draft or question fields. Unlock the workbench, then use **Lock** in the nav (or `DELETE /api/auth/editor-session`) to clear the cookie. |
 | `AGENT_API_KEY_DEV` | Local agent tooling | **Non-production only.** Production ignores this variable and authenticates agents against hashed keys in the `ApiKey` table (`keyHash`, scopes, `revokedAt`). Create production keys with `npx tsx scripts/create-api-key.ts`. |
+| `TRUST_PROXY` | Reverse proxy | Unset by default. v1 is a **single instance**: unlock rate limiting then counts every client in one `"local"` bucket. Set `TRUST_PROXY=true` only behind a trusted reverse proxy. |
 
 Do not paste an agent key into the teacher browser. Do not send the editor cookie to `/api/agent/*`. Agent `POST /api/questions` returns `403` `Agent cannot publish questions`.
 

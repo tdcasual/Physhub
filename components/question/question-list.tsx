@@ -110,7 +110,7 @@ export function QuestionList({
               <button
                 type="button"
                 onClick={() => onAddToBasket(question)}
-                className="border border-stone-900/20 bg-white px-2 py-1 text-xs font-semibold"
+                className="inline-flex min-h-11 items-center border border-stone-900/20 bg-white px-3 text-xs font-semibold"
               >
                 Add to basket
               </button>

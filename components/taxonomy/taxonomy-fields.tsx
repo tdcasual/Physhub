@@ -117,9 +117,10 @@ export function TaxonomyFields({
           <ul className="space-y-1">
             {tree.map((node) => (
               <li key={node.id} style={{ paddingLeft: `${node.depth * 1.25}rem` }}>
-                <label className="flex items-center gap-2 text-sm">
+                <label className="flex min-h-11 cursor-pointer items-center gap-3 px-2 text-sm">
                   <input
                     type="checkbox"
+                    className="size-4"
                     checked={value.knowledgePointIds.includes(node.id)}
                     onChange={() =>
                       onChange({
@@ -148,9 +149,10 @@ export function TaxonomyFields({
               <ul className="space-y-1">
                 {groupTags.map((tag) => (
                   <li key={tag.id}>
-                    <label className="flex items-center gap-2 text-sm">
+                    <label className="flex min-h-11 cursor-pointer items-center gap-3 px-2 text-sm">
                       <input
                         type="checkbox"
+                        className="size-4"
                         checked={value.tagIds.includes(tag.id)}
                         onChange={() =>
                           onChange({

@@ -27,8 +27,8 @@ export default defineConfig({
       name: "chromium",
       use: {
         ...devices["Desktop Chrome"],
-        // Ubuntu 26.04 cannot install Playwright's bundled Chromium.
-        // Set PLAYWRIGHT_CHROME_CHANNEL=chrome to use a system Chrome.
+        // If Playwright 1.60 cannot find chromium_headless_shell-1223,
+        // set PLAYWRIGHT_CHROME_CHANNEL=chrome to use an installed Chrome.
         ...(process.env.PLAYWRIGHT_CHROME_CHANNEL
           ? { channel: process.env.PLAYWRIGHT_CHROME_CHANNEL }
           : {}),

@@ -57,18 +57,20 @@ export function UnlockForm() {
             type="password"
             autoComplete="current-password"
             value={secret}
+            aria-invalid={error ? true : undefined}
+            aria-describedby={error ? "unlock-error" : undefined}
             onChange={(event) => setSecret(event.target.value)}
-            className="w-full border border-stone-900/20 bg-white px-3 py-2"
+            className="min-h-11 w-full border border-stone-900/20 bg-white px-3 py-2"
           />
           <button
             type="submit"
             disabled={submitting}
-            className="border border-stone-900/20 bg-stone-950 px-4 py-2 text-sm font-semibold text-white hover:bg-stone-800 disabled:opacity-60"
+            className="inline-flex min-h-11 items-center border border-stone-900/20 bg-stone-950 px-4 text-sm font-semibold text-white hover:bg-stone-800 disabled:opacity-60"
           >
             Unlock
           </button>
           {error ? (
-            <p role="alert" className="text-sm text-orange-800">
+            <p id="unlock-error" role="alert" className="text-sm text-orange-800">
               {error}
             </p>
           ) : null}

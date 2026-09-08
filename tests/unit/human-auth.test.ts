@@ -13,7 +13,10 @@ vi.mock("@/lib/db/prisma", () => ({
   },
 }));
 
-import { POST as postEditorSession } from "@/app/api/auth/editor-session/route";
+import {
+  DELETE as deleteEditorSession,
+  POST as postEditorSession,
+} from "@/app/api/auth/editor-session/route";
 import { GET as listDrafts, POST as postDrafts } from "@/app/api/drafts/route";
 import { GET as getDraft, PATCH as patchDraft } from "@/app/api/drafts/[id]/route";
 import { POST as postPromoteDraft } from "@/app/api/drafts/[id]/promote/route";
@@ -398,6 +401,38 @@ describe("POST /api/auth/editor-session", () => {
     await expect(limited.json()).resolves.toEqual({
       error: "Too many unlock attempts",
     });
+  });
+
+  it("clears the failure bucket after a successful unlock", async () => {
+    const clientIp = { [CLIENT_IP_HEADER_NAME]: "192.0.2.51" };
+    const secret = "test-editor-session-secret";
+
+    for (let attempt = 0; attempt < 4; attempt += 1) {
+      const failed = await postEditorSession(
+        unlockRequest("wrong-secret", clientIp),
+      );
+      expect(failed.status).toBe(401);
+    }
+
+    const unlocked = await postEditorSession(unlockRequest(secret, clientIp));
+    expect(unlocked.status).toBe(200);
+
+    const failedAgain = await postEditorSession(
+      unlockRequest("wrong-secret", clientIp),
+    );
+    expect(failedAgain.status).toBe(401);
+  });
+
+  it("expires the session cookie on DELETE without requiring a session", async () => {
+    const response = await deleteEditorSession();
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual({ ok: true });
+
+    const cookie = response.cookies.get(EDITOR_SESSION_COOKIE_NAME);
+    expect(cookie?.value).toBe("");
+    expect(cookie?.maxAge).toBe(0);
+    expect(cookie?.httpOnly).toBe(true);
   });
 
   it("does not trust X-Forwarded-For for the unlock rate limit by default", async () => {

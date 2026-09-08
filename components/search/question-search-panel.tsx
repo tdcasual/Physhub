@@ -96,7 +96,7 @@ export function QuestionSearchPanel({
             value={query}
             onChange={(event) => setQuery(event.currentTarget.value)}
             placeholder="找 10 道高一运动学基础题，适合随堂练习"
-            className="min-h-11 flex-1 border border-stone-900/20 bg-white px-3 text-sm text-stone-950 outline-none focus:border-orange-800"
+            className="min-h-11 flex-1 border border-stone-900/20 bg-white px-3 text-sm text-stone-950 focus:border-orange-800"
           />
           <button
             type="submit"
@@ -171,7 +171,7 @@ export function QuestionSearchPanel({
                               stemMd: result.stemMd,
                             })
                           }
-                          className="border border-stone-900/20 bg-white px-2 py-1 text-xs font-semibold"
+                          className="inline-flex min-h-11 items-center border border-stone-900/20 bg-white px-3 text-xs font-semibold"
                         >
                           Add to basket
                         </button>

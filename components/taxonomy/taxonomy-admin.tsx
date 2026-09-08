@@ -198,14 +198,14 @@ export function TaxonomyAdmin({
                 <button
                   type="button"
                   onClick={() => void saveParent(item)}
-                  className="text-sm font-semibold"
+                  className="inline-flex min-h-11 items-center px-2 text-sm font-semibold"
                 >
                   Save parent
                 </button>
                 <button
                   type="button"
                   onClick={() => void remove(`/api/knowledge-points/${item.id}`)}
-                  className="text-sm font-semibold"
+                  className="inline-flex min-h-11 items-center px-2 text-sm font-semibold"
                 >
                   Delete
                 </button>
@@ -250,7 +250,7 @@ export function TaxonomyAdmin({
               <button
                 type="button"
                 onClick={() => void remove(`/api/tags/${item.id}`)}
-                className="text-sm font-semibold"
+                className="inline-flex min-h-11 items-center px-2 text-sm font-semibold"
               >
                 Delete
               </button>

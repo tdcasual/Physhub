@@ -48,7 +48,9 @@ The platform does not embed an LLM and does not ship an MCP server. External cod
    npm run dev
    ```
 
-Open `/questions` and enter the editor secret. Dashboard pages do not query drafts or questions until that cookie is set.
+Open `/questions` and enter the editor secret. Dashboard pages do not query drafts or questions until that cookie is set. After unlocking, **Lock** in the nav (or `DELETE /api/auth/editor-session`) clears the session cookie.
+
+Non-production only: human APIs also accept `X-Physhub-Editor-Session` with the same HMAC hex as the cookie. Production ignores that header.
 
 ## Quality Commands
 
@@ -76,7 +78,7 @@ The E2E command builds the app and starts the production server on port 3100. Pl
 
 E2E prerequisites (the suite does not skip when they are missing):
 
-1. Browser: `npm run test:e2e:install`. Playwright's bundled Chromium is not published for Ubuntu 26.04; on that host install Google Chrome and run with `PLAYWRIGHT_CHROME_CHANNEL=chrome`.
+1. Browser: `npm run test:e2e:install`. If Playwright 1.60 cannot find `chromium_headless_shell-1223`, install Google Chrome and run with `PLAYWRIGHT_CHROME_CHANNEL=chrome`.
 2. A reachable Postgres `DATABASE_URL` (Playwright forwards the process environment). Local docker: `docker start physhub-pg`.
 3. Applied migration and seed: `npx prisma migrate deploy` then `npm run db:seed`
 

@@ -24,7 +24,10 @@ const workflow = [
 
 export default function Home() {
   return (
-    <main className="min-h-screen bg-[var(--background)] text-[var(--foreground)]">
+    <main
+      lang="en"
+      className="min-h-screen bg-[var(--background)] text-[var(--foreground)]"
+    >
       <section className="mx-auto flex min-h-screen w-full max-w-6xl flex-col justify-between px-6 py-8 sm:px-10 lg:px-12">
         <div className="grid gap-12 py-14 lg:grid-cols-[1.2fr_0.8fr] lg:items-end">
           <div className="max-w-3xl">

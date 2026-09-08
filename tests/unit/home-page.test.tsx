@@ -14,5 +14,6 @@ describe("Home", () => {
     expect(
       screen.queryByText(/package foundations are ready/),
     ).not.toBeInTheDocument();
+    expect(screen.getByRole("main")).toHaveAttribute("lang", "en");
   });
 });

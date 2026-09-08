@@ -27,5 +27,8 @@ describe("TaxonomyFields", () => {
       expect.objectContaining({ knowledgePointIds: ["kp_motion"] }),
     );
     expect(screen.queryByLabelText("Knowledge point ids")).not.toBeInTheDocument();
+    expect(screen.getByRole("checkbox", { name: "运动学" }).closest("label")).toHaveClass(
+      "min-h-11",
+    );
   });
 });

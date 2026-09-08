@@ -109,7 +109,7 @@ export function QuestionSetBasket({
               <button
                 type="button"
                 onClick={() => onRemove(item.id)}
-                className="text-sm font-semibold"
+                className="inline-flex min-h-11 items-center px-2 text-sm font-semibold"
               >
                 Remove
               </button>
