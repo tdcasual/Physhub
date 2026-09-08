@@ -60,6 +60,42 @@ export async function createKnowledgePoint(input: unknown, db: TaxonomyDb) {
   });
 }
 
+async function assertNoParentCycle(
+  id: string,
+  parentId: string | null,
+  db: TaxonomyDb,
+) {
+  if (parentId == null) {
+    return;
+  }
+
+  if (parentId === id) {
+    throw new TaxonomyConflictError("Knowledge point parent cycle");
+  }
+
+  const seen = new Set<string>([id]);
+  let current: string | null = parentId;
+
+  while (current) {
+    if (seen.has(current)) {
+      throw new TaxonomyConflictError("Knowledge point parent cycle");
+    }
+
+    seen.add(current);
+    const node: { parentId: string | null } | null =
+      await db.knowledgePoint.findUnique({
+        where: { id: current },
+        select: { parentId: true },
+      });
+
+    if (!node) {
+      throw new TaxonomyNotFoundError("Knowledge point not found");
+    }
+
+    current = node.parentId;
+  }
+}
+
 export async function updateKnowledgePoint(
   id: string,
   input: unknown,
@@ -72,10 +108,34 @@ export async function updateKnowledgePoint(
   }
 
   const { name, slug } = requireNameSlug(input);
+  const body = input as Record<string, unknown>;
+  const parentIdProvided = "parentId" in body;
+  const parentId = parentIdProvided
+    ? typeof body.parentId === "string" && body.parentId.trim()
+      ? body.parentId.trim()
+      : body.parentId == null || body.parentId === ""
+        ? null
+        : (() => {
+            throw new TaxonomyValidationError("parentId is invalid");
+          })()
+    : undefined;
+  const sortOrder =
+    typeof body.sortOrder === "number" && Number.isFinite(body.sortOrder)
+      ? Math.trunc(body.sortOrder)
+      : undefined;
+
+  if (parentIdProvided) {
+    await assertNoParentCycle(id, parentId ?? null, db);
+  }
 
   return db.knowledgePoint.update({
     where: { id },
-    data: { name, slug },
+    data: {
+      name,
+      slug,
+      ...(parentIdProvided ? { parentId } : {}),
+      ...(sortOrder !== undefined ? { sortOrder } : {}),
+    },
   });
 }
 

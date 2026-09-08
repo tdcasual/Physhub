@@ -9,6 +9,7 @@ import {
 } from "@/components/draft/draft-review-workspace";
 import { readEditorSessionFromCookies } from "@/lib/auth/human-auth";
 import { prisma } from "@/lib/db/prisma";
+import { listKnowledgePoints, listTags } from "@/lib/domain/taxonomy-repository";
 
 export const dynamic = "force-dynamic";
 
@@ -20,6 +21,9 @@ const draftSelect = {
   optionsJson: true,
   answerJson: true,
   solutionMd: true,
+  difficulty: true,
+  knowledgePointIds: true,
+  tagIds: true,
   aiOutput: true,
   createdAt: true,
   updatedAt: true,
@@ -100,6 +104,9 @@ function toWorkspaceDraft(draft: DraftRecord): DraftReviewWorkspaceDraft {
     optionsJson: toJsonValue(draft.optionsJson),
     answerJson: toJsonValue(draft.answerJson),
     solutionMd: draft.solutionMd,
+    difficulty: draft.difficulty,
+    knowledgePointIds: toJsonValue(draft.knowledgePointIds),
+    tagIds: toJsonValue(draft.tagIds),
     aiOutput: toJsonValue(draft.aiOutput),
     createdAt: draft.createdAt.toISOString(),
     updatedAt: draft.updatedAt.toISOString(),
@@ -171,11 +178,21 @@ export default async function DraftReviewPage({
   }
 
   const { id } = await params;
-  const draft = await getDraft(id);
+  const [draft, knowledgePoints, tags] = await Promise.all([
+    getDraft(id),
+    listKnowledgePoints(),
+    listTags(),
+  ]);
 
   if (!draft) {
     notFound();
   }
 
-  return <DraftReviewWorkspace draft={draft} />;
+  return (
+    <DraftReviewWorkspace
+      draft={draft}
+      knowledgePoints={knowledgePoints}
+      tags={tags}
+    />
+  );
 }

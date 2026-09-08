@@ -12,6 +12,8 @@ vi.mock("next/headers", () => ({
 
 const mocks = vi.hoisted(() => ({
   findUnique: vi.fn(),
+  listKnowledgePoints: vi.fn(),
+  listTags: vi.fn(),
 }));
 
 vi.mock("@/lib/db/prisma", () => ({
@@ -22,11 +24,18 @@ vi.mock("@/lib/db/prisma", () => ({
   },
 }));
 
+vi.mock("@/lib/domain/taxonomy-repository", () => ({
+  listKnowledgePoints: mocks.listKnowledgePoints,
+  listTags: mocks.listTags,
+}));
+
 import OfficialQuestionPage from "@/app/(dashboard)/questions/[id]/page";
 
 describe("OfficialQuestionPage", () => {
   beforeEach(() => {
     mocks.findUnique.mockReset();
+    mocks.listKnowledgePoints.mockReset();
+    mocks.listTags.mockReset();
     dashboardCookieStore.get.mockReset();
     setDashboardCookie(true);
   });
@@ -42,5 +51,7 @@ describe("OfficialQuestionPage", () => {
 
     expect(screen.getByRole("heading", { name: "Unlock editor" })).toBeInTheDocument();
     expect(mocks.findUnique).not.toHaveBeenCalled();
+    expect(mocks.listKnowledgePoints).not.toHaveBeenCalled();
+    expect(mocks.listTags).not.toHaveBeenCalled();
   });
 });

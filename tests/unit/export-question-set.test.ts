@@ -363,4 +363,28 @@ describe("question set export route", () => {
       error: "Unable to export question set",
     });
   });
+
+  it("returns 400 when publishedOnly is set and the set includes unpublished questions", async () => {
+    mockQuestionSetFindUnique.mockResolvedValue({
+      id: "set_1",
+      items: [{ question: { ...question, status: "REVIEWED" }, sortOrder: 1 }],
+    });
+    const { POST } = await import(
+      "@/app/api/question-sets/[id]/export/route"
+    );
+
+    const response = await POST(
+      exportRequest({
+        method: "POST",
+        body: JSON.stringify({ publishedOnly: true }),
+      }),
+      { params: Promise.resolve({ id: "set_1" }) },
+    );
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toEqual({
+      error: "Export requires PUBLISHED questions",
+    });
+    expect(mockExportJobCreate).not.toHaveBeenCalled();
+  });
 });

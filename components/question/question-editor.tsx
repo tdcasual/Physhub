@@ -2,17 +2,22 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { RawAssetUpload } from "@/components/raw-asset/raw-asset-upload";
-import { QuestionPreview } from "./question-preview";
-import { AnswerEditor, type SingleAnswer } from "./answer-editor";
-import { OptionEditor, type EditableOption } from "./option-editor";
+import type { QuestionType } from "@prisma/client";
 
-const initialOptions: EditableOption[] = [
-  { label: "A", value: "物体一直做匀速直线运动" },
-  { label: "B", value: "物体先做匀加速运动，后做匀速运动" },
-  { label: "C", value: "物体的加速度一直增大" },
-  { label: "D", value: "物体在 $t=2\\text{s}$ 时回到出发点" },
-];
+import { RawAssetUpload } from "@/components/raw-asset/raw-asset-upload";
+import { TaxonomyFields } from "@/components/taxonomy/taxonomy-fields";
+import {
+  DEFAULT_CHOICE_OPTIONS,
+  defaultAnswerForType,
+  isChoiceType,
+  optionsAfterTypeChange,
+  type EditableAnswer,
+  type EditableOption,
+} from "@/lib/domain/editor-answer";
+import type { KnowledgePointDto, TagDto } from "@/lib/domain/taxonomy-repository";
+import { QuestionPreview } from "./question-preview";
+import { AnswerEditor } from "./answer-editor";
+import { OptionEditor } from "./option-editor";
 
 const initialStem = `如图所示为某物体做直线运动的 $v-t$ 图像。下列说法正确的是（ ）
 
@@ -57,11 +62,17 @@ function alignAnswerValue(
   return nextValidOptions[0]?.label ?? "";
 }
 
-export function QuestionEditor() {
+export function QuestionEditor({
+  knowledgePoints,
+  tags,
+}: {
+  knowledgePoints: KnowledgePointDto[];
+  tags: TagDto[];
+}) {
   const router = useRouter();
   const [stemMd, setStemMd] = useState(initialStem);
-  const [options, setOptions] = useState(initialOptions);
-  const [answer, setAnswer] = useState<SingleAnswer>({
+  const [options, setOptions] = useState(DEFAULT_CHOICE_OPTIONS);
+  const [answer, setAnswer] = useState<EditableAnswer>({
     type: "single",
     value: "B",
   });
@@ -69,8 +80,13 @@ export function QuestionEditor() {
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [sourceRawAssetId, setSourceRawAssetId] = useState<string | null>(null);
+  const [type, setType] = useState<QuestionType | "">("SINGLE_CHOICE");
+  const [knowledgePointIds, setKnowledgePointIds] = useState<string[]>([]);
+  const [tagIds, setTagIds] = useState<string[]>([]);
+  const [difficulty, setDifficulty] = useState<number | null>(null);
 
   const previewOptions = useMemo(() => validOptions(options), [options]);
+  const showOptions = isChoiceType(type) || type === "";
 
   async function handleSaveAsDraft() {
     setSaving(true);
@@ -82,11 +98,14 @@ export function QuestionEditor() {
         credentials: "include",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
-          type: "SINGLE_CHOICE",
+          ...(type ? { type } : {}),
           stemMd,
-          options: previewOptions,
+          ...(showOptions ? { options: previewOptions } : {}),
           answer,
           solutionMd,
+          knowledgePointIds,
+          tagIds,
+          ...(typeof difficulty === "number" ? { difficulty } : {}),
           ...(sourceRawAssetId ? { sourceRawAssetId } : {}),
         }),
       });
@@ -109,12 +128,38 @@ export function QuestionEditor() {
   }
 
   function handleOptionsChange(nextOptions: EditableOption[]) {
-    const nextAnswerValue = alignAnswerValue(options, nextOptions, answer.value);
-
     setOptions(nextOptions);
-    if (nextAnswerValue !== answer.value) {
-      setAnswer({ type: "single", value: nextAnswerValue });
+
+    if (answer.type === "single") {
+      const nextAnswerValue = alignAnswerValue(options, nextOptions, answer.value);
+      if (nextAnswerValue !== answer.value) {
+        setAnswer({ type: "single", value: nextAnswerValue });
+      }
+      return;
     }
+
+    if (answer.type === "multiple") {
+      const labels = new Set(validOptions(nextOptions).map((option) => option.label));
+      setAnswer({
+        type: "multiple",
+        value: answer.value.filter((label) => labels.has(label)),
+      });
+    }
+  }
+
+  function handleTaxonomyChange(next: {
+    knowledgePointIds: string[];
+    tagIds: string[];
+    difficulty: number | null;
+    type: QuestionType | "";
+  }) {
+    setKnowledgePointIds(next.knowledgePointIds);
+    setTagIds(next.tagIds);
+    setDifficulty(next.difficulty);
+    setType(next.type);
+    const nextOptions = optionsAfterTypeChange(next.type, options);
+    setOptions(nextOptions);
+    setAnswer(defaultAnswerForType(next.type, validOptions(nextOptions), answer));
   }
 
   return (
@@ -143,9 +188,22 @@ export function QuestionEditor() {
 
         <RawAssetUpload onUploaded={setSourceRawAssetId} />
 
-        <OptionEditor options={options} onChange={handleOptionsChange} />
+        <TaxonomyFields
+          knowledgePoints={knowledgePoints}
+          tags={tags}
+          value={{ knowledgePointIds, tagIds, difficulty, type }}
+          onChange={handleTaxonomyChange}
+        />
 
-        <AnswerEditor answer={answer} options={previewOptions} onChange={setAnswer} />
+        {showOptions ? (
+          <OptionEditor options={options} onChange={handleOptionsChange} />
+        ) : null}
+
+        <AnswerEditor
+          answer={answer}
+          options={previewOptions}
+          onChange={setAnswer}
+        />
 
         <label className="block space-y-2 text-sm font-medium text-stone-900/70">
           Solution Markdown
@@ -196,7 +254,7 @@ export function QuestionEditor() {
         </div>
         <QuestionPreview
           stemMd={stemMd}
-          options={previewOptions}
+          options={showOptions ? previewOptions : []}
           solutionMd={solutionMd}
           showSolution
         />

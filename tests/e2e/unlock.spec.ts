@@ -10,7 +10,7 @@ test("wrong secret stays on the unlock page", async ({ page }) => {
   await expect(page.getByRole("heading", { name: "Unlock editor" })).toBeVisible();
   await page.getByLabel("Editor secret").fill("not-the-secret");
   await page.getByRole("button", { name: "Unlock" }).click();
-  await expect(page.getByRole("alert")).toBeVisible();
+  await expect(page.getByText("Unauthorized")).toBeVisible();
   await expect(page.getByRole("heading", { name: "Unlock editor" })).toBeVisible();
 });
 

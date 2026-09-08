@@ -8,6 +8,7 @@ const { mockPrisma } = vi.hoisted(() => ({
       findUnique: vi.fn(),
       delete: vi.fn(),
       count: vi.fn(),
+      update: vi.fn(),
     },
     tag: {
       findUnique: vi.fn(),
@@ -90,5 +91,45 @@ describe("taxonomy write routes", () => {
       error: "Tag is still referenced",
     });
     expect(mockPrisma.tag.delete).not.toHaveBeenCalled();
+  });
+
+  it("returns 409 when a knowledge point parent change would cycle", async () => {
+    mockPrisma.knowledgePoint.findUnique.mockImplementation(
+      async ({ where }: { where: { id: string } }) => {
+        if (where.id === "kp_root") {
+          return { id: "kp_root", name: "物理", slug: "physics", parentId: null };
+        }
+
+        if (where.id === "kp_child") {
+          return {
+            id: "kp_child",
+            name: "运动学",
+            slug: "motion",
+            parentId: "kp_root",
+          };
+        }
+
+        return null;
+      },
+    );
+    const { PATCH } = await import("@/app/api/knowledge-points/[id]/route");
+    const response = await PATCH(
+      editorSessionRequest("http://localhost/api/knowledge-points/kp_root", {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          name: "物理",
+          slug: "physics",
+          parentId: "kp_child",
+        }),
+      }),
+      { params: Promise.resolve({ id: "kp_root" }) },
+    );
+
+    expect(response.status).toBe(409);
+    await expect(response.json()).resolves.toEqual({
+      error: "Knowledge point parent cycle",
+    });
+    expect(mockPrisma.knowledgePoint.update).not.toHaveBeenCalled();
   });
 });

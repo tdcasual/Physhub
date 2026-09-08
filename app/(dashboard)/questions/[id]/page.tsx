@@ -1,9 +1,12 @@
 import { notFound } from "next/navigation";
 
+import type { QuestionType } from "@prisma/client";
+
 import { UnlockForm } from "@/components/auth/unlock-form";
 import { OfficialQuestionEditor } from "@/components/question/official-question-editor";
 import { readEditorSessionFromCookies } from "@/lib/auth/human-auth";
 import { prisma } from "@/lib/db/prisma";
+import { listKnowledgePoints, listTags } from "@/lib/domain/taxonomy-repository";
 
 export const dynamic = "force-dynamic";
 
@@ -19,13 +22,17 @@ export default async function OfficialQuestionPage({
   }
 
   const { id } = await params;
-  const question = await prisma.question.findUnique({
-    where: { id },
-    include: {
-      knowledgePoints: true,
-      tags: true,
-    },
-  });
+  const [question, knowledgePoints, tags] = await Promise.all([
+    prisma.question.findUnique({
+      where: { id },
+      include: {
+        knowledgePoints: true,
+        tags: true,
+      },
+    }),
+    listKnowledgePoints(),
+    listTags(),
+  ]);
 
   if (!question) {
     notFound();
@@ -46,7 +53,7 @@ export default async function OfficialQuestionPage({
           id: question.id,
           publicId: question.publicId,
           status: question.status,
-          type: question.type,
+          type: question.type as QuestionType,
           stemMd: question.stemMd,
           optionsJson,
           answerJson,
@@ -57,6 +64,8 @@ export default async function OfficialQuestionPage({
           ),
           tagIds: question.tags.map((link) => link.tagId),
         }}
+        knowledgePoints={knowledgePoints}
+        tags={tags}
       />
     </main>
   );

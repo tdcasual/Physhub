@@ -1,6 +1,7 @@
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { QuestionEditor } from "@/components/question/question-editor";
+import { taxonomyFixtures } from "@/tests/unit/helpers/taxonomy-fixtures";
 
 const { mockPush } = vi.hoisted(() => ({
   mockPush: vi.fn(),
@@ -27,7 +28,7 @@ function readContract() {
 
 describe("QuestionEditor", () => {
   it("renders the manual editor and updates the live preview", async () => {
-    render(<QuestionEditor />);
+    render(<QuestionEditor {...taxonomyFixtures} />);
 
     expect(
       screen.getByRole("heading", { name: "Manual Question Editor" }),
@@ -47,7 +48,7 @@ describe("QuestionEditor", () => {
   });
 
   it("moves the answer to a valid option when the selected label is renamed", () => {
-    render(<QuestionEditor />);
+    render(<QuestionEditor {...taxonomyFixtures} />);
 
     fireEvent.change(screen.getAllByLabelText(/Option .* label/)[1], {
       target: { value: "Beta" },
@@ -58,7 +59,7 @@ describe("QuestionEditor", () => {
   });
 
   it("moves the answer to the next valid option when the selected option is removed", () => {
-    render(<QuestionEditor />);
+    render(<QuestionEditor {...taxonomyFixtures} />);
 
     fireEvent.click(screen.getByRole("button", { name: "Remove option row 2 (B)" }));
 
@@ -72,7 +73,7 @@ describe("QuestionEditor", () => {
     const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
 
     try {
-      render(<QuestionEditor />);
+      render(<QuestionEditor {...taxonomyFixtures} />);
 
       fireEvent.change(screen.getAllByLabelText(/Option .* label/)[1], {
         target: { value: "A" },
@@ -98,7 +99,7 @@ describe("QuestionEditor", () => {
   });
 
   it("clears and disables the answer when no complete options remain", () => {
-    render(<QuestionEditor />);
+    render(<QuestionEditor {...taxonomyFixtures} />);
 
     while (screen.queryAllByRole("button", { name: /Remove option/ }).length > 0) {
       fireEvent.click(screen.getAllByRole("button", { name: /Remove option/ })[0]);
@@ -112,7 +113,7 @@ describe("QuestionEditor", () => {
   });
 
   it("excludes incomplete options from the answer dropdown and contract", () => {
-    render(<QuestionEditor />);
+    render(<QuestionEditor {...taxonomyFixtures} />);
 
     fireEvent.change(screen.getAllByLabelText(/Option .* label/)[1], {
       target: { value: "" },
@@ -142,7 +143,7 @@ describe("QuestionEditor", () => {
     vi.stubGlobal("fetch", fetchMock);
 
     try {
-      render(<QuestionEditor />);
+      render(<QuestionEditor {...taxonomyFixtures} />);
       fireEvent.click(screen.getByRole("button", { name: "Save as draft" }));
 
       await waitFor(() => expect(fetchMock).toHaveBeenCalled());
@@ -156,8 +157,33 @@ describe("QuestionEditor", () => {
       expect(JSON.parse(String(fetchMock.mock.calls[0][1]?.body))).toMatchObject({
         type: "SINGLE_CHOICE",
         answer: { type: "single", value: "B" },
+        knowledgePointIds: [],
+        tagIds: [],
       });
       expect(mockPush).toHaveBeenCalledWith("/drafts/draft_9");
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it("saves selected knowledge point ids by name, not a comma-separated cuid field", async () => {
+    mockPush.mockReset();
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ draft: { id: "draft_9" } }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    try {
+      render(<QuestionEditor {...taxonomyFixtures} />);
+      fireEvent.click(screen.getByRole("checkbox", { name: "运动学" }));
+      fireEvent.click(screen.getByRole("button", { name: "Save as draft" }));
+
+      await waitFor(() => expect(fetchMock).toHaveBeenCalled());
+      expect(JSON.parse(String(fetchMock.mock.calls[0][1]?.body))).toMatchObject({
+        knowledgePointIds: ["kp_motion"],
+      });
+      expect(screen.queryByLabelText("Knowledge point ids")).not.toBeInTheDocument();
     } finally {
       vi.unstubAllGlobals();
     }

@@ -3,11 +3,22 @@
 import { useMemo, useState } from "react";
 import type { DraftStatus, JobStatus, QuestionType, RawAssetKind, RawAssetStatus } from "@prisma/client";
 
-import { AnswerEditor, type SingleAnswer } from "@/components/question/answer-editor";
-import { OptionEditor, type EditableOption } from "@/components/question/option-editor";
+import { AnswerEditor } from "@/components/question/answer-editor";
+import { OptionEditor } from "@/components/question/option-editor";
 import { QuestionPreview } from "@/components/question/question-preview";
 import { RawAssetUpload } from "@/components/raw-asset/raw-asset-upload";
+import { TaxonomyFields } from "@/components/taxonomy/taxonomy-fields";
+import {
+  defaultAnswerForType,
+  isChoiceType,
+  optionsAfterTypeChange,
+  parseEditableAnswer,
+  parseIdArray,
+  type EditableAnswer,
+  type EditableOption,
+} from "@/lib/domain/editor-answer";
 import { suggestionPayloadMissingKnowledgePointId } from "@/lib/domain/suggestion-policy";
+import type { KnowledgePointDto, TagDto } from "@/lib/domain/taxonomy-repository";
 
 export type JsonPrimitive = string | number | boolean | null;
 export type JsonValue = JsonPrimitive | JsonValue[] | { [key: string]: JsonValue };
@@ -20,6 +31,9 @@ export type DraftReviewWorkspaceDraft = {
   optionsJson: JsonValue | null;
   answerJson: JsonValue | null;
   solutionMd: string | null;
+  difficulty: number | null;
+  knowledgePointIds: JsonValue | null;
+  tagIds: JsonValue | null;
   aiOutput: JsonValue | null;
   createdAt: string;
   updatedAt: string;
@@ -94,18 +108,24 @@ function parseOptions(value: JsonValue | null): EditableOption[] {
     .filter((option): option is EditableOption => option !== null);
 }
 
-function parseSingleAnswer(value: JsonValue | null): SingleAnswer {
-  if (isRecord(value) && value.type === "single" && typeof value.value === "string") {
-    return {
-      type: "single",
-      value: value.value,
-    };
+function knowledgePointIdsFromPayload(payload: JsonValue): string[] {
+  if (!isRecord(payload)) {
+    return [];
   }
 
-  return {
-    type: "single",
-    value: "",
-  };
+  const points = payload.knowledge_points;
+
+  if (!Array.isArray(points)) {
+    return [];
+  }
+
+  return points.flatMap((item) => {
+    if (!isRecord(item) || typeof item.id !== "string" || !item.id.trim()) {
+      return [];
+    }
+
+    return [item.id.trim()];
+  });
 }
 
 function isCompleteOption(option: EditableOption) {
@@ -168,13 +188,29 @@ function jsonPreview(value: JsonValue | null) {
   return JSON.stringify(value, null, 2);
 }
 
-export function DraftReviewWorkspace({ draft }: { draft: DraftReviewWorkspaceDraft }) {
+export function DraftReviewWorkspace({
+  draft,
+  knowledgePoints,
+  tags,
+}: {
+  draft: DraftReviewWorkspaceDraft;
+  knowledgePoints: KnowledgePointDto[];
+  tags: TagDto[];
+}) {
   const [stemMd, setStemMd] = useState(draft.stemMd ?? "");
   const [options, setOptions] = useState(() => parseOptions(draft.optionsJson));
-  const [answer, setAnswer] = useState<SingleAnswer>(() =>
-    parseSingleAnswer(draft.answerJson),
+  const [type, setType] = useState<QuestionType | "">(draft.type ?? "");
+  const [answer, setAnswer] = useState<EditableAnswer>(() =>
+    parseEditableAnswer(draft.answerJson, draft.type),
   );
   const [solutionMd, setSolutionMd] = useState(draft.solutionMd ?? "");
+  const [knowledgePointIds, setKnowledgePointIds] = useState(() =>
+    parseIdArray(draft.knowledgePointIds),
+  );
+  const [tagIds, setTagIds] = useState(() => parseIdArray(draft.tagIds));
+  const [difficulty, setDifficulty] = useState<number | null>(
+    draft.difficulty,
+  );
   const [status, setStatus] = useState(draft.status);
   const [promotedAt, setPromotedAt] = useState(draft.promotedAt);
   const [promotedQuestionId, setPromotedQuestionId] = useState(
@@ -187,6 +223,8 @@ export function DraftReviewWorkspace({ draft }: { draft: DraftReviewWorkspaceDra
   const previewOptions = useMemo(() => validOptions(options), [options]);
   const sourceText = draft.sourceRawAsset?.textContent?.trim();
   const canEdit = status === "DRAFT" || status === "NEEDS_REVIEW";
+  const showOptions = isChoiceType(type) || type === "";
+  const canPromote = canEdit && knowledgePointIds.length > 0;
 
   async function patchDraft(
     action: string,
@@ -226,22 +264,37 @@ export function DraftReviewWorkspace({ draft }: { draft: DraftReviewWorkspaceDra
     const body: Record<string, unknown> = {
       stemMd,
       solutionMd,
+      knowledgePointIds,
+      tagIds,
     };
 
-    if (draft.type) {
-      body.type = draft.type;
+    if (type) {
+      body.type = type;
     }
 
-    if (previewOptions.length > 0) {
+    if (typeof difficulty === "number") {
+      body.difficulty = difficulty;
+    }
+
+    if (showOptions && previewOptions.length > 0) {
       body.options = previewOptions;
     }
 
     const canSendSingleAnswer =
-      (draft.type === "SINGLE_CHOICE" || draft.type == null) &&
+      answer.type === "single" &&
+      (type === "SINGLE_CHOICE" || type === "") &&
       answer.value.trim().length > 0 &&
       previewOptions.some((option) => option.label === answer.value);
 
     if (canSendSingleAnswer) {
+      body.answer = answer;
+    }
+
+    if (answer.type === "multiple" && answer.value.length > 0) {
+      body.answer = answer;
+    }
+
+    if (answer.type === "text" && answer.value.trim().length > 0) {
       body.answer = answer;
     }
 
@@ -367,6 +420,19 @@ export function DraftReviewWorkspace({ draft }: { draft: DraftReviewWorkspaceDra
             : item,
         ),
       );
+
+      if (nextStatus === "accepted") {
+        const accepted = suggestions.find((item) => item.id === suggestionId);
+        const acceptedIds = accepted
+          ? knowledgePointIdsFromPayload(accepted.payload)
+          : [];
+
+        if (acceptedIds.length > 0) {
+          setKnowledgePointIds((current) => [
+            ...new Set([...current, ...acceptedIds]),
+          ]);
+        }
+      }
     } catch {
       setActionError("Unable to review suggestion");
     } finally {
@@ -375,11 +441,22 @@ export function DraftReviewWorkspace({ draft }: { draft: DraftReviewWorkspaceDra
   }
 
   function handleOptionsChange(nextOptions: EditableOption[]) {
-    const nextAnswerValue = alignAnswerValue(options, nextOptions, answer.value);
-
     setOptions(nextOptions);
-    if (nextAnswerValue !== answer.value) {
-      setAnswer({ type: "single", value: nextAnswerValue });
+
+    if (answer.type === "single") {
+      const nextAnswerValue = alignAnswerValue(options, nextOptions, answer.value);
+      if (nextAnswerValue !== answer.value) {
+        setAnswer({ type: "single", value: nextAnswerValue });
+      }
+      return;
+    }
+
+    if (answer.type === "multiple") {
+      const labels = new Set(validOptions(nextOptions).map((option) => option.label));
+      setAnswer({
+        type: "multiple",
+        value: answer.value.filter((label) => labels.has(label)),
+      });
     }
   }
 
@@ -405,7 +482,7 @@ export function DraftReviewWorkspace({ draft }: { draft: DraftReviewWorkspaceDra
             <div>
               <dt className="font-medium text-stone-900/55">Type</dt>
               <dd className="mt-1 font-semibold">
-                {draft.type?.replaceAll("_", " ") ?? "Unclassified"}
+                {type ? type.replaceAll("_", " ") : "Unclassified"}
               </dd>
             </div>
             <div>
@@ -458,11 +535,16 @@ export function DraftReviewWorkspace({ draft }: { draft: DraftReviewWorkspaceDra
               onClick={() => {
                 void handlePromote();
               }}
-              disabled={pendingAction !== null}
+              disabled={pendingAction !== null || !canPromote}
               className="border border-lime-900 bg-lime-800 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
             >
               Promote
             </button>
+            {!canPromote ? (
+              <p className="text-sm text-stone-900/70">
+                Promote requires at least one knowledge point.
+              </p>
+            ) : null}
             {actionError ? (
               <p className="text-sm text-red-800">{actionError}</p>
             ) : null}
@@ -575,11 +657,31 @@ export function DraftReviewWorkspace({ draft }: { draft: DraftReviewWorkspaceDra
               />
             </label>
 
-            <OptionEditor
-              options={options}
-              onChange={handleOptionsChange}
+            <TaxonomyFields
+              knowledgePoints={knowledgePoints}
+              tags={tags}
+              value={{ knowledgePointIds, tagIds, difficulty, type }}
               disabled={!canEdit}
+              onChange={(next) => {
+                setKnowledgePointIds(next.knowledgePointIds);
+                setTagIds(next.tagIds);
+                setDifficulty(next.difficulty);
+                setType(next.type);
+                const nextOptions = optionsAfterTypeChange(next.type, options);
+                setOptions(nextOptions);
+                setAnswer(
+                  defaultAnswerForType(next.type, validOptions(nextOptions), answer),
+                );
+              }}
             />
+
+            {showOptions ? (
+              <OptionEditor
+                options={options}
+                onChange={handleOptionsChange}
+                disabled={!canEdit}
+              />
+            ) : null}
             <AnswerEditor
               answer={answer}
               options={previewOptions}
@@ -603,11 +705,14 @@ export function DraftReviewWorkspace({ draft }: { draft: DraftReviewWorkspaceDra
               <pre className="mt-3 max-h-80 overflow-auto bg-white p-3 text-xs leading-6 text-stone-800">
                 {JSON.stringify(
                   {
-                    type: draft.type,
+                    type,
                     stemMd,
                     optionsJson: previewOptions,
                     answerJson: answer,
                     solutionMd,
+                    knowledgePointIds,
+                    tagIds,
+                    difficulty,
                     originalAnswerJson: draft.answerJson,
                     aiOutput: draft.aiOutput,
                   },

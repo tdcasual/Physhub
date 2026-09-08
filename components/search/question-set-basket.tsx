@@ -2,22 +2,47 @@
 
 import { useMemo, useState } from "react";
 
+export type BasketItem = {
+  id: string;
+  publicId: string;
+  stemMd: string;
+};
+
+function stemPreview(stemMd: string) {
+  const stem = stemMd.replace(/\s+/g, " ").trim();
+
+  if (stem.length <= 80) {
+    return stem;
+  }
+
+  return `${stem.slice(0, 80).trimEnd()}…`;
+}
+
 export function QuestionSetBasket({
-  questionIds,
+  items,
   onRemove,
 }: {
-  questionIds: string[];
+  items: BasketItem[];
   onRemove: (id: string) => void;
 }) {
   const [title, setTitle] = useState("Untitled set");
   const [format, setFormat] = useState<"markdown" | "latex">("markdown");
   const [teacher, setTeacher] = useState(true);
+  const [publishedOnly, setPublishedOnly] = useState(false);
   const [output, setOutput] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const uniqueIds = useMemo(
-    () => [...new Set(questionIds)],
-    [questionIds],
-  );
+  const uniqueItems = useMemo(() => {
+    const seen = new Set<string>();
+    return items.filter((item) => {
+      if (seen.has(item.id)) {
+        return false;
+      }
+
+      seen.add(item.id);
+      return true;
+    });
+  }, [items]);
+  const uniqueIds = uniqueItems.map((item) => item.id);
 
   async function handleExport() {
     setError(null);
@@ -46,7 +71,7 @@ export function QuestionSetBasket({
           method: "POST",
           credentials: "include",
           headers: { "content-type": "application/json" },
-          body: JSON.stringify({ format, teacher }),
+          body: JSON.stringify({ format, teacher, publishedOnly }),
         },
       );
       const exportPayload = (await exported.json()) as {
@@ -75,12 +100,15 @@ export function QuestionSetBasket({
         <p className="mt-3 text-sm">No questions in the basket.</p>
       ) : (
         <ul className="mt-3 space-y-2 text-sm">
-          {uniqueIds.map((id) => (
-            <li key={id} className="flex items-center justify-between gap-3">
-              <span className="font-mono">{id}</span>
+          {uniqueItems.map((item) => (
+            <li key={item.id} className="flex items-start justify-between gap-3">
+              <div>
+                <p className="font-semibold">{item.publicId}</p>
+                <p className="text-stone-900/70">{stemPreview(item.stemMd)}</p>
+              </div>
               <button
                 type="button"
-                onClick={() => onRemove(id)}
+                onClick={() => onRemove(item.id)}
                 className="text-sm font-semibold"
               >
                 Remove
@@ -119,6 +147,14 @@ export function QuestionSetBasket({
           onChange={(event) => setTeacher(event.currentTarget.checked)}
         />
         Teacher export (include answers)
+      </label>
+      <label className="mt-3 flex items-center gap-2 text-sm">
+        <input
+          type="checkbox"
+          checked={publishedOnly}
+          onChange={(event) => setPublishedOnly(event.currentTarget.checked)}
+        />
+        Published only
       </label>
       <button
         type="button"

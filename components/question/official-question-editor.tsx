@@ -1,16 +1,27 @@
 "use client";
 
 import { useState } from "react";
+import type { QuestionType } from "@prisma/client";
 
-import { AnswerEditor, type SingleAnswer } from "@/components/question/answer-editor";
-import { OptionEditor, type EditableOption } from "@/components/question/option-editor";
+import { AnswerEditor } from "@/components/question/answer-editor";
+import { OptionEditor } from "@/components/question/option-editor";
 import { QuestionPreview } from "@/components/question/question-preview";
+import { TaxonomyFields } from "@/components/taxonomy/taxonomy-fields";
+import {
+  defaultAnswerForType,
+  isChoiceType,
+  optionsAfterTypeChange,
+  parseEditableAnswer,
+  type EditableAnswer,
+  type EditableOption,
+} from "@/lib/domain/editor-answer";
+import type { KnowledgePointDto, TagDto } from "@/lib/domain/taxonomy-repository";
 
 export type OfficialQuestionEditorQuestion = {
   id: string;
   publicId: string;
   status: string;
-  type: string;
+  type: QuestionType;
   stemMd: string;
   optionsJson: Array<{ label: string; value: string }> | null;
   answerJson: { type: string; value: string | string[] };
@@ -20,31 +31,42 @@ export type OfficialQuestionEditorQuestion = {
   tagIds: string[];
 };
 
+function validOptions(options: EditableOption[]) {
+  return options.filter(
+    (option) => option.label.trim() && option.value.trim(),
+  );
+}
+
 export function OfficialQuestionEditor({
   question,
+  knowledgePoints,
+  tags,
 }: {
   question: OfficialQuestionEditorQuestion;
+  knowledgePoints: KnowledgePointDto[];
+  tags: TagDto[];
 }) {
   const [stemMd, setStemMd] = useState(question.stemMd);
   const [options, setOptions] = useState<EditableOption[]>(
     question.optionsJson ?? [],
   );
-  const [answer, setAnswer] = useState<SingleAnswer>({
-    type: "single",
-    value:
-      typeof question.answerJson.value === "string"
-        ? question.answerJson.value
-        : "A",
-  });
+  const [type, setType] = useState<QuestionType | "">(question.type);
+  const [answer, setAnswer] = useState<EditableAnswer>(() =>
+    parseEditableAnswer(question.answerJson, question.type),
+  );
   const [solutionMd, setSolutionMd] = useState(question.solutionMd ?? "");
   const [knowledgePointIds, setKnowledgePointIds] = useState(
-    question.knowledgePointIds.join(","),
+    question.knowledgePointIds,
   );
-  const [tagIds] = useState(question.tagIds);
-  const [difficulty] = useState(question.difficulty);
+  const [tagIds, setTagIds] = useState(question.tagIds);
+  const [difficulty, setDifficulty] = useState<number | null>(
+    question.difficulty,
+  );
   const [status, setStatus] = useState(question.status);
   const [message, setMessage] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
+  const showOptions = isChoiceType(type) || type === "";
+  const previewOptions = validOptions(options);
 
   async function patch(body: unknown) {
     setPending(true);
@@ -84,10 +106,6 @@ export function OfficialQuestionEditor({
     }
   }
 
-  const previewOptions = options.filter(
-    (option) => option.label.trim() && option.value.trim(),
-  );
-
   return (
     <div className="mx-auto grid w-full max-w-7xl gap-6 px-6 py-8 lg:grid-cols-[minmax(0,1fr)_minmax(22rem,0.85fr)] lg:px-10">
       <section className="space-y-5">
@@ -107,7 +125,25 @@ export function OfficialQuestionEditor({
             className="w-full border border-stone-900/20 bg-white px-4 py-3 font-mono text-sm"
           />
         </label>
-        <OptionEditor options={options} onChange={setOptions} />
+        <TaxonomyFields
+          knowledgePoints={knowledgePoints}
+          tags={tags}
+          value={{ knowledgePointIds, tagIds, difficulty, type }}
+          onChange={(next) => {
+            setKnowledgePointIds(next.knowledgePointIds);
+            setTagIds(next.tagIds);
+            setDifficulty(next.difficulty);
+            setType(next.type);
+            const nextOptions = optionsAfterTypeChange(next.type, options);
+            setOptions(nextOptions);
+            setAnswer(
+              defaultAnswerForType(next.type, validOptions(nextOptions), answer),
+            );
+          }}
+        />
+        {showOptions ? (
+          <OptionEditor options={options} onChange={setOptions} />
+        ) : null}
         <AnswerEditor
           answer={answer}
           options={previewOptions}
@@ -122,29 +158,18 @@ export function OfficialQuestionEditor({
             className="w-full border border-stone-900/20 bg-white px-4 py-3 font-mono text-sm"
           />
         </label>
-        <label className="block space-y-2 text-sm font-medium text-stone-900/70">
-          Knowledge point ids
-          <input
-            value={knowledgePointIds}
-            onChange={(event) => setKnowledgePointIds(event.currentTarget.value)}
-            className="w-full border border-stone-900/20 bg-white px-3 py-2 text-sm"
-          />
-        </label>
         <div className="flex flex-wrap gap-3">
           <button
             type="button"
             disabled={pending}
             onClick={() =>
               void patch({
-                type: question.type,
+                type: type || question.type,
                 stemMd,
-                options: previewOptions,
+                ...(showOptions ? { options: previewOptions } : {}),
                 answer,
                 solutionMd,
-                knowledgePointIds: knowledgePointIds
-                  .split(",")
-                  .map((item) => item.trim())
-                  .filter(Boolean),
+                knowledgePointIds,
                 tagIds,
                 ...(typeof difficulty === "number" ? { difficulty } : {}),
               })
@@ -175,7 +200,7 @@ export function OfficialQuestionEditor({
       <aside role="region" aria-label="Live Preview">
         <QuestionPreview
           stemMd={stemMd}
-          options={previewOptions}
+          options={showOptions ? previewOptions : []}
           solutionMd={solutionMd}
           showSolution
         />

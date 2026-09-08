@@ -31,7 +31,7 @@ export function QuestionList({
   onAddToBasket,
 }: {
   questions: QuestionListItem[];
-  onAddToBasket?: (questionId: string) => void;
+  onAddToBasket?: (question: QuestionListItem) => void;
 }) {
   if (questions.length === 0) {
     return (
@@ -109,7 +109,7 @@ export function QuestionList({
             {onAddToBasket ? (
               <button
                 type="button"
-                onClick={() => onAddToBasket(question.id)}
+                onClick={() => onAddToBasket(question)}
                 className="border border-stone-900/20 bg-white px-2 py-1 text-xs font-semibold"
               >
                 Add to basket

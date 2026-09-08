@@ -3,8 +3,11 @@
 import { FormEvent, useState } from "react";
 import { LoaderCircle, Search } from "lucide-react";
 
+import Link from "next/link";
+
 import { MarkdownLatex } from "@/lib/renderer/render-markdown";
 import type { QuestionSearchResponse } from "@/lib/search/question-search";
+import type { BasketItem } from "@/components/search/question-set-basket";
 
 type SearchState =
   | { status: "idle" }
@@ -24,7 +27,11 @@ async function readError(response: Response) {
   }
 }
 
-export function QuestionSearchPanel() {
+export function QuestionSearchPanel({
+  onAddToBasket,
+}: {
+  onAddToBasket?: (item: BasketItem) => void;
+}) {
   const [query, setQuery] = useState("");
   const [searchState, setSearchState] = useState<SearchState>({ status: "idle" });
 
@@ -143,7 +150,9 @@ export function QuestionSearchPanel() {
                 >
                   <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                     <h3 className="text-lg font-semibold">
-                      {result.question_id}
+                      <Link href={`/questions/${result.id}`} className="hover:underline">
+                        {result.question_id}
+                      </Link>
                     </h3>
                     <div className="flex flex-wrap gap-2 text-xs font-semibold uppercase tracking-[0.08em]">
                       <span className="border border-stone-900/15 px-2 py-1">
@@ -152,6 +161,21 @@ export function QuestionSearchPanel() {
                       <span className="border border-lime-800/25 bg-lime-50 px-2 py-1 text-lime-800">
                         {result.status}
                       </span>
+                      {onAddToBasket ? (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            onAddToBasket({
+                              id: result.id,
+                              publicId: result.question_id,
+                              stemMd: result.stemMd,
+                            })
+                          }
+                          className="border border-stone-900/20 bg-white px-2 py-1 text-xs font-semibold"
+                        >
+                          Add to basket
+                        </button>
+                      ) : null}
                     </div>
                   </div>
                   <div className="prose prose-stone mt-3 max-w-none text-sm">

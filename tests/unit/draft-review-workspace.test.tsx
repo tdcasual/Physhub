@@ -5,6 +5,7 @@ import {
   DraftReviewWorkspace,
   type DraftReviewWorkspaceDraft,
 } from "@/components/draft/draft-review-workspace";
+import { taxonomyFixtures } from "@/tests/unit/helpers/taxonomy-fixtures";
 
 const draft: DraftReviewWorkspaceDraft = {
   id: "draft_1",
@@ -17,6 +18,9 @@ const draft: DraftReviewWorkspaceDraft = {
   ],
   answerJson: { type: "single", value: "B" },
   solutionMd: "Acceleration changes velocity, so choose B.",
+  difficulty: 2,
+  knowledgePointIds: ["kp_motion"],
+  tagIds: [],
   aiOutput: { source: "mock parser" },
   createdAt: "2026-05-16T10:00:00.000Z",
   updatedAt: "2026-05-16T10:05:00.000Z",
@@ -68,6 +72,18 @@ const draft: DraftReviewWorkspaceDraft = {
   ],
 };
 
+function renderWorkspace(
+  value: DraftReviewWorkspaceDraft = draft,
+) {
+  return render(
+    <DraftReviewWorkspace
+      draft={value}
+      knowledgePoints={taxonomyFixtures.knowledgePoints}
+      tags={taxonomyFixtures.tags}
+    />,
+  );
+}
+
 describe("DraftReviewWorkspace", () => {
   afterEach(() => {
     vi.unstubAllGlobals();
@@ -75,7 +91,7 @@ describe("DraftReviewWorkspace", () => {
   });
 
   it("renders source material, editable draft fields, preview, and suggestions", () => {
-    render(<DraftReviewWorkspace draft={draft} />);
+    renderWorkspace();
 
     expect(screen.getByRole("heading", { name: "Draft Review" })).toBeInTheDocument();
     expect(screen.getByText("motion.txt")).toBeInTheDocument();
@@ -99,7 +115,7 @@ describe("DraftReviewWorkspace", () => {
   });
 
   it("updates the live preview without persisting edits", () => {
-    render(<DraftReviewWorkspace draft={draft} />);
+    renderWorkspace();
 
     fireEvent.change(screen.getByLabelText("Stem Markdown"), {
       target: { value: "Edited stem with $F=ma$." },
@@ -130,7 +146,7 @@ describe("DraftReviewWorkspace", () => {
       });
     vi.stubGlobal("fetch", fetchMock);
 
-    render(<DraftReviewWorkspace draft={draft} />);
+    renderWorkspace();
 
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
@@ -169,17 +185,13 @@ describe("DraftReviewWorkspace", () => {
     });
     vi.stubGlobal("fetch", fetchMock);
 
-    render(
-      <DraftReviewWorkspace
-        draft={{
-          ...draft,
-          status: "DRAFT",
-          type: null,
-          optionsJson: null,
-          answerJson: null,
-        }}
-      />,
-    );
+    renderWorkspace({
+      ...draft,
+      status: "DRAFT",
+      type: null,
+      optionsJson: null,
+      answerJson: null,
+    });
 
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
     await waitFor(() => expect(fetchMock).toHaveBeenCalled());
@@ -194,7 +206,7 @@ describe("DraftReviewWorkspace", () => {
   });
 
   it("makes rejected drafts read-only", () => {
-    render(<DraftReviewWorkspace draft={{ ...draft, status: "REJECTED" }} />);
+    renderWorkspace({ ...draft, status: "REJECTED" });
 
     expect(screen.queryByRole("button", { name: "Save" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Reject" })).not.toBeInTheDocument();
@@ -207,19 +219,15 @@ describe("DraftReviewWorkspace", () => {
   });
 
   it("renders the source image through the raw asset file route", () => {
-    render(
-      <DraftReviewWorkspace
-        draft={{
-          ...draft,
-          sourceRawAsset: {
-            ...draft.sourceRawAsset!,
-            kind: "IMAGE",
-            originalName: "vt.png",
-            mimeType: "image/png",
-          },
-        }}
-      />,
-    );
+    renderWorkspace({
+      ...draft,
+      sourceRawAsset: {
+        ...draft.sourceRawAsset!,
+        kind: "IMAGE",
+        originalName: "vt.png",
+        mimeType: "image/png",
+      },
+    });
 
     expect(screen.getByRole("img", { name: "vt.png" })).toHaveAttribute(
       "src",
@@ -228,16 +236,12 @@ describe("DraftReviewWorkspace", () => {
   });
 
   it("hides promote on already promoted drafts and shows the official question id", () => {
-    render(
-      <DraftReviewWorkspace
-        draft={{
-          ...draft,
-          status: "PROMOTED",
-          promotedAt: "2026-05-16T10:10:00.000Z",
-          promotedQuestionId: "question_9",
-        }}
-      />,
-    );
+    renderWorkspace({
+      ...draft,
+      status: "PROMOTED",
+      promotedAt: "2026-05-16T10:10:00.000Z",
+      promotedQuestionId: "question_9",
+    });
 
     expect(screen.queryByRole("button", { name: "Promote" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Save" })).not.toBeInTheDocument();
@@ -258,7 +262,7 @@ describe("DraftReviewWorkspace", () => {
       });
     vi.stubGlobal("fetch", fetchMock);
 
-    render(<DraftReviewWorkspace draft={draft} />);
+    renderWorkspace();
 
     fireEvent.click(screen.getByRole("button", { name: "Promote" }));
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
@@ -292,7 +296,7 @@ describe("DraftReviewWorkspace", () => {
     });
     vi.stubGlobal("fetch", fetchMock);
 
-    render(<DraftReviewWorkspace draft={draft} />);
+    renderWorkspace();
 
     fireEvent.click(screen.getByRole("button", { name: "Promote" }));
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
@@ -325,7 +329,7 @@ describe("DraftReviewWorkspace", () => {
       });
     vi.stubGlobal("fetch", fetchMock);
 
-    render(<DraftReviewWorkspace draft={draft} />);
+    renderWorkspace();
 
     fireEvent.click(screen.getByRole("button", { name: "Promote" }));
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
@@ -346,7 +350,7 @@ describe("DraftReviewWorkspace", () => {
     });
     vi.stubGlobal("fetch", fetchMock);
 
-    render(<DraftReviewWorkspace draft={draft} />);
+    renderWorkspace();
 
     fireEvent.click(screen.getByRole("button", { name: "Accept suggestion" }));
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
@@ -371,7 +375,7 @@ describe("DraftReviewWorkspace", () => {
     });
     vi.stubGlobal("fetch", fetchMock);
 
-    render(<DraftReviewWorkspace draft={draft} />);
+    renderWorkspace();
 
     fireEvent.click(screen.getByRole("button", { name: "Reject suggestion" }));
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
@@ -381,32 +385,72 @@ describe("DraftReviewWorkspace", () => {
   });
 
   it("disables Accept when a knowledge point in the payload lacks id", () => {
-    render(
-      <DraftReviewWorkspace
-        draft={{
-          ...draft,
-          suggestions: [
-            {
-              ...draft.suggestions[0],
-              kind: "metadata",
-              payload: {
-                knowledge_points: [
-                  {
-                    value: "v-t 图像面积表示位移",
-                    confidence: 0.86,
-                    reason: "规则无法带 id",
-                  },
-                ],
-                difficulty: { value: 2, confidence: 0.72, reason: "基础" },
-                risks: [],
+    renderWorkspace({
+      ...draft,
+      suggestions: [
+        {
+          ...draft.suggestions[0],
+          kind: "metadata",
+          payload: {
+            knowledge_points: [
+              {
+                value: "v-t 图像面积表示位移",
+                confidence: 0.86,
+                reason: "规则无法带 id",
               },
-            },
-          ],
-        }}
-      />,
-    );
+            ],
+            difficulty: { value: 2, confidence: 0.72, reason: "基础" },
+            risks: [],
+          },
+        },
+      ],
+    });
 
     expect(screen.getByRole("button", { name: "Accept suggestion" })).toBeDisabled();
     expect(screen.getByRole("button", { name: "Reject suggestion" })).toBeEnabled();
+  });
+
+  it("disables promote until a knowledge point is selected", () => {
+    renderWorkspace({
+      ...draft,
+      knowledgePointIds: [],
+    });
+
+    expect(screen.getByRole("button", { name: "Promote" })).toBeDisabled();
+    expect(
+      screen.getByText("Promote requires at least one knowledge point."),
+    ).toBeInTheDocument();
+  });
+
+  it("includes knowledge point ids when saving and promoting", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ draft: { id: "draft_1", status: "NEEDS_REVIEW" } }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          draft: {
+            id: "draft_1",
+            status: "PROMOTED",
+            promotedAt: "2026-05-16T10:20:00.000Z",
+            promotedQuestionId: "question_1",
+          },
+          question: { id: "question_1" },
+        }),
+      });
+    vi.stubGlobal("fetch", fetchMock);
+
+    renderWorkspace();
+    fireEvent.click(screen.getByRole("checkbox", { name: "高一" }));
+    fireEvent.click(screen.getByRole("button", { name: "Promote" }));
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
+    expect(JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body))).toMatchObject({
+      knowledgePointIds: ["kp_motion", "kp_g1"],
+      type: "SINGLE_CHOICE",
+    });
   });
 });

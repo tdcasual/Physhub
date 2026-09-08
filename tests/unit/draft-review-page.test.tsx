@@ -12,6 +12,8 @@ vi.mock("next/headers", () => ({
 
 const mocks = vi.hoisted(() => ({
   findUnique: vi.fn(),
+  listKnowledgePoints: vi.fn(),
+  listTags: vi.fn(),
 }));
 
 vi.mock("@/lib/db/prisma", () => ({
@@ -20,6 +22,11 @@ vi.mock("@/lib/db/prisma", () => ({
       findUnique: mocks.findUnique,
     },
   },
+}));
+
+vi.mock("@/lib/domain/taxonomy-repository", () => ({
+  listKnowledgePoints: mocks.listKnowledgePoints,
+  listTags: mocks.listTags,
 }));
 
 vi.mock("@/components/draft/draft-review-workspace", () => ({
@@ -40,6 +47,10 @@ import DraftReviewPage from "@/app/(dashboard)/drafts/[id]/page";
 describe("DraftReviewPage", () => {
   beforeEach(() => {
     mocks.findUnique.mockReset();
+    mocks.listKnowledgePoints.mockReset();
+    mocks.listTags.mockReset();
+    mocks.listKnowledgePoints.mockResolvedValue([]);
+    mocks.listTags.mockResolvedValue([]);
     dashboardCookieStore.get.mockReset();
     setDashboardCookie(true);
   });
@@ -51,6 +62,8 @@ describe("DraftReviewPage", () => {
 
     expect(screen.getByRole("heading", { name: "Unlock editor" })).toBeInTheDocument();
     expect(mocks.findUnique).not.toHaveBeenCalled();
+    expect(mocks.listKnowledgePoints).not.toHaveBeenCalled();
+    expect(mocks.listTags).not.toHaveBeenCalled();
     expect(screen.queryByText(/workspace answer/)).not.toBeInTheDocument();
     expect(screen.queryByText(/secret-answer/)).not.toBeInTheDocument();
   });
@@ -64,6 +77,9 @@ describe("DraftReviewPage", () => {
       optionsJson: [{ label: "A", value: "x" }],
       answerJson: { type: "single", value: "A" },
       solutionMd: "secret-answer",
+      difficulty: 2,
+      knowledgePointIds: ["kp_motion"],
+      tagIds: [],
       aiOutput: null,
       createdAt: new Date("2026-05-15T08:00:00.000Z"),
       updatedAt: new Date("2026-05-15T08:00:00.000Z"),

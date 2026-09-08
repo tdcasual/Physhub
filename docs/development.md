@@ -74,6 +74,14 @@ npm run test:e2e
 
 The E2E command builds the app and starts the production server on port 3100. Playwright injects a test `EDITOR_SESSION_SECRET` via `webServer.env`; it does not rely on a developer `.env`.
 
+E2E prerequisites (the suite does not skip when they are missing):
+
+1. Browser: `npm run test:e2e:install`. Playwright's bundled Chromium is not published for Ubuntu 26.04; on that host install Google Chrome and run with `PLAYWRIGHT_CHROME_CHANNEL=chrome`.
+2. A reachable Postgres `DATABASE_URL` (Playwright forwards the process environment). Local docker: `docker start physhub-pg`.
+3. Applied migration and seed: `npx prisma migrate deploy` then `npm run db:seed`
+
+Unlock-only specs still hit Prisma after a successful cookie (dashboard pages list drafts/taxonomy). Promote specs also create drafts. Do not run `npm run test:e2e` against an empty or unreachable database. The command does not migrate for you.
+
 ## AI Boundary
 
 The platform does not embed an LLM or OCR. The default product path is an external coding-agent harness submitting already-structured drafts through `/api/agent/*`. Human review and promote are the only way a draft becomes a formal `Question`.

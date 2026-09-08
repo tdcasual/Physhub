@@ -9,7 +9,15 @@ type ExportFormat = "markdown" | "latex";
 export type ExportBody = {
   format: ExportFormat;
   teacher: boolean;
+  publishedOnly: boolean;
 };
+
+export class QuestionSetExportValidationError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "QuestionSetExportValidationError";
+  }
+}
 
 type QuestionSetExportDb = {
   questionSet: {
@@ -45,7 +53,7 @@ function toExportJobDto(exportJob: ExportJobDto): ExportJobDto {
 
 export function parseExportBody(input: unknown): ExportBody {
   if (input === undefined) {
-    return { format: "markdown", teacher: true };
+    return { format: "markdown", teacher: true, publishedOnly: false };
   }
 
   if (typeof input !== "object" || input === null || Array.isArray(input)) {
@@ -62,6 +70,7 @@ export function parseExportBody(input: unknown): ExportBody {
   return {
     format,
     teacher: candidate.teacher !== false,
+    publishedOnly: candidate.publishedOnly === true,
   };
 }
 
@@ -89,6 +98,15 @@ export async function createQuestionSetExport(
 
   if (!questionSet) {
     throw new Error("Question set not found");
+  }
+
+  if (
+    body.publishedOnly &&
+    questionSet.items.some((item) => item.question.status !== "PUBLISHED")
+  ) {
+    throw new QuestionSetExportValidationError(
+      "Export requires PUBLISHED questions",
+    );
   }
 
   const content = questionSet.items
@@ -120,6 +138,10 @@ export function mapQuestionSetExportApiError(
 
   if (error instanceof Error && error.message === "Question set not found") {
     return { error: error.message, status: 404 };
+  }
+
+  if (error instanceof QuestionSetExportValidationError) {
+    return { error: error.message, status: 400 };
   }
 
   if (
