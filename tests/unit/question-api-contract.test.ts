@@ -6,6 +6,7 @@ import {
   buildManualPublicQuestionId,
   buildPersistedQuestionContract,
   createQuestion,
+  parseAndValidateQuestionInput,
   QuestionPersistenceError,
   QuestionRelationError,
   QuestionValidationError,
@@ -63,6 +64,26 @@ describe("question API publish validation contract", () => {
         knowledgePointIds: [],
       }),
     ).toEqual(["必须确认知识点"]);
+  });
+});
+
+describe("parseAndValidateQuestionInput", () => {
+  it("rejects an empty knowledgePointIds array with the Chinese publish error", () => {
+    expect(() =>
+      parseAndValidateQuestionInput({
+        ...validQuestionInput(),
+        knowledgePointIds: [],
+      }),
+    ).toThrow(new QuestionValidationError("必须确认知识点"));
+  });
+
+  it("rejects a missing knowledgePointIds field with the same Chinese error", () => {
+    const { knowledgePointIds: _, ...withoutKnowledgePoints } =
+      validQuestionInput();
+
+    expect(() => parseAndValidateQuestionInput(withoutKnowledgePoints)).toThrow(
+      new QuestionValidationError("必须确认知识点"),
+    );
   });
 });
 

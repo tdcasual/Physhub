@@ -5,6 +5,7 @@ import { timingSafeEqualString } from "@/lib/auth/secure-compare";
 export const devAgentScopes = [
   "questions:read",
   "questions:search",
+  "questions:publish",
   "drafts:create",
   "drafts:update",
   "drafts:read",

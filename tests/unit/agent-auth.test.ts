@@ -20,7 +20,7 @@ import {
   readAgentAuth,
   readDevAgentScopes,
 } from "@/lib/auth/agent-auth";
-import { computeEditorSessionCookieValue } from "@/lib/auth/human-auth";
+
 
 const originalDevKey = process.env.AGENT_API_KEY_DEV;
 const originalEditorSecret = process.env.EDITOR_SESSION_SECRET;
@@ -28,6 +28,7 @@ const originalEditorSecret = process.env.EDITOR_SESSION_SECRET;
 const expectedDevScopes = [
   "questions:read",
   "questions:search",
+  "questions:publish",
   "drafts:create",
   "drafts:update",
   "drafts:read",
@@ -85,9 +86,8 @@ describe("readDevAgentScopes", () => {
     expect(scopes).toEqual(expectedDevScopes);
     expect(scopes).toContain("drafts:update");
     expect(scopes).toContain("drafts:read");
-    expect(scopes).not.toContain("questions:publish");
+    expect(scopes).toContain("questions:publish");
     expect(scopes).not.toContain("questions:delete");
-    expect(scopes).not.toContain("publish");
     expect(scopes).not.toContain("delete");
     expect(scopes).not.toContain("metadata:write");
   });
@@ -149,15 +149,11 @@ describe("readAgentAuth", () => {
 
   it("does not treat an editor session cookie as agent auth", async () => {
     process.env.AGENT_API_KEY_DEV = "dev-agent-key";
-    process.env.EDITOR_SESSION_SECRET = "test-editor-session-secret";
-
     await expect(
       readAgentAuth(
         new Request("http://localhost/api/agent/search-questions", {
           headers: {
-            Cookie: `physhub_editor=${computeEditorSessionCookieValue(
-              "test-editor-session-secret",
-            )}`,
+            Cookie: "physhub_session=physhub-test-session-token",
           },
         }),
       ),

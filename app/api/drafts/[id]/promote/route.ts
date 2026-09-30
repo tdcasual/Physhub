@@ -25,7 +25,9 @@ export async function POST(
   const { id } = await context.params;
 
   try {
-    const result = await promoteDraftToQuestion(id);
+    const result = await promoteDraftToQuestion(id, {
+      actorId: auth.session.userId,
+    });
 
     return NextResponse.json(result, { status: 201 });
   } catch (error) {

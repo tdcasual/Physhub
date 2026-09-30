@@ -86,4 +86,4 @@ Returns unique Chinese strings (order below). Used by quality-check; does not wr
 | choice type and no `options` | `选择题必须有选项` |
 | answer type ≠ question type, or a choice value is not an option label | `答案必须匹配选项` |
 
-`publishable: true` iff this list is empty.
+`publishable: true` iff this list is empty. Quality-check only reports; `POST /api/agent/questions` and promote use the same strings as 400 errors and then insert `REVIEWED`.

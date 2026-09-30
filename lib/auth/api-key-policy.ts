@@ -3,7 +3,6 @@ import { createHash, randomBytes } from "node:crypto";
 import { devAgentScopes } from "@/lib/auth/agent-auth";
 
 export const HIGH_RISK_API_KEY_SCOPES = [
-  "questions:publish",
   "delete",
   "metadata:write",
 ] as const;
@@ -16,6 +15,15 @@ export function createApiKeyPlaintext(): string {
 
 export function hashApiKeyPlaintext(token: string): string {
   return createHash("sha256").update(token, "utf8").digest("hex");
+}
+
+export function apiKeyPrefixFromPlaintext(token: string): string {
+  return token.slice(0, 12);
+}
+
+export function isUsableApiKeyName(name: string): boolean {
+  const trimmed = name.trim();
+  return trimmed.length >= 2 && trimmed.length <= 64;
 }
 
 export function isHighRiskApiKeyScope(scope: string): scope is HighRiskApiKeyScope {

@@ -353,6 +353,7 @@ function buildQuestionSnapshot(
 async function promoteInTransaction(
   tx: DraftDbClient,
   id: string,
+  actorId: string,
 ): Promise<PromoteDraftResult> {
   // Conditional UPDATE is the race arbitration; do not check-then-act.
   const claimed = await tx.questionDraft.updateMany({
@@ -383,7 +384,6 @@ async function promoteInTransaction(
   await assertTagsExist(tx, tagIds);
   await assertRawAssetExists(tx, draft.sourceRawAssetId);
 
-  const ownerId = await resolveOwnerUserId(tx);
   const persisted = buildPersistedQuestionContract(input);
   const publicId = buildManualPublicQuestionId();
 
@@ -393,8 +393,8 @@ async function promoteInTransaction(
       ...persisted,
       publicId,
       sourceRawAssetId: draft.sourceRawAssetId,
-      createdById: ownerId,
-      reviewedById: ownerId,
+      createdById: actorId,
+      reviewedById: actorId,
       knowledgePoints: {
         create: input.knowledgePointIds.map((knowledgePointId, index) => ({
           knowledgePointId,
@@ -417,7 +417,7 @@ async function promoteInTransaction(
       questionId: question.id,
       version: 1,
       snapshot: buildQuestionSnapshot(question, input.knowledgePointIds, tagIds),
-      createdById: ownerId,
+      createdById: actorId,
     },
   });
 
@@ -426,7 +426,7 @@ async function promoteInTransaction(
       resourceType: "question_draft",
       resourceId: draft.id,
       action: "promoted",
-      actorId: ownerId,
+      actorId: actorId,
       diff: { questionId: question.id },
     },
   });
@@ -456,7 +456,7 @@ async function promoteInTransaction(
 
 export async function promoteDraftToQuestion(
   id: string,
-  options?: { db?: DraftDbClient },
+  options?: { db?: DraftDbClient; actorId?: string },
 ): Promise<PromoteDraftResult> {
   const db = await getDb(options?.db);
   const existing = await db.questionDraft.findUnique({ where: { id } });
@@ -465,39 +465,52 @@ export async function promoteDraftToQuestion(
     throw new DraftNotFoundError();
   }
 
-  // Caller-supplied client already owns the transaction (ITX still has $transaction).
+  const actorId = options?.actorId ?? (await resolveOwnerUserId(db));
+
   if (options?.db) {
-    return promoteInTransaction(db, id);
+    return promoteInTransaction(db, id, actorId);
   }
 
-  return runWithPromoteRetry(db, (tx) => promoteInTransaction(tx, id));
+  return runWithPromoteRetry(db, (tx) => promoteInTransaction(tx, id, actorId));
 }
 
 export async function createQuestionByPromotingDraft(
   rawInput: unknown,
+  options?: { db?: DraftDbClient; actorId?: string },
 ): Promise<PromoteDraftResult> {
   const input = parseAndValidateQuestionInput(rawInput);
   const extras = parseQuestionPromoteExtras(rawInput);
+  const draftInput = {
+    type: input.type,
+    stemMd: input.stemMd,
+    options: input.options,
+    answer: input.answer,
+    solutionMd: input.solutionMd,
+    difficulty: input.difficulty,
+    knowledgePointIds: input.knowledgePointIds,
+    tagIds: extras.tagIds,
+    sourceRawAssetId: extras.sourceRawAssetId,
+  };
+
+  async function promoteFromNewDraft(tx: DraftDbClient, actorId: string) {
+    const draft = await createQuestionDraft(draftInput, {
+      actor: "human",
+      db: tx,
+    });
+
+    return promoteDraftToQuestion(draft.id, { db: tx, actorId });
+  }
+
+  if (options?.db) {
+    const actorId =
+      options.actorId ?? (await resolveOwnerUserId(options.db));
+    return promoteFromNewDraft(options.db, actorId);
+  }
+
   const db = await getDb();
+  const actorId = options?.actorId ?? (await resolveOwnerUserId(db));
 
-  return runWithPromoteRetry(db, async (tx) => {
-    const draft = await createQuestionDraft(
-      {
-        type: input.type,
-        stemMd: input.stemMd,
-        options: input.options,
-        answer: input.answer,
-        solutionMd: input.solutionMd,
-        difficulty: input.difficulty,
-        knowledgePointIds: input.knowledgePointIds,
-        tagIds: extras.tagIds,
-        sourceRawAssetId: extras.sourceRawAssetId,
-      },
-      { actor: "human", db: tx },
-    );
-
-    return promoteDraftToQuestion(draft.id, { db: tx });
-  });
+  return runWithPromoteRetry(db, (tx) => promoteFromNewDraft(tx, actorId));
 }
 
 export function mapPromoteApiError(error: unknown): {

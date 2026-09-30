@@ -8,6 +8,7 @@ import {
 } from "@/lib/domain/question-schema";
 import {
   buildPublicQuestionId,
+  normalizeQuestionDraftInput,
   normalizeQuestionInput,
 } from "@/lib/domain/question-service";
 
@@ -92,7 +93,65 @@ function getValidationMessage(error: ZodError) {
   return error.issues.map((issue) => issue.message).join("; ");
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function partialQuestionFromUnknown(raw: unknown): Partial<QuestionInput> {
+  if (!isRecord(raw)) {
+    return {};
+  }
+
+  const partial: Partial<QuestionInput> = {};
+
+  if (typeof raw.type === "string") {
+    partial.type = raw.type as QuestionInput["type"];
+  }
+
+  if (typeof raw.stemMd === "string") {
+    partial.stemMd = raw.stemMd;
+  }
+
+  if (Array.isArray(raw.options)) {
+    partial.options = raw.options as QuestionInput["options"];
+  }
+
+  if (isRecord(raw.answer)) {
+    partial.answer = raw.answer as QuestionInput["answer"];
+  }
+
+  if (Array.isArray(raw.knowledgePointIds)) {
+    partial.knowledgePointIds = raw.knowledgePointIds.filter(
+      (id): id is string => typeof id === "string",
+    );
+  }
+
+  return partial;
+}
+
+function normalizedPartialQuestion(raw: unknown): Partial<QuestionInput> {
+  const partial = partialQuestionFromUnknown(raw);
+
+  if (partial.answer === undefined && partial.options === undefined) {
+    return partial;
+  }
+
+  try {
+    return normalizeQuestionDraftInput(partial);
+  } catch {
+    return partial;
+  }
+}
+
 export function parseAndValidateQuestionInput(rawInput: unknown) {
+  const publishErrors = validatePublishableQuestion(
+    normalizedPartialQuestion(rawInput),
+  );
+
+  if (publishErrors.length > 0) {
+    throw new QuestionValidationError(publishErrors.join("; "));
+  }
+
   const parsed = questionInputSchema.safeParse(rawInput);
 
   if (!parsed.success) {
@@ -100,10 +159,10 @@ export function parseAndValidateQuestionInput(rawInput: unknown) {
   }
 
   const input = normalizeQuestionInput(parsed.data);
-  const publishErrors = validatePublishableQuestion(input);
+  const normalizedErrors = validatePublishableQuestion(input);
 
-  if (publishErrors.length > 0) {
-    throw new QuestionValidationError(publishErrors.join("; "));
+  if (normalizedErrors.length > 0) {
+    throw new QuestionValidationError(normalizedErrors.join("; "));
   }
 
   return input;

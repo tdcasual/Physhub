@@ -1,8 +1,10 @@
 import {
+  apiKeyPrefixFromPlaintext,
   createApiKeyPlaintext,
   hashApiKeyPlaintext,
   resolveCreatedApiKeyScopes,
 } from "../lib/auth/api-key-policy";
+import { wrapApiKeyPlaintext } from "../lib/auth/api-key-wrap";
 
 function parseArgs(argv: string[]) {
   let name = "harness";
@@ -37,11 +39,19 @@ function parseArgs(argv: string[]) {
   return { name, allowHighRisk, extraScopes };
 }
 
-export async function createApiKeyRecord(options: {
+export type PersistedApiKeyInput = {
+  name: string;
+  keyHash: string;
+  keyPrefix: string;
+  keyCiphertext: string;
+  scopes: string[];
+};
+
+export async function createApiKeyRecord<T>(options: {
   name: string;
   allowHighRisk: boolean;
   extraScopes: string[];
-  persist: (data: { name: string; keyHash: string; scopes: string[] }) => Promise<unknown>;
+  persist: (data: PersistedApiKeyInput) => Promise<T>;
 }) {
   const scopes = resolveCreatedApiKeyScopes({
     scopes:
@@ -50,10 +60,17 @@ export async function createApiKeyRecord(options: {
   });
   const token = createApiKeyPlaintext();
   const keyHash = hashApiKeyPlaintext(token);
+  const keyPrefix = apiKeyPrefixFromPlaintext(token);
+  const keyCiphertext = wrapApiKeyPlaintext(token);
+  const created = await options.persist({
+    name: options.name,
+    keyHash,
+    keyPrefix,
+    keyCiphertext,
+    scopes,
+  });
 
-  await options.persist({ name: options.name, keyHash, scopes });
-
-  return { token, keyHash, scopes };
+  return { token, keyHash, keyPrefix, scopes, created };
 }
 
 async function main() {

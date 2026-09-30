@@ -79,7 +79,9 @@ export async function POST(request: Request) {
   }
 
   try {
-    const result = await createQuestionByPromotingDraft(await request.json());
+    const result = await createQuestionByPromotingDraft(await request.json(), {
+      actorId: auth.session.userId,
+    });
 
     return NextResponse.json({ question: result.question }, { status: 201 });
   } catch (error) {

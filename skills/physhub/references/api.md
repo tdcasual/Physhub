@@ -12,7 +12,7 @@ Mutating JSON successes (and errors, once a request id is known) include `"reque
 | `Idempotency-Key` | required. 1–128 chars, `[A-Za-z0-9._-]+` | not required |
 | `X-Request-Id` | optional | optional |
 
-Mutating: create/update draft, raw asset, suggestions, quality-check, question sets, export.
+Mutating: create/update draft, create official question, promote draft, raw asset, suggestions, quality-check, question sets, export.
 
 Same key + same body replays the stored response. Same key + different body → `409` `Idempotency-Key reused with a different request body`. In-flight key → `409` `Idempotency-Key in progress`. Missing → `400` `Idempotency-Key is required`. Illegal charset/length → `400` `Invalid Idempotency-Key`.
 
@@ -29,14 +29,16 @@ Same key + same body replays the stored response. Same key + different body → 
 | `create_question_draft` | `POST /api/agent/question-drafts` | `drafts:create` | yes |
 | `update_question_draft` | `PATCH /api/agent/question-drafts/:id` | `drafts:update` | yes |
 | `get_question_draft` | `GET /api/agent/question-drafts/:id` | `drafts:read` | no |
+| `create_official_question` | `POST /api/agent/questions` | `questions:publish` | yes |
+| `promote_question_draft` | `POST /api/agent/question-drafts/:id/promote` | `questions:publish` | yes |
 | `submit_suggestions` | `POST /api/agent/suggestions` | `suggestions:create` | yes (404 if route absent) |
 | `check_question_quality` | `POST /api/agent/quality-check` | `quality:check` | yes |
 | `create_question_set` | `POST /api/agent/question-sets` | `question_sets:create` | yes |
 | `export_question_set` | `POST /api/agent/question-sets/:id/export` | `exports:create` | yes |
 
-No agent publish / delete / promote / accept-suggestion route.
+No agent delete, accept-suggestion, or official-status (`PUBLISHED` / `DEPRECATED`) route.
 
-Human-route refusals (not agent tools): `POST /api/questions` → `403` `Agent cannot publish questions`. Other human APIs → `403` `Agent key not accepted on human routes`.
+Human-route refusals (not agent tools): `POST /api/questions` and `POST /api/drafts/:id/promote` → `403` `Agent cannot publish questions`. Other human APIs → `403` `Agent key not accepted on human routes`. Ingest with the agent tools above.
 
 ---
 
@@ -216,6 +218,43 @@ Headers: `Authorization`
 | --- | --- |
 | 404 | `Draft not found` |
 | 500 | `Failed to load question draft` |
+
+### `create_official_question`
+
+`POST /api/agent/questions`  
+Scope: `questions:publish`  
+Headers: `Authorization`, `Idempotency-Key`  
+`Content-Type: application/json`
+
+Complete question body, same fields as human `POST /api/questions` / [question-contract.md](question-contract.md). Optional `tagIds`, `sourceRawAssetId`. Internally creates a draft and promotes it. Result `question.status` is `REVIEWED`, not `PUBLISHED`.
+
+201: `{ "request_id", "question": { id, publicId, status, type, stemMd, … }, "draft": { id, status, promotedQuestionId, … } }`.
+
+| HTTP | `error` |
+| --- | --- |
+| 400 | `题干不能为空` / `必须确认题型` / `必须填写答案` / `必须确认知识点` / `选择题必须有选项` / `答案必须匹配选项` |
+| 400 | `Malformed JSON request body` / zod field messages |
+| 422 | `Knowledge point not found` / `Tag not found` / `Raw asset not found` |
+| 500 | `Unable to create question` |
+
+### `promote_question_draft`
+
+`POST /api/agent/question-drafts/:id/promote`  
+Scope: `questions:publish`  
+Headers: `Authorization`, `Idempotency-Key`
+
+Promotes an existing `DRAFT` or `NEEDS_REVIEW` draft. Body optional (`{}` if omitted). Same quality gate as teacher promote. Result `question.status` is `REVIEWED`.
+
+201: `{ "request_id", "question", "draft" }` (same shapes as `create_official_question`).
+
+| HTTP | `error` |
+| --- | --- |
+| 400 | `题干不能为空` / `必须确认题型` / `必须填写答案` / `必须确认知识点` / `选择题必须有选项` / `答案必须匹配选项` |
+| 400 | `Malformed JSON request body` |
+| 404 | `Draft not found` |
+| 409 | `Draft is not promotable` |
+| 422 | `Knowledge point not found` / `Tag not found` / `Raw asset not found` |
+| 500 | `Unable to promote draft` |
 
 ### `submit_suggestions`
 

@@ -1,6 +1,6 @@
 ---
 name: physhub
-description: Ingest existing high-school physics questions (image, PDF, markdown, or pasted text) into Physhub drafts via /api/agent. Do not use to invent new questions.
+description: Ingest existing high-school physics questions (image, PDF, markdown, or pasted text) into Physhub drafts or the official bank via /api/agent. Do not use to invent new questions.
 ---
 
 # Physhub
@@ -14,17 +14,19 @@ Structure **existing** physics questions from material the user already has (ima
 
 ## Auth
 
-`Authorization: Bearer $PHYSHUB_AGENT_KEY`. Call only `/api/agent/*`.
+`Authorization: Bearer $PHYSHUB_AGENT_KEY`. Call only `/api/agent/*`. Teachers issue and copy this key on the 密钥 page (`/agent-keys`); do not invent another secret.
 
-Add `Idempotency-Key` (1–128 chars, `[A-Za-z0-9._-]+`) on mutating tools: create/update draft, raw asset, suggestions, quality-check, question sets, export. `search_questions` / `get_*` / `list_*` do not require it and do not fail without it.
+Add `Idempotency-Key` (1–128 chars, `[A-Za-z0-9._-]+`) on mutating tools: create/update draft, create official question, promote draft, raw asset, suggestions, quality-check, question sets, export. `search_questions` / `get_*` / `list_*` do not require it and do not fail without it.
 
-This key on `POST /api/questions` → `403` `Agent cannot publish questions`. Other human routes → `403` `Agent key not accepted on human routes`.
+This key on human `POST /api/questions` or `POST /api/drafts/:id/promote` → `403` `Agent cannot publish questions`. Other human routes → `403` `Agent key not accepted on human routes`. Ingest only through `/api/agent`.
 
 ## Legal write path
 
-Allowed writes: raw asset, draft, suggestion, question set, export, quality-check.
+Allowed writes: raw asset, draft, official question (`REVIEWED`), promote draft, suggestion, question set, export, quality-check.
 
-There is no agent publish, delete, or promote tool, and no agent accept-suggestion tool. Agent PATCH may set draft `status` to `NEEDS_REVIEW` only. `PROMOTED` / `REJECTED` drafts → `409` `Draft is not updatable`.
+There is no agent delete, accept-suggestion, or `PUBLISHED`/`DEPRECATED` tool. Agent PATCH may set draft `status` to `NEEDS_REVIEW` only. `PROMOTED` / `REJECTED` drafts → `409` `Draft is not updatable`.
+
+To put a complete question in the bank: `POST /api/agent/questions` (create + promote) or `POST /api/agent/question-drafts/:id/promote` after `publishable: true`. Result status is `REVIEWED`, not `PUBLISHED`.
 
 Submit suggestions with `POST /api/agent/suggestions` (contract in [api.md](references/api.md)). Do not invent another path.
 
@@ -44,7 +46,7 @@ Stem figures: `![](/api/raw-assets/<id>/file)` (allowlist prefix `/api/raw-asset
 
 ## Persist `draft.id`
 
-`POST /api/agent/question-drafts` `201` includes `draft.id`. Save it. There is no agent list-drafts. Later `PATCH /api/agent/question-drafts/:id`, `POST /api/agent/quality-check` with `draftId`, and `POST /api/agent/suggestions` need it. Losing it means a human must look it up in the UI.
+`POST /api/agent/question-drafts` `201` includes `draft.id`. Save it. There is no agent list-drafts. Later `PATCH /api/agent/question-drafts/:id`, `POST /api/agent/quality-check` with `draftId`, `POST /api/agent/suggestions`, and `POST /api/agent/question-drafts/:id/promote` need it. Losing it means a human must look it up in the UI. `POST /api/agent/questions` returns `question.id` (use that with `get_question` / sets).
 
 ## 422 recovery
 
@@ -62,4 +64,4 @@ Official questions are `REVIEWED` or `PUBLISHED`. Omit `constraints.status` (or 
 
 After saving a draft, `POST /api/agent/quality-check` with that `draft.id`. Leave `errors` for the teacher; do not guess knowledge-point ids to clear them.
 
-`publishable: true` means ask a human to promote. It does not insert a `Question` and is not published.
+`publishable: true` means the draft can be promoted with `POST /api/agent/question-drafts/:id/promote`. That inserts a `Question` at `REVIEWED`. It is not `PUBLISHED`.
