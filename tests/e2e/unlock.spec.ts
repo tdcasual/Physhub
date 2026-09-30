@@ -1,24 +1,26 @@
 import { expect, test } from "@playwright/test";
 
-const editorSecret =
-  process.env.PLAYWRIGHT_EDITOR_SESSION_SECRET ??
-  "playwright-editor-session-secret";
+const username = process.env.TEACHER_BOOTSTRAP_USERNAME ?? "owner";
+const password =
+  process.env.TEACHER_BOOTSTRAP_PASSWORD ?? "playwright-teacher-password";
 
-test("wrong secret stays on the unlock page", async ({ page }) => {
+test("wrong password stays on the login page", async ({ page }) => {
   await page.goto("/drafts");
 
-  await expect(page.getByRole("heading", { name: "Unlock editor" })).toBeVisible();
-  await page.getByLabel("Editor secret").fill("not-the-secret");
-  await page.getByRole("button", { name: "Unlock" }).click();
-  await expect(page.getByText("Unauthorized")).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Unlock editor" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "登录" })).toBeVisible();
+  await page.getByLabel("帐号").fill(username);
+  await page.getByLabel("密码").fill("not-the-password");
+  await page.getByRole("button", { name: "登录" }).click();
+  await expect(page.getByText("帐号或密码不正确")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "登录" })).toBeVisible();
 });
 
-test("right secret reaches the drafts list", async ({ page }) => {
+test("right password reaches the drafts list", async ({ page }) => {
   await page.goto("/drafts");
 
-  await expect(page.getByRole("heading", { name: "Unlock editor" })).toBeVisible();
-  await page.getByLabel("Editor secret").fill(editorSecret);
-  await page.getByRole("button", { name: "Unlock" }).click();
-  await expect(page.getByRole("heading", { name: "Drafts" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "登录" })).toBeVisible();
+  await page.getByLabel("帐号").fill(username);
+  await page.getByLabel("密码").fill(password);
+  await page.getByRole("button", { name: "登录" }).click();
+  await expect(page.getByRole("heading", { name: "工作台" })).toBeVisible();
 });

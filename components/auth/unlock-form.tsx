@@ -2,8 +2,12 @@
 
 import { FormEvent, useState } from "react";
 
+import { Button } from "@/components/ui/button";
+import { mapUiError } from "@/lib/ui/labels";
+
 export function UnlockForm() {
-  const [secret, setSecret] = useState("");
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
@@ -13,69 +17,74 @@ export function UnlockForm() {
     setError(null);
 
     try {
-      const response = await fetch("/api/auth/editor-session", {
+      const response = await fetch("/api/auth/login", {
         method: "POST",
         credentials: "include",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ secret }),
+        body: JSON.stringify({ username, password }),
       });
       const payload = (await response.json().catch(() => null)) as {
         error?: string;
       } | null;
 
       if (!response.ok) {
-        setError(payload?.error ?? "Unauthorized");
+        setError(mapUiError(payload?.error ?? "Unauthorized"));
         return;
       }
 
       window.location.reload();
     } catch {
-      setError("Unable to unlock");
+      setError(mapUiError("Unable to unlock"));
     } finally {
       setSubmitting(false);
     }
   }
 
   return (
-    <main className="min-h-screen bg-[var(--background)] text-[var(--foreground)]">
-      <div className="mx-auto flex min-h-screen w-full max-w-lg flex-col justify-center px-6 py-16">
-        <p className="text-sm font-semibold uppercase tracking-[0.16em] text-orange-800">
-          Editor session
-        </p>
-        <h1 className="mt-2 text-3xl font-semibold">Unlock editor</h1>
-        <p className="mt-3 text-sm leading-6 text-stone-900/70">
-          Enter the editor secret to open the workbench. Drafts and answers stay
-          hidden until the session cookie is set.
-        </p>
-        <form className="mt-8 space-y-4" onSubmit={(event) => void handleSubmit(event)}>
-          <label className="block text-sm font-semibold" htmlFor="editor-secret">
-            Editor secret
-          </label>
-          <input
-            id="editor-secret"
-            name="secret"
-            type="password"
-            autoComplete="current-password"
-            value={secret}
-            aria-invalid={error ? true : undefined}
-            aria-describedby={error ? "unlock-error" : undefined}
-            onChange={(event) => setSecret(event.target.value)}
-            className="min-h-11 w-full border border-stone-900/20 bg-white px-3 py-2"
-          />
-          <button
-            type="submit"
-            disabled={submitting}
-            className="inline-flex min-h-11 items-center border border-stone-900/20 bg-stone-950 px-4 text-sm font-semibold text-white hover:bg-stone-800 disabled:opacity-60"
-          >
-            Unlock
-          </button>
-          {error ? (
-            <p id="unlock-error" role="alert" className="text-sm text-orange-800">
-              {error}
-            </p>
-          ) : null}
-        </form>
-      </div>
-    </main>
+    <div className="w-full max-w-lg border border-[var(--ink-border)] bg-[var(--paper-raised)] px-6 py-8">
+      <p className="text-sm font-medium text-[var(--patina)]">老师</p>
+      <h1 className="mt-2 font-serif text-3xl font-semibold">登录</h1>
+      <p className="mt-3 text-sm leading-6 text-[var(--ink-soft)]">
+        使用帐号和密码进入工作台。草稿和答案仅登录后可见。
+      </p>
+      <form className="mt-8 space-y-4" onSubmit={(event) => void handleSubmit(event)}>
+        <label className="block text-sm font-semibold" htmlFor="login-username">
+          帐号
+        </label>
+        <input
+          id="login-username"
+          name="username"
+          type="text"
+          autoComplete="username"
+          value={username}
+          aria-invalid={error ? true : undefined}
+          aria-describedby={error ? "login-error" : undefined}
+          onChange={(event) => setUsername(event.currentTarget.value)}
+          className="min-h-11 w-full border border-[var(--ink-border)] bg-[var(--paper-raised)] px-3 py-2"
+        />
+        <label className="block text-sm font-semibold" htmlFor="login-password">
+          密码
+        </label>
+        <input
+          id="login-password"
+          name="password"
+          type="password"
+          autoComplete="current-password"
+          value={password}
+          aria-invalid={error ? true : undefined}
+          aria-describedby={error ? "login-error" : undefined}
+          onChange={(event) => setPassword(event.currentTarget.value)}
+          className="min-h-11 w-full border border-[var(--ink-border)] bg-[var(--paper-raised)] px-3 py-2"
+        />
+        <Button type="submit" variant="primary" disabled={submitting}>
+          登录
+        </Button>
+        {error ? (
+          <p id="login-error" role="alert" className="text-sm text-[var(--danger)]">
+            {error}
+          </p>
+        ) : null}
+      </form>
+    </div>
   );
 }

@@ -2,6 +2,8 @@ import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "@prisma/client";
 import { Pool } from "pg";
 
+import { hashPassword, isUsablePassword, isUsableUsername } from "../lib/auth/password";
+
 const databaseUrl =
   process.env.DATABASE_URL ??
   "postgresql://postgres:postgres@localhost:5432/physics_question_bank?schema=public";
@@ -36,13 +38,27 @@ export const TAG_SEEDS = [
 ] as const;
 
 export async function seed(prisma: PrismaClient) {
+  const bootstrapUsername =
+    process.env.TEACHER_BOOTSTRAP_USERNAME?.trim() || "owner";
+  const bootstrapPassword = process.env.TEACHER_BOOTSTRAP_PASSWORD ?? "";
+  const passwordHash =
+    isUsableUsername(bootstrapUsername) && isUsablePassword(bootstrapPassword)
+      ? await hashPassword(bootstrapPassword)
+      : undefined;
+
   await prisma.user.upsert({
     where: { email: "owner@example.com" },
-    update: {},
+    update: {
+      username: bootstrapUsername,
+      ...(passwordHash ? { passwordHash } : {}),
+      role: "OWNER",
+    },
     create: {
       email: "owner@example.com",
+      username: bootstrapUsername,
       name: "Physics Owner",
       role: "OWNER",
+      passwordHash,
     },
   });
 

@@ -2,9 +2,8 @@ import { defineConfig, devices } from "@playwright/test";
 
 const port = process.env.PLAYWRIGHT_PORT ?? "3100";
 const baseURL = `http://localhost:${port}`;
-const editorSessionSecret =
-  process.env.PLAYWRIGHT_EDITOR_SESSION_SECRET ??
-  "playwright-editor-session-secret";
+const teacherPassword =
+  process.env.TEACHER_BOOTSTRAP_PASSWORD ?? "playwright-teacher-password";
 
 export default defineConfig({
   testDir: "./tests/e2e",
@@ -18,8 +17,8 @@ export default defineConfig({
     reuseExistingServer: false,
     env: {
       ...process.env,
-      EDITOR_SESSION_SECRET: editorSessionSecret,
-      PLAYWRIGHT_EDITOR_SESSION_SECRET: editorSessionSecret,
+      TEACHER_BOOTSTRAP_USERNAME: "owner",
+      TEACHER_BOOTSTRAP_PASSWORD: teacherPassword,
     },
   },
   projects: [

@@ -8,31 +8,41 @@ describe("UnlockForm", () => {
     vi.unstubAllGlobals();
   });
 
-  it("associates a failed unlock with the secret field", async () => {
+  it("associates a failed login with the account fields", async () => {
     vi.stubGlobal(
       "fetch",
       vi.fn().mockResolvedValue({
         ok: false,
-        json: async () => ({ error: "Unauthorized" }),
+        json: async () => ({ error: "帐号或密码不正确" }),
       }),
     );
 
     render(<UnlockForm />);
-    fireEvent.change(screen.getByLabelText("Editor secret"), {
+    fireEvent.change(screen.getByLabelText("帐号"), {
+      target: { value: "owner" },
+    });
+    fireEvent.change(screen.getByLabelText("密码"), {
       target: { value: "wrong" },
     });
-    fireEvent.click(screen.getByRole("button", { name: "Unlock" }));
+    fireEvent.click(screen.getByRole("button", { name: "登录" }));
 
     await waitFor(() => {
-      expect(screen.getByLabelText("Editor secret")).toHaveAttribute(
+      expect(screen.getByLabelText("帐号")).toHaveAttribute(
         "aria-invalid",
         "true",
       );
     });
-    expect(screen.getByLabelText("Editor secret")).toHaveAttribute(
-      "aria-describedby",
-      "unlock-error",
+    expect(screen.getByLabelText("密码")).toHaveAttribute(
+      "aria-invalid",
+      "true",
     );
-    expect(screen.getByText("Unauthorized")).toHaveAttribute("id", "unlock-error");
+    expect(screen.getByLabelText("帐号")).toHaveAttribute(
+      "aria-describedby",
+      "login-error",
+    );
+    expect(screen.getByText("帐号或密码不正确")).toHaveAttribute(
+      "id",
+      "login-error",
+    );
   });
 });

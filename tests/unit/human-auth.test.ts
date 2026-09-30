@@ -1,10 +1,21 @@
-import { createHmac } from "node:crypto";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+
+const prismaMocks = vi.hoisted(() => ({
+  userFindUnique: vi.fn(),
+  sessionCreate: vi.fn(),
+  sessionDeleteMany: vi.fn(),
+  sessionFindUnique: vi.fn(),
+}));
 
 vi.mock("@/lib/db/prisma", () => ({
   prisma: {
     user: {
-      findUnique: vi.fn().mockResolvedValue(null),
+      findUnique: prismaMocks.userFindUnique,
+    },
+    editorSession: {
+      create: prismaMocks.sessionCreate,
+      deleteMany: prismaMocks.sessionDeleteMany,
+      findUnique: prismaMocks.sessionFindUnique,
     },
     apiKey: {
       findUnique: vi.fn().mockResolvedValue(null),
@@ -14,9 +25,9 @@ vi.mock("@/lib/db/prisma", () => ({
 }));
 
 import {
-  DELETE as deleteEditorSession,
-  POST as postEditorSession,
-} from "@/app/api/auth/editor-session/route";
+  DELETE as deleteLogin,
+  POST as postLogin,
+} from "@/app/api/auth/login/route";
 import { GET as listDrafts, POST as postDrafts } from "@/app/api/drafts/route";
 import { GET as getDraft, PATCH as patchDraft } from "@/app/api/drafts/[id]/route";
 import { POST as postPromoteDraft } from "@/app/api/drafts/[id]/promote/route";
@@ -34,39 +45,42 @@ import { PATCH as patchSuggestion } from "@/app/api/suggestions/[id]/route";
 import { GET as getTags } from "@/app/api/tags/route";
 import {
   CLIENT_IP_HEADER_NAME,
-  computeEditorSessionCookieValue,
   EDITOR_SESSION_COOKIE_NAME,
   EDITOR_SESSION_HEADER_NAME,
-  EDITOR_SESSION_HMAC_MESSAGE,
   getConnectingIp,
-  OWNER_PLACEHOLDER_USER_ID,
   readEditorSession,
   requireHumanApiAuth,
   resetEditorUnlockRateLimitForTests,
+  TEST_SESSION_TOKEN_ENV,
 } from "@/lib/auth/human-auth";
+import { hashPassword } from "@/lib/auth/password";
 
-const originalEditorSecret = process.env.EDITOR_SESSION_SECRET;
 const originalTrustProxy = process.env.TRUST_PROXY;
 const originalDevKey = process.env.AGENT_API_KEY_DEV;
+const originalTestToken = process.env[TEST_SESSION_TOKEN_ENV];
 
-function hmacFor(secret: string) {
-  return createHmac("sha256", secret)
-    .update(EDITOR_SESSION_HMAC_MESSAGE)
-    .digest("hex");
-}
+const LOGIN_PASSWORD = "correct-horse";
+let loginPasswordHash = "";
 
-function unlockRequest(
-  secret: string,
-  headers?: HeadersInit,
-) {
-  return new Request("http://localhost/api/auth/editor-session", {
+function loginRequest(body: Record<string, string>, headers?: HeadersInit) {
+  return new Request("http://localhost/api/auth/login", {
     method: "POST",
     headers: {
       "content-type": "application/json",
       ...headers,
     },
-    body: JSON.stringify({ secret }),
+    body: JSON.stringify(body),
   });
+}
+
+function ownerRow() {
+  return {
+    id: "user_owner",
+    username: "owner",
+    passwordHash: loginPasswordHash,
+    role: "OWNER" as const,
+    disabledAt: null,
+  };
 }
 
 const unauthenticatedHumanRoutes: Array<{
@@ -207,75 +221,66 @@ const unauthenticatedHumanRoutes: Array<{
   },
 ];
 
+beforeAll(async () => {
+  loginPasswordHash = await hashPassword(LOGIN_PASSWORD);
+});
+
 beforeEach(() => {
-  process.env.EDITOR_SESSION_SECRET = "test-editor-session-secret";
+  process.env[TEST_SESSION_TOKEN_ENV] = "physhub-test-session-token";
   delete process.env.TRUST_PROXY;
   process.env.AGENT_API_KEY_DEV = "dev-agent-key";
   resetEditorUnlockRateLimitForTests();
+  prismaMocks.userFindUnique.mockResolvedValue(ownerRow());
+  prismaMocks.sessionCreate.mockResolvedValue({ id: "sess_1" });
+  prismaMocks.sessionDeleteMany.mockResolvedValue({ count: 1 });
+  prismaMocks.sessionFindUnique.mockResolvedValue(null);
 });
 
 afterEach(() => {
-  process.env.EDITOR_SESSION_SECRET = originalEditorSecret;
   if (originalTrustProxy === undefined) {
     delete process.env.TRUST_PROXY;
   } else {
     process.env.TRUST_PROXY = originalTrustProxy;
   }
   process.env.AGENT_API_KEY_DEV = originalDevKey;
+  if (originalTestToken === undefined) {
+    delete process.env[TEST_SESSION_TOKEN_ENV];
+  } else {
+    process.env[TEST_SESSION_TOKEN_ENV] = originalTestToken;
+  }
   vi.unstubAllEnvs();
   resetEditorUnlockRateLimitForTests();
 });
 
-describe("editor session cookie HMAC", () => {
-  it("equals hex(HMAC-SHA256(key=EDITOR_SESSION_SECRET, message=physhub_editor.v1))", () => {
-    const secret = "0123456789abcdef0123456789abcdef";
-
-    expect(computeEditorSessionCookieValue(secret)).toBe(hmacFor(secret));
-  });
-});
-
 describe("readEditorSession", () => {
-  it("accepts the HMAC cookie", async () => {
-    const secret = "test-editor-session-secret";
-    const cookie = computeEditorSessionCookieValue(secret);
-
+  it("accepts the test session cookie in non-production", async () => {
     const session = await readEditorSession(
       new Request("http://localhost/api/questions", {
-        headers: { Cookie: `${EDITOR_SESSION_COOKIE_NAME}=${cookie}` },
+        headers: {
+          Cookie: `${EDITOR_SESSION_COOKIE_NAME}=physhub-test-session-token`,
+        },
       }),
     );
 
     expect(session).toEqual({
-      userId: OWNER_PLACEHOLDER_USER_ID,
+      userId: "user_owner",
+      username: "owner",
       role: "OWNER",
     });
   });
 
-  it("rejects a plaintext secret in the non-production test header", async () => {
+  it("accepts the test token in the non-production header", async () => {
     const session = await readEditorSession(
       new Request("http://localhost/api/questions", {
         headers: {
-          [EDITOR_SESSION_HEADER_NAME]: "test-editor-session-secret",
-        },
-      }),
-    );
-
-    expect(session).toBeNull();
-  });
-
-  it("accepts the HMAC hex in the non-production test header", async () => {
-    const session = await readEditorSession(
-      new Request("http://localhost/api/questions", {
-        headers: {
-          [EDITOR_SESSION_HEADER_NAME]: computeEditorSessionCookieValue(
-            "test-editor-session-secret",
-          ),
+          [EDITOR_SESSION_HEADER_NAME]: "physhub-test-session-token",
         },
       }),
     );
 
     expect(session).toEqual({
-      userId: OWNER_PLACEHOLDER_USER_ID,
+      userId: "user_owner",
+      username: "owner",
       role: "OWNER",
     });
   });
@@ -286,9 +291,7 @@ describe("readEditorSession", () => {
     const session = await readEditorSession(
       new Request("http://localhost/api/questions", {
         headers: {
-          [EDITOR_SESSION_HEADER_NAME]: computeEditorSessionCookieValue(
-            "test-editor-session-secret",
-          ),
+          [EDITOR_SESSION_HEADER_NAME]: "physhub-test-session-token",
         },
       }),
     );
@@ -296,14 +299,11 @@ describe("readEditorSession", () => {
     expect(session).toBeNull();
   });
 
-  it("fails closed when EDITOR_SESSION_SECRET is missing", async () => {
-    delete process.env.EDITOR_SESSION_SECRET;
-
+  it("rejects an unknown token", async () => {
     const session = await readEditorSession(
       new Request("http://localhost/api/questions", {
         headers: {
-          Cookie: `${EDITOR_SESSION_COOKIE_NAME}=anything`,
-          [EDITOR_SESSION_HEADER_NAME]: "anything",
+          Cookie: `${EDITOR_SESSION_COOKIE_NAME}=not-a-session`,
         },
       }),
     );
@@ -347,54 +347,62 @@ describe("connecting IP", () => {
   });
 });
 
-describe("POST /api/auth/editor-session", () => {
-  it("sets an HttpOnly session cookie on a matching secret", async () => {
-    const secret = "test-editor-session-secret";
-    const response = await postEditorSession(unlockRequest(secret));
+describe("POST /api/auth/login", () => {
+  it("sets an HttpOnly session cookie on a matching password", async () => {
+    const response = await postLogin(
+      loginRequest({ username: "owner", password: LOGIN_PASSWORD }),
+    );
 
     expect(response.status).toBe(200);
-    await expect(response.json()).resolves.toEqual({ ok: true });
+    await expect(response.json()).resolves.toEqual({
+      ok: true,
+      user: { username: "owner", role: "OWNER" },
+    });
 
     const cookie = response.cookies.get(EDITOR_SESSION_COOKIE_NAME);
 
-    expect(cookie?.value).toBe(computeEditorSessionCookieValue(secret));
+    expect(cookie?.value).toMatch(/^[0-9a-f]{64}$/);
     expect(cookie?.httpOnly).toBe(true);
     expect(cookie?.sameSite).toBe("lax");
     expect(cookie?.path).toBe("/");
-    expect(cookie?.maxAge).toBeUndefined();
     expect(cookie?.secure).toBe(false);
+    expect(prismaMocks.sessionCreate).toHaveBeenCalled();
   });
 
   it("sets Secure on the cookie in production", async () => {
     vi.stubEnv("NODE_ENV", "production");
 
-    const response = await postEditorSession(
-      unlockRequest("test-editor-session-secret"),
+    const response = await postLogin(
+      loginRequest({ username: "owner", password: LOGIN_PASSWORD }),
     );
 
     expect(response.cookies.get(EDITOR_SESSION_COOKIE_NAME)?.secure).toBe(true);
   });
 
-  it("returns 401 for a wrong secret", async () => {
-    const response = await postEditorSession(unlockRequest("wrong-secret"));
+  it("returns 401 for a wrong password", async () => {
+    const response = await postLogin(
+      loginRequest({ username: "owner", password: "wrong-secret" }),
+    );
 
     expect(response.status).toBe(401);
-    await expect(response.json()).resolves.toEqual({ error: "Unauthorized" });
+    await expect(response.json()).resolves.toEqual({
+      error: "帐号或密码不正确",
+    });
   });
 
-  it("returns 429 after 6 wrong secrets from the same connecting IP", async () => {
+  it("returns 429 after 6 wrong passwords from the same connecting IP", async () => {
     const clientIp = { [CLIENT_IP_HEADER_NAME]: "192.0.2.50" };
 
     for (let attempt = 0; attempt < 5; attempt += 1) {
-      const response = await postEditorSession(
-        unlockRequest("wrong-secret", clientIp),
+      const response = await postLogin(
+        loginRequest({ username: "owner", password: "wrong-secret" }, clientIp),
       );
 
       expect(response.status).toBe(401);
     }
 
-    const limited = await postEditorSession(
-      unlockRequest("wrong-secret", clientIp),
+    const limited = await postLogin(
+      loginRequest({ username: "owner", password: "wrong-secret" }, clientIp),
     );
 
     expect(limited.status).toBe(429);
@@ -403,28 +411,31 @@ describe("POST /api/auth/editor-session", () => {
     });
   });
 
-  it("clears the failure bucket after a successful unlock", async () => {
+  it("clears the failure bucket after a successful login", async () => {
     const clientIp = { [CLIENT_IP_HEADER_NAME]: "192.0.2.51" };
-    const secret = "test-editor-session-secret";
 
     for (let attempt = 0; attempt < 4; attempt += 1) {
-      const failed = await postEditorSession(
-        unlockRequest("wrong-secret", clientIp),
+      const failed = await postLogin(
+        loginRequest({ username: "owner", password: "wrong-secret" }, clientIp),
       );
       expect(failed.status).toBe(401);
     }
 
-    const unlocked = await postEditorSession(unlockRequest(secret, clientIp));
+    const unlocked = await postLogin(
+      loginRequest({ username: "owner", password: LOGIN_PASSWORD }, clientIp),
+    );
     expect(unlocked.status).toBe(200);
 
-    const failedAgain = await postEditorSession(
-      unlockRequest("wrong-secret", clientIp),
+    const failedAgain = await postLogin(
+      loginRequest({ username: "owner", password: "wrong-secret" }, clientIp),
     );
     expect(failedAgain.status).toBe(401);
   });
 
   it("expires the session cookie on DELETE without requiring a session", async () => {
-    const response = await deleteEditorSession();
+    const response = await deleteLogin(
+      new Request("http://localhost/api/auth/login", { method: "DELETE" }),
+    );
 
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toEqual({ ok: true });
@@ -437,13 +448,19 @@ describe("POST /api/auth/editor-session", () => {
 
   it("does not trust X-Forwarded-For for the unlock rate limit by default", async () => {
     for (let attempt = 0; attempt < 5; attempt += 1) {
-      await postEditorSession(
-        unlockRequest("wrong-secret", { "X-Forwarded-For": "203.0.113.10" }),
+      await postLogin(
+        loginRequest(
+          { username: "owner", password: "wrong-secret" },
+          { "X-Forwarded-For": "203.0.113.10" },
+        ),
       );
     }
 
-    const limited = await postEditorSession(
-      unlockRequest("wrong-secret", { "X-Forwarded-For": "198.51.100.20" }),
+    const limited = await postLogin(
+      loginRequest(
+        { username: "owner", password: "wrong-secret" },
+        { "X-Forwarded-For": "198.51.100.20" },
+      ),
     );
 
     expect(limited.status).toBe(429);
@@ -451,18 +468,25 @@ describe("POST /api/auth/editor-session", () => {
 
   it("keys non-production unlock failures on X-Physhub-Client-Ip", async () => {
     for (let attempt = 0; attempt < 5; attempt += 1) {
-      await postEditorSession(
-        unlockRequest("wrong-secret", {
-          [CLIENT_IP_HEADER_NAME]: "192.0.2.10",
-        }),
+      await postLogin(
+        loginRequest(
+          { username: "owner", password: "wrong-secret" },
+          { [CLIENT_IP_HEADER_NAME]: "192.0.2.10" },
+        ),
       );
     }
 
-    const otherIp = await postEditorSession(
-      unlockRequest("wrong-secret", { [CLIENT_IP_HEADER_NAME]: "192.0.2.20" }),
+    const otherIp = await postLogin(
+      loginRequest(
+        { username: "owner", password: "wrong-secret" },
+        { [CLIENT_IP_HEADER_NAME]: "192.0.2.20" },
+      ),
     );
-    const sameIp = await postEditorSession(
-      unlockRequest("wrong-secret", { [CLIENT_IP_HEADER_NAME]: "192.0.2.10" }),
+    const sameIp = await postLogin(
+      loginRequest(
+        { username: "owner", password: "wrong-secret" },
+        { [CLIENT_IP_HEADER_NAME]: "192.0.2.10" },
+      ),
     );
 
     expect(otherIp.status).toBe(401);
@@ -473,16 +497,25 @@ describe("POST /api/auth/editor-session", () => {
     process.env.TRUST_PROXY = "true";
 
     for (let attempt = 0; attempt < 5; attempt += 1) {
-      await postEditorSession(
-        unlockRequest("wrong-secret", { "X-Forwarded-For": "203.0.113.10" }),
+      await postLogin(
+        loginRequest(
+          { username: "owner", password: "wrong-secret" },
+          { "X-Forwarded-For": "203.0.113.10" },
+        ),
       );
     }
 
-    const otherIp = await postEditorSession(
-      unlockRequest("wrong-secret", { "X-Forwarded-For": "198.51.100.20" }),
+    const otherIp = await postLogin(
+      loginRequest(
+        { username: "owner", password: "wrong-secret" },
+        { "X-Forwarded-For": "198.51.100.20" },
+      ),
     );
-    const sameIp = await postEditorSession(
-      unlockRequest("wrong-secret", { "X-Forwarded-For": "203.0.113.10" }),
+    const sameIp = await postLogin(
+      loginRequest(
+        { username: "owner", password: "wrong-secret" },
+        { "X-Forwarded-For": "203.0.113.10" },
+      ),
     );
 
     expect(otherIp.status).toBe(401);
@@ -501,13 +534,11 @@ describe("human API routes require an editor session", () => {
     },
   );
 
-  it("returns 401 for every human route when EDITOR_SESSION_SECRET is missing", async () => {
-    delete process.env.EDITOR_SESSION_SECRET;
-
+  it("returns 401 for a garbage session token", async () => {
     const response = await getQuestions(
       new Request("http://localhost/api/questions", {
         headers: {
-          [EDITOR_SESSION_HEADER_NAME]: hmacFor("test-editor-session-secret"),
+          [EDITOR_SESSION_HEADER_NAME]: "not-a-session",
         },
       }),
     );

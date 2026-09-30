@@ -7,7 +7,7 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: "Physhub",
-  description: "Cloud workbench for curating existing high-school physics questions.",
+  description: "高中物理题库工作台：整理已有试题、审稿入库、按知识点检索。",
 };
 
 export default async function RootLayout({
@@ -20,7 +20,7 @@ export default async function RootLayout({
   return (
     <html lang="zh-CN">
       <body>
-        <Nav unlocked={Boolean(session)} />
+        <Nav unlocked={Boolean(session)} username={session?.username} />
         {children}
       </body>
     </html>

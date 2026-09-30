@@ -1,9 +1,11 @@
 "use client";
 
+import { Button } from "@/components/ui/button";
+
 export function LockButton() {
   async function handleLock() {
     try {
-      await fetch("/api/auth/editor-session", {
+      await fetch("/api/auth/login", {
         method: "DELETE",
         credentials: "include",
       });
@@ -13,14 +15,14 @@ export function LockButton() {
   }
 
   return (
-    <button
+    <Button
       type="button"
+      variant="ghost"
       onClick={() => {
         void handleLock();
       }}
-      className="inline-flex min-h-11 items-center border border-stone-900/20 bg-white px-3 text-sm font-semibold text-stone-900 hover:bg-stone-100"
     >
-      Lock
-    </button>
+      锁定
+    </Button>
   );
 }
