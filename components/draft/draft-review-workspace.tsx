@@ -19,6 +19,8 @@ import {
 } from "@/lib/domain/editor-answer";
 import { suggestionPayloadMissingKnowledgePointId } from "@/lib/domain/suggestion-policy";
 import type { KnowledgePointDto, TagDto } from "@/lib/domain/taxonomy-repository";
+import { labelDraftStatus, labelQuestionType } from "@/lib/ui/labels";
+import { TechDetails } from "@/components/ui/tech-details";
 
 export type JsonPrimitive = string | number | boolean | null;
 export type JsonValue = JsonPrimitive | JsonValue[] | { [key: string]: JsonValue };
@@ -465,32 +467,29 @@ export function DraftReviewWorkspace({
       <div className="mx-auto w-full max-w-[96rem] space-y-6 px-5 py-6 lg:px-8">
         <header className="flex flex-col gap-4 border-b border-stone-900/15 pb-5 md:flex-row md:items-end md:justify-between">
           <div>
-            <p className="text-sm font-semibold uppercase tracking-[0.16em] text-orange-800">
-              Draft workspace
-            </p>
-            <h1 className="mt-2 text-3xl font-semibold">Draft Review</h1>
-            <p className="mt-2 max-w-3xl text-sm leading-6 text-stone-900/65">
-              Review parser output against the original asset, adjust the local draft
-              view, and inspect the safe rendered preview before promotion.
+            <p className="text-sm font-medium text-[var(--patina)]">审稿</p>
+            <h1 className="mt-2 font-serif text-3xl font-semibold">审题</h1>
+            <p className="mt-2 max-w-3xl text-sm leading-6 text-[var(--ink-soft)]">
+              对照来源改题干和知识点，确认卷面无误后再入库。
             </p>
           </div>
           <dl className="grid grid-cols-2 gap-3 text-sm sm:grid-cols-4 md:text-right">
             <div>
-              <dt className="font-medium text-stone-900/55">Status</dt>
-              <dd className="mt-1 font-semibold">{status.replaceAll("_", " ")}</dd>
+              <dt className="font-medium text-[var(--ink-faint)]">状态</dt>
+              <dd className="mt-1 font-semibold">{labelDraftStatus(status)}</dd>
             </div>
             <div>
-              <dt className="font-medium text-stone-900/55">Type</dt>
+              <dt className="font-medium text-[var(--ink-faint)]">题型</dt>
               <dd className="mt-1 font-semibold">
-                {type ? type.replaceAll("_", " ") : "Unclassified"}
+                {type ? labelQuestionType(type) : "未分类"}
               </dd>
             </div>
             <div>
-              <dt className="font-medium text-stone-900/55">Updated</dt>
+              <dt className="font-medium text-[var(--ink-faint)]">更新</dt>
               <dd className="mt-1 font-semibold">{formatDate(draft.updatedAt)}</dd>
             </div>
             <div>
-              <dt className="font-medium text-stone-900/55">Draft ID</dt>
+              <dt className="font-medium text-[var(--ink-faint)]">草稿编号</dt>
               <dd className="mt-1 font-mono text-xs">{draft.id}</dd>
             </div>
           </dl>
@@ -506,7 +505,7 @@ export function DraftReviewWorkspace({
               disabled={pendingAction !== null}
               className="border border-stone-900 bg-stone-900 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
             >
-              Save
+              保存
             </button>
             <button
               type="button"
@@ -516,7 +515,7 @@ export function DraftReviewWorkspace({
               disabled={pendingAction !== null}
               className="border border-stone-900/30 bg-white px-4 py-2 text-sm font-semibold disabled:opacity-50"
             >
-              Reject
+              退回
             </button>
             {status === "NEEDS_REVIEW" ? (
               <button
@@ -527,7 +526,7 @@ export function DraftReviewWorkspace({
                 disabled={pendingAction !== null}
                 className="border border-stone-900/30 bg-white px-4 py-2 text-sm font-semibold disabled:opacity-50"
               >
-                Send back
+                退回草稿
               </button>
             ) : null}
             <button
@@ -538,11 +537,11 @@ export function DraftReviewWorkspace({
               disabled={pendingAction !== null || !canPromote}
               className="border border-lime-900 bg-lime-800 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
             >
-              Promote
+              入库
             </button>
             {!canPromote ? (
-              <p className="text-sm text-stone-900/70">
-                Promote requires at least one knowledge point.
+              <p className="text-sm text-[var(--ink-soft)]">
+                入库前请先勾选至少一个知识点。
               </p>
             ) : null}
             {actionError ? (
@@ -553,9 +552,9 @@ export function DraftReviewWorkspace({
 
         {status === "PROMOTED" || promotedAt || promotedQuestionId ? (
           <p className="text-sm text-stone-900/80">
-            Promoted
-            {promotedAt ? ` at ${formatDate(promotedAt)}` : ""}
-            {promotedQuestionId ? ` · Question ${promotedQuestionId}` : ""}
+            已入库
+            {promotedAt ? ` ${formatDate(promotedAt)}` : ""}
+            {promotedQuestionId ? ` · 题库 ${promotedQuestionId}` : ""}
           </p>
         ) : null}
 
@@ -565,11 +564,9 @@ export function DraftReviewWorkspace({
             className="space-y-4 border border-stone-900/15 bg-stone-50 p-4"
           >
             <div>
-              <p className="text-sm font-semibold uppercase tracking-[0.16em] text-lime-800">
-                Source
-              </p>
-              <h2 id="source-material-heading" className="mt-2 text-xl font-semibold">
-                Raw Material
+              <p className="text-sm font-medium text-[var(--patina)]">来源</p>
+              <h2 id="source-material-heading" className="mt-2 font-serif text-xl font-semibold">
+                原始材料
               </h2>
             </div>
 
@@ -612,14 +609,11 @@ export function DraftReviewWorkspace({
                 )}
 
                 {draft.sourceRawAsset.metadata ? (
-                  <details className="border border-stone-900/15 bg-white p-3">
-                    <summary className="cursor-pointer text-sm font-semibold">
-                      Asset metadata
-                    </summary>
-                    <pre className="mt-3 overflow-auto text-xs leading-5 text-stone-700">
+                  <TechDetails summary="来源元数据">
+                    <pre className="overflow-auto text-xs leading-5 text-[var(--ink-soft)]">
                       {jsonPreview(draft.sourceRawAsset.metadata)}
                     </pre>
-                  </details>
+                  </TechDetails>
                 ) : null}
               </div>
             ) : (
@@ -646,8 +640,8 @@ export function DraftReviewWorkspace({
               </h2>
             </div>
 
-            <label className="block space-y-2 text-sm font-medium text-stone-900/70">
-              Stem Markdown
+            <label className="block space-y-2 text-sm font-medium text-[var(--ink-soft)]">
+              题干
               <textarea
                 value={stemMd}
                 onChange={(event) => setStemMd(event.currentTarget.value)}
@@ -689,8 +683,8 @@ export function DraftReviewWorkspace({
               disabled={!canEdit}
             />
 
-            <label className="block space-y-2 text-sm font-medium text-stone-900/70">
-              Solution Markdown
+            <label className="block space-y-2 text-sm font-medium text-[var(--ink-soft)]">
+              解析
               <textarea
                 value={solutionMd}
                 onChange={(event) => setSolutionMd(event.currentTarget.value)}
@@ -700,9 +694,8 @@ export function DraftReviewWorkspace({
               />
             </label>
 
-            <section className="border border-stone-900/15 bg-stone-50 p-4">
-              <h3 className="text-base font-semibold">Draft JSON</h3>
-              <pre className="mt-3 max-h-80 overflow-auto bg-white p-3 text-xs leading-6 text-stone-800">
+            <TechDetails summary="技术细节">
+              <pre className="max-h-80 overflow-auto bg-[var(--paper-raised)] p-3 text-xs leading-6 text-[var(--ink-soft)]">
                 {JSON.stringify(
                   {
                     type,
@@ -720,7 +713,7 @@ export function DraftReviewWorkspace({
                   2,
                 )}
               </pre>
-            </section>
+            </TechDetails>
           </section>
 
           <aside className="space-y-5 xl:sticky xl:top-6 xl:self-start">
@@ -730,11 +723,9 @@ export function DraftReviewWorkspace({
               role="region"
             >
               <div>
-                <p className="text-sm font-semibold uppercase tracking-[0.16em] text-lime-800">
-                  Renderer check
-                </p>
-                <h2 id="question-preview-heading" className="mt-2 text-xl font-semibold">
-                  Live Preview
+                <p className="text-sm font-medium text-[var(--seal)]">卷面</p>
+                <h2 id="question-preview-heading" className="mt-2 font-serif text-xl font-semibold">
+                  预览
                 </h2>
               </div>
               <QuestionPreview
@@ -746,7 +737,7 @@ export function DraftReviewWorkspace({
             </section>
 
             <section className="space-y-3 border border-stone-900/15 bg-white p-4">
-              <h2 className="text-xl font-semibold">Suggestions</h2>
+              <h2 className="font-serif text-xl font-semibold">建议</h2>
               {suggestions.length > 0 ? (
                 <ul className="space-y-3">
                   {suggestions.map((suggestion) => {
@@ -789,25 +780,25 @@ export function DraftReviewWorkspace({
                           <div className="mt-3 flex flex-wrap gap-2">
                             <button
                               type="button"
-                              aria-label="Accept suggestion"
+                              aria-label="接受建议"
                               onClick={() => {
                                 void reviewSuggestion(suggestion.id, "accepted");
                               }}
                               disabled={reviewBusy || acceptDisabled}
                               className="border border-stone-900 bg-stone-900 px-3 py-1.5 text-sm font-semibold text-white disabled:opacity-50"
                             >
-                              Accept
+                              接受
                             </button>
                             <button
                               type="button"
-                              aria-label="Reject suggestion"
+                              aria-label="不用该建议"
                               onClick={() => {
                                 void reviewSuggestion(suggestion.id, "rejected");
                               }}
                               disabled={reviewBusy}
                               className="border border-stone-900/30 bg-white px-3 py-1.5 text-sm font-semibold disabled:opacity-50"
                             >
-                              Reject
+                              不用
                             </button>
                           </div>
                         ) : null}
@@ -817,13 +808,12 @@ export function DraftReviewWorkspace({
                 </ul>
               ) : (
                 <p className="text-sm leading-6 text-stone-900/65">
-                  No suggestions are attached to this draft.
+                  这条草稿还没有建议。
                 </p>
               )}
             </section>
 
-            <section className="space-y-3 border border-stone-900/15 bg-white p-4">
-              <h2 className="text-xl font-semibold">Agent Runs</h2>
+            <TechDetails summary="运行记录">
               {draft.agentRuns.length > 0 ? (
                 <ul className="space-y-3">
                   {draft.agentRuns.map((run) => (
@@ -839,27 +829,22 @@ export function DraftReviewWorkspace({
                           {run.status}
                         </span>
                       </div>
-                      <details className="mt-3">
-                        <summary className="cursor-pointer text-sm font-medium">
-                          Input / output
-                        </summary>
-                        <pre className="mt-2 max-h-44 overflow-auto bg-stone-50 p-2 text-xs leading-5 text-stone-700">
-                          {JSON.stringify(
-                            { input: run.input, output: run.output },
-                            null,
-                            2,
-                          )}
-                        </pre>
-                      </details>
+                      <pre className="mt-2 max-h-44 overflow-auto bg-[var(--paper-mute)] p-2 text-xs leading-5 text-[var(--ink-soft)]">
+                        {JSON.stringify(
+                          { input: run.input, output: run.output },
+                          null,
+                          2,
+                        )}
+                      </pre>
                     </li>
                   ))}
                 </ul>
               ) : (
-                <p className="text-sm leading-6 text-stone-900/65">
-                  No agent runs are linked to this draft.
+                <p className="text-sm leading-6 text-[var(--ink-faint)]">
+                  没有关联的运行记录。
                 </p>
               )}
-            </section>
+            </TechDetails>
           </aside>
         </div>
       </div>

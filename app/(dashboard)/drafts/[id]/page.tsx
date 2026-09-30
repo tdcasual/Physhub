@@ -1,7 +1,7 @@
 import { Prisma } from "@prisma/client";
 import { notFound } from "next/navigation";
 
-import { UnlockForm } from "@/components/auth/unlock-form";
+import { LockedPage } from "@/components/auth/locked-page";
 import {
   DraftReviewWorkspace,
   type DraftReviewWorkspaceDraft,
@@ -174,7 +174,7 @@ export default async function DraftReviewPage({
   const session = await readEditorSessionFromCookies();
 
   if (!session) {
-    return <UnlockForm />;
+    return <LockedPage />;
   }
 
   const { id } = await params;

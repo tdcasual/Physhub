@@ -16,6 +16,7 @@ import {
   type EditableOption,
 } from "@/lib/domain/editor-answer";
 import type { KnowledgePointDto, TagDto } from "@/lib/domain/taxonomy-repository";
+import { labelQuestionStatus } from "@/lib/ui/labels";
 
 export type OfficialQuestionEditorQuestion = {
   id: string;
@@ -110,14 +111,14 @@ export function OfficialQuestionEditor({
     <div className="mx-auto grid w-full max-w-7xl gap-6 px-6 py-8 lg:grid-cols-[minmax(0,1fr)_minmax(22rem,0.85fr)] lg:px-10">
       <section className="space-y-5">
         <div>
-          <p className="text-sm font-semibold uppercase tracking-[0.16em] text-orange-800">
-            Official question
+          <p className="text-sm font-medium text-[var(--patina)]">题库</p>
+          <h1 className="mt-2 font-serif text-3xl font-semibold">{question.publicId}</h1>
+          <p className="mt-2 text-sm text-[var(--ink-faint)]">
+            {labelQuestionStatus(status)}
           </p>
-          <h1 className="mt-2 text-3xl font-semibold">{question.publicId}</h1>
-          <p className="mt-2 text-sm text-stone-900/60">Status {status}</p>
         </div>
-        <label className="block space-y-2 text-sm font-medium text-stone-900/70">
-          Stem Markdown
+        <label className="block space-y-2 text-sm font-medium text-[var(--ink-soft)]">
+          题干
           <textarea
             value={stemMd}
             onChange={(event) => setStemMd(event.currentTarget.value)}
@@ -149,8 +150,8 @@ export function OfficialQuestionEditor({
           options={previewOptions}
           onChange={setAnswer}
         />
-        <label className="block space-y-2 text-sm font-medium text-stone-900/70">
-          Solution Markdown
+        <label className="block space-y-2 text-sm font-medium text-[var(--ink-soft)]">
+          解析
           <textarea
             value={solutionMd}
             onChange={(event) => setSolutionMd(event.currentTarget.value)}
@@ -176,28 +177,28 @@ export function OfficialQuestionEditor({
             }
             className="border border-stone-900 bg-stone-900 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
           >
-            Save version
+            保存修订
           </button>
           <button
             type="button"
             disabled={pending || status !== "REVIEWED"}
             onClick={() => void patch({ status: "PUBLISHED" })}
-            className="border border-stone-900/20 bg-white px-4 py-2 text-sm font-semibold"
+            className="inline-flex min-h-11 items-center border border-[var(--seal)] bg-[var(--seal)] px-4 text-sm font-semibold text-[var(--paper)] disabled:opacity-50"
           >
-            Publish
+            上架
           </button>
           <button
             type="button"
             disabled={pending || status === "DEPRECATED"}
             onClick={() => void patch({ status: "DEPRECATED" })}
-            className="border border-stone-900/20 bg-white px-4 py-2 text-sm font-semibold"
+            className="inline-flex min-h-11 items-center border border-[var(--ink-border)] bg-[var(--paper-raised)] px-4 text-sm font-semibold disabled:opacity-50"
           >
-            Deprecate
+            停用
           </button>
         </div>
         {message ? <p className="text-sm text-stone-900/80">{message}</p> : null}
       </section>
-      <aside role="region" aria-label="Live Preview">
+      <aside role="region" aria-label="预览">
         <QuestionPreview
           stemMd={stemMd}
           options={showOptions ? previewOptions : []}

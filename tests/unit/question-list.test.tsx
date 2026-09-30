@@ -27,9 +27,9 @@ describe("QuestionList", () => {
     expect(
       screen.getByRole("heading", { name: "q_motion_0001" }),
     ).toBeInTheDocument();
-    expect(screen.getByText("PUBLISHED")).toBeInTheDocument();
-    expect(screen.getByText("SINGLE CHOICE")).toBeInTheDocument();
-    expect(screen.getByText("Difficulty 2")).toBeInTheDocument();
+    expect(screen.getByText("已上架")).toBeInTheDocument();
+    expect(screen.getByText("单选")).toBeInTheDocument();
+    expect(screen.getByText("难度 2")).toBeInTheDocument();
     expect(screen.getByText("运动学")).toBeInTheDocument();
     expect(screen.getByText("随堂练习")).toBeInTheDocument();
     expect(screen.getByText(/A cart moves with acceleration/)).toBeInTheDocument();
@@ -39,6 +39,6 @@ describe("QuestionList", () => {
   it("renders an empty state when no questions are available", () => {
     render(<QuestionList questions={[]} />);
 
-    expect(screen.getByText("No questions yet.")).toBeInTheDocument();
+    expect(screen.getByText("题库还是空的")).toBeInTheDocument();
   });
 });

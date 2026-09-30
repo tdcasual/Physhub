@@ -8,14 +8,14 @@ test("promote without a knowledge point stays blocked in the UI and 400s on the 
 }) => {
   await unlockEditor(page, "/questions/new");
   await expect(
-    page.getByRole("heading", { name: "Manual Question Editor" }),
+    page.getByRole("heading", { name: "录入试题" }),
   ).toBeVisible();
 
   const uniqueStem = `E2E missing KP ${Date.now()} $a$`;
-  await page.getByLabel("Stem Markdown").fill(uniqueStem);
-  await page.getByRole("button", { name: "Save as draft" }).click();
-  await expect(page.getByRole("heading", { name: "Draft Review" })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Promote" })).toBeDisabled();
+  await page.getByLabel("题干").fill(uniqueStem);
+  await page.getByRole("button", { name: "存为草稿" }).click();
+  await expect(page.getByRole("heading", { name: "审题" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "入库" })).toBeDisabled();
 
   const draftId = page.url().split("/drafts/")[1]?.split("?")[0];
   expect(draftId).toBeTruthy();
@@ -38,15 +38,15 @@ test("selecting a named knowledge point lets a teacher promote a draft", async (
   const token = `E2E-promote-${Date.now()}`;
   await unlockEditor(page, "/questions/new");
   await expect(
-    page.getByRole("heading", { name: "Manual Question Editor" }),
+    page.getByRole("heading", { name: "录入试题" }),
   ).toBeVisible();
 
-  await page.getByLabel("Stem Markdown").fill(`${token} $a$`);
+  await page.getByLabel("题干").fill(`${token} $a$`);
   await page.getByRole("checkbox", { name: "运动学" }).check();
-  await page.getByRole("button", { name: "Save as draft" }).click();
-  await expect(page.getByRole("heading", { name: "Draft Review" })).toBeVisible();
-  await page.getByRole("button", { name: "Promote" }).click();
-  await expect(page.getByText(/Promoted/)).toBeVisible();
+  await page.getByRole("button", { name: "存为草稿" }).click();
+  await expect(page.getByRole("heading", { name: "审题" })).toBeVisible();
+  await page.getByRole("button", { name: "入库" }).click();
+  await expect(page.getByText(/已入库/)).toBeVisible();
 
   await page.goto("/questions");
   await expect(page.getByText(token)).toBeVisible();
@@ -54,7 +54,7 @@ test("selecting a named knowledge point lets a teacher promote a draft", async (
 
 test("draft detail without a cookie only shows the unlock form", async ({ page }) => {
   await page.goto("/drafts/missing-draft");
-  await expect(page.getByRole("heading", { name: "Unlock editor" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "登录" })).toBeVisible();
   await expect(page.locator("body")).not.toContainText("answerJson");
   await expect(page.locator("body")).not.toContainText("secret-answer");
 });

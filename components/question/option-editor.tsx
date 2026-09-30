@@ -36,14 +36,14 @@ export function OptionEditor({
   return (
     <section className="space-y-3">
       <div className="flex items-center justify-between gap-3">
-        <h2 className="text-lg font-semibold">Options</h2>
+        <h2 className="font-serif text-lg font-semibold">选项</h2>
         <button
           type="button"
           onClick={addOption}
           disabled={disabled}
-          className="border border-stone-900/20 bg-white px-3 py-2 text-sm font-medium hover:bg-sky-50 disabled:opacity-50"
+          className="inline-flex min-h-11 items-center border border-[var(--ink-border)] bg-[var(--paper-raised)] px-3 text-sm font-medium hover:bg-[var(--paper-mute)] disabled:opacity-50"
         >
-          Add option
+          加选项
         </button>
       </div>
 

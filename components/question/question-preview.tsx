@@ -17,7 +17,7 @@ export function QuestionPreview({
   showSolution?: boolean;
 }) {
   return (
-    <article className="space-y-4 rounded border border-slate-200 bg-white p-4">
+    <article className="space-y-4 border border-[var(--ink-border)] bg-[var(--paper-raised)] p-6 shadow-[4px_6px_0_0_oklch(82%_0.02_85)]">
       <div className="prose prose-slate max-w-none">
         <MarkdownLatex content={stemMd} />
       </div>

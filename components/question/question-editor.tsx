@@ -15,6 +15,7 @@ import {
   type EditableOption,
 } from "@/lib/domain/editor-answer";
 import type { KnowledgePointDto, TagDto } from "@/lib/domain/taxonomy-repository";
+import { TechDetails } from "@/components/ui/tech-details";
 import { QuestionPreview } from "./question-preview";
 import { AnswerEditor } from "./answer-editor";
 import { OptionEditor } from "./option-editor";
@@ -166,23 +167,20 @@ export function QuestionEditor({
     <div className="mx-auto grid w-full max-w-7xl gap-6 px-6 py-8 lg:grid-cols-[minmax(0,1fr)_minmax(22rem,0.85fr)] lg:px-10">
       <section className="space-y-6">
         <div>
-          <p className="text-sm font-semibold uppercase tracking-[0.16em] text-lime-800">
-            Draft workspace
-          </p>
-          <h1 className="mt-2 text-3xl font-semibold">Manual Question Editor</h1>
-          <p className="mt-3 max-w-2xl leading-7 text-stone-900/70">
-            Edit the question Markdown, options, answer contract, and solution
-            while checking the rendered teacher-facing preview.
+          <p className="text-sm font-medium text-[var(--patina)]">手录</p>
+          <h1 className="mt-2 font-serif text-3xl font-semibold">录入试题</h1>
+          <p className="mt-3 max-w-2xl leading-7 text-[var(--ink-soft)]">
+            填写题干、选项、答案和解析，右侧是学生卷面预览。
           </p>
         </div>
 
-        <label className="block space-y-2 text-sm font-medium text-stone-900/70">
-          Stem Markdown
+        <label className="block space-y-2 text-sm font-medium text-[var(--ink-soft)]">
+          题干
           <textarea
             value={stemMd}
             onChange={(event) => setStemMd(event.currentTarget.value)}
             rows={8}
-            className="w-full resize-y border border-stone-900/20 bg-white px-4 py-3 font-mono text-sm text-stone-950 shadow-sm"
+            className="w-full resize-y border border-[var(--ink-border)] bg-[var(--paper-raised)] px-4 py-3 text-sm text-[var(--ink)]"
           />
         </label>
 
@@ -205,13 +203,13 @@ export function QuestionEditor({
           onChange={setAnswer}
         />
 
-        <label className="block space-y-2 text-sm font-medium text-stone-900/70">
-          Solution Markdown
+        <label className="block space-y-2 text-sm font-medium text-[var(--ink-soft)]">
+          解析
           <textarea
             value={solutionMd}
             onChange={(event) => setSolutionMd(event.currentTarget.value)}
             rows={6}
-            className="w-full resize-y border border-stone-900/20 bg-white px-4 py-3 font-mono text-sm text-stone-950 shadow-sm"
+            className="w-full resize-y border border-[var(--ink-border)] bg-[var(--paper-raised)] px-4 py-3 text-sm text-[var(--ink)]"
           />
         </label>
 
@@ -222,21 +220,20 @@ export function QuestionEditor({
               void handleSaveAsDraft();
             }}
             disabled={saving}
-            className="border border-stone-900 bg-stone-900 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
+            className="inline-flex min-h-11 items-center border border-[var(--seal)] bg-[var(--seal)] px-4 text-sm font-semibold text-[var(--paper)] disabled:opacity-50"
           >
-            Save as draft
+            存为草稿
           </button>
           {saveError ? (
-            <p className="text-sm text-red-800">{saveError}</p>
+            <p className="text-sm text-[var(--danger)]">{saveError}</p>
           ) : null}
         </div>
 
-        <section className="border border-stone-900/15 bg-stone-50 p-4">
-          <h2 className="text-lg font-semibold">JSON Contract</h2>
-          <pre className="mt-3 overflow-auto bg-white p-3 text-xs leading-6 text-stone-800">
+        <TechDetails summary="技术细节">
+          <pre className="overflow-auto bg-[var(--paper-raised)] p-3 text-xs leading-6 text-[var(--ink-soft)]">
             {JSON.stringify({ options: previewOptions, answer }, null, 2)}
           </pre>
-        </section>
+        </TechDetails>
       </section>
 
       <aside
@@ -245,11 +242,9 @@ export function QuestionEditor({
         role="region"
       >
         <div>
-          <p className="text-sm font-semibold uppercase tracking-[0.16em] text-orange-800">
-            Renderer check
-          </p>
-          <h2 id="question-preview-heading" className="mt-2 text-2xl font-semibold">
-            Live Preview
+          <p className="text-sm font-medium text-[var(--seal)]">卷面</p>
+          <h2 id="question-preview-heading" className="mt-2 font-serif text-2xl font-semibold">
+            预览
           </h2>
         </div>
         <QuestionPreview

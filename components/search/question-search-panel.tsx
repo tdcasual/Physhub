@@ -41,7 +41,7 @@ export function QuestionSearchPanel({
     const trimmedQuery = query.trim();
 
     if (!trimmedQuery) {
-      setSearchState({ status: "error", message: "Enter a search query first." });
+      setSearchState({ status: "error", message: "请先输入要找的内容。" });
       return;
     }
 
@@ -78,10 +78,8 @@ export function QuestionSearchPanel({
     <section className="border border-stone-900/15 bg-sky-100/70 p-5">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div>
-          <p className="text-sm font-semibold uppercase tracking-[0.16em] text-lime-800">
-            Natural-language search
-          </p>
-          <h2 className="mt-2 text-2xl font-semibold">Find reviewed questions</h2>
+          <p className="text-sm font-medium text-[var(--patina)]">检索</p>
+          <h2 className="mt-2 font-serif text-2xl font-semibold">找题</h2>
         </div>
 
         <form
@@ -89,7 +87,7 @@ export function QuestionSearchPanel({
           className="flex w-full flex-col gap-2 sm:flex-row lg:max-w-2xl"
         >
           <label className="sr-only" htmlFor="question-search-query">
-            Natural-language question search
+            用中文描述要找的题
           </label>
           <input
             id="question-search-query"
@@ -108,7 +106,7 @@ export function QuestionSearchPanel({
             ) : (
               <Search aria-hidden="true" className="size-4" />
             )}
-            Search
+            搜索
           </button>
         </form>
       </div>

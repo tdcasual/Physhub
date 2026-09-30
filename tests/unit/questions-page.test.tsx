@@ -40,9 +40,9 @@ describe("QuestionsPage", () => {
 
     render(await QuestionsPage());
 
-    expect(screen.getByRole("heading", { name: "Unlock editor" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "登录" })).toBeInTheDocument();
     expect(mocks.findMany).not.toHaveBeenCalled();
-    expect(screen.queryByRole("heading", { name: "Questions" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "题库" })).not.toBeInTheDocument();
   });
 
   it("lists only reviewed and published questions by default", async () => {
@@ -75,13 +75,6 @@ describe("QuestionsPage", () => {
     expect(
       screen.getByRole("heading", { name: "q_motion_0001" }),
     ).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Drafts" })).toHaveAttribute(
-      "href",
-      "/drafts",
-    );
-    expect(screen.getByRole("link", { name: "New draft" })).toHaveAttribute(
-      "href",
-      "/questions/new",
-    );
+    expect(screen.getByRole("heading", { name: "题库" })).toBeInTheDocument();
   });
 });

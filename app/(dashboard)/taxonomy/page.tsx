@@ -1,4 +1,4 @@
-import { UnlockForm } from "@/components/auth/unlock-form";
+import { LockedPage } from "@/components/auth/locked-page";
 import { TaxonomyAdmin } from "@/components/taxonomy/taxonomy-admin";
 import { readEditorSessionFromCookies } from "@/lib/auth/human-auth";
 import { listKnowledgePoints, listTags } from "@/lib/domain/taxonomy-repository";
@@ -9,7 +9,7 @@ export default async function TaxonomyPage() {
   const session = await readEditorSessionFromCookies();
 
   if (!session) {
-    return <UnlockForm />;
+    return <LockedPage />;
   }
 
   const [knowledgePoints, tags] = await Promise.all([

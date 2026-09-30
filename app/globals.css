@@ -2,8 +2,40 @@
 @import "tailwindcss";
 
 :root {
-  --background: #f5f2ea;
-  --foreground: #17211d;
+  --paper: oklch(96.2% 0.014 85);
+  --paper-raised: oklch(98.5% 0.01 85);
+  --paper-mute: oklch(93.5% 0.016 85);
+  --ink: oklch(24% 0.025 250);
+  --ink-soft: oklch(38% 0.02 250);
+  --ink-faint: oklch(52% 0.015 250);
+  --ink-border: oklch(82% 0.018 85);
+  --seal: oklch(48% 0.155 32);
+  --seal-hover: oklch(42% 0.16 32);
+  --seal-soft: oklch(94% 0.03 32);
+  --patina: oklch(42% 0.075 160);
+  --patina-soft: oklch(94% 0.025 160);
+  --stamp-draft: oklch(94% 0.01 85);
+  --stamp-draft-border: oklch(78% 0.02 85);
+  --stamp-review: oklch(93% 0.04 70);
+  --stamp-review-border: oklch(70% 0.08 70);
+  --stamp-review-ink: oklch(40% 0.1 55);
+  --danger: oklch(45% 0.14 25);
+  --danger-soft: oklch(95% 0.03 25);
+  --focus: oklch(48% 0.155 32);
+  --background: var(--paper);
+  --foreground: var(--ink);
+}
+
+@theme inline {
+  --font-sans:
+    "PingFang SC", "Hiragino Sans GB", "Noto Sans SC", "Microsoft YaHei",
+    sans-serif;
+  --font-serif:
+    "Songti SC", "STSong", "Noto Serif SC", "SimSun", serif;
+  --color-paper: var(--paper);
+  --color-ink: var(--ink);
+  --color-seal: var(--seal);
+  --color-patina: var(--patina);
 }
 
 * {
@@ -17,23 +49,29 @@ html {
 body {
   min-height: 100vh;
   margin: 0;
-  background: var(--background);
-  color: var(--foreground);
+  background: var(--paper);
+  color: var(--ink);
   font-family:
-    ui-sans-serif,
-    system-ui,
-    -apple-system,
-    BlinkMacSystemFont,
-    "Segoe UI",
+    "PingFang SC", "Hiragino Sans GB", "Noto Sans SC", "Microsoft YaHei",
     sans-serif;
 }
 
 ::selection {
-  background: #b35a2f;
-  color: #fffaf0;
+  background: var(--seal);
+  color: var(--paper-raised);
 }
 
 :focus-visible {
-  outline: 2px solid #b35a2f;
+  outline: 2px solid var(--focus);
   outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }

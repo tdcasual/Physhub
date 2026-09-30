@@ -2,7 +2,7 @@ import { notFound } from "next/navigation";
 
 import type { QuestionType } from "@prisma/client";
 
-import { UnlockForm } from "@/components/auth/unlock-form";
+import { LockedPage } from "@/components/auth/locked-page";
 import { OfficialQuestionEditor } from "@/components/question/official-question-editor";
 import { readEditorSessionFromCookies } from "@/lib/auth/human-auth";
 import { prisma } from "@/lib/db/prisma";
@@ -18,7 +18,7 @@ export default async function OfficialQuestionPage({
   const session = await readEditorSessionFromCookies();
 
   if (!session) {
-    return <UnlockForm />;
+    return <LockedPage />;
   }
 
   const { id } = await params;

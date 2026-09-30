@@ -40,7 +40,7 @@ describe("OfficialQuestionEditor", () => {
     );
 
     fireEvent.click(screen.getByRole("checkbox", { name: "高一" }));
-    fireEvent.click(screen.getByRole("button", { name: "Save version" }));
+    fireEvent.click(screen.getByRole("button", { name: "保存修订" }));
 
     await waitFor(() => expect(fetchMock).toHaveBeenCalled());
     expect(JSON.parse(String(fetchMock.mock.calls[0][1]?.body))).toMatchObject({

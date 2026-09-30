@@ -25,7 +25,7 @@ describe("QuestionSearchPanel", () => {
             reason: "text:运动学",
             reasons: [{ field: "text", value: "运动学" }],
             stemMd: "高一运动学 v-t 图像题",
-            status: "PUBLISHED",
+            status: "已上架",
             type: "SINGLE_CHOICE",
           },
         ],
@@ -34,10 +34,10 @@ describe("QuestionSearchPanel", () => {
 
     render(<QuestionSearchPanel />);
 
-    fireEvent.change(screen.getByLabelText("Natural-language question search"), {
+    fireEvent.change(screen.getByLabelText("用中文描述要找的题"), {
       target: { value: "找高一运动学基础题" },
     });
-    fireEvent.click(screen.getByRole("button", { name: "Search" }));
+    fireEvent.click(screen.getByRole("button", { name: "搜索" }));
 
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledWith("/api/search/questions", {
@@ -78,7 +78,7 @@ describe("QuestionSearchPanel", () => {
             reason: "text:运动学",
             reasons: [{ field: "text", value: "运动学" }],
             stemMd: "高一运动学 v-t 图像题",
-            status: "PUBLISHED",
+            status: "已上架",
             type: "SINGLE_CHOICE",
           },
         ],
@@ -86,10 +86,10 @@ describe("QuestionSearchPanel", () => {
     } as Response);
 
     render(<QuestionSearchPanel onAddToBasket={onAddToBasket} />);
-    fireEvent.change(screen.getByLabelText("Natural-language question search"), {
+    fireEvent.change(screen.getByLabelText("用中文描述要找的题"), {
       target: { value: "找高一运动学基础题" },
     });
-    fireEvent.click(screen.getByRole("button", { name: "Search" }));
+    fireEvent.click(screen.getByRole("button", { name: "搜索" }));
     fireEvent.click(await screen.findByRole("button", { name: "Add to basket" }));
 
     expect(onAddToBasket).toHaveBeenCalledWith({
@@ -107,10 +107,10 @@ describe("QuestionSearchPanel", () => {
 
     render(<QuestionSearchPanel />);
 
-    fireEvent.change(screen.getByLabelText("Natural-language question search"), {
+    fireEvent.change(screen.getByLabelText("用中文描述要找的题"), {
       target: { value: "位移" },
     });
-    fireEvent.click(screen.getByRole("button", { name: "Search" }));
+    fireEvent.click(screen.getByRole("button", { name: "搜索" }));
 
     expect(await screen.findByRole("alert")).toHaveTextContent(
       "Search query is required",

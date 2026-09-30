@@ -20,7 +20,7 @@ export function AnswerEditor({
 
   return (
     <section className="space-y-3">
-      <h2 className="text-lg font-semibold">Answer</h2>
+      <h2 className="font-serif text-lg font-semibold">答案</h2>
       <div className="grid gap-3 border border-stone-900/15 bg-stone-50 p-3 sm:grid-cols-[10rem_1fr]">
         <label className="space-y-1 text-sm font-medium text-stone-900/70">
           Type

@@ -92,12 +92,12 @@ export function QuestionSetBasket({
 
   return (
     <section className="border border-stone-900/15 bg-stone-50 p-5">
-      <h2 className="text-xl font-semibold">Question set basket</h2>
-      <p className="mt-2 text-sm text-stone-900/60">
-        In-memory only. Refreshing the page clears the basket.
+      <h2 className="font-serif text-xl font-semibold">组卷篮</h2>
+      <p className="mt-2 text-sm text-[var(--ink-faint)]">
+        只在本页有效，刷新或离开即清空。
       </p>
       {uniqueIds.length === 0 ? (
-        <p className="mt-3 text-sm">No questions in the basket.</p>
+        <p className="mt-3 text-sm">篮是空的。</p>
       ) : (
         <ul className="mt-3 space-y-2 text-sm">
           {uniqueItems.map((item) => (
@@ -111,7 +111,7 @@ export function QuestionSetBasket({
                 onClick={() => onRemove(item.id)}
                 className="inline-flex min-h-11 items-center px-2 text-sm font-semibold"
               >
-                Remove
+                移出
               </button>
             </li>
           ))}
@@ -119,7 +119,7 @@ export function QuestionSetBasket({
       )}
       <div className="mt-4 grid gap-3 sm:grid-cols-2">
         <label className="text-sm font-medium">
-          Title
+          标题
           <input
             value={title}
             onChange={(event) => setTitle(event.currentTarget.value)}
@@ -127,7 +127,7 @@ export function QuestionSetBasket({
           />
         </label>
         <label className="text-sm font-medium">
-          Format
+          格式
           <select
             value={format}
             onChange={(event) =>
@@ -146,7 +146,7 @@ export function QuestionSetBasket({
           checked={teacher}
           onChange={(event) => setTeacher(event.currentTarget.checked)}
         />
-        Teacher export (include answers)
+        教师版（含答案）
       </label>
       <label className="mt-3 flex items-center gap-2 text-sm">
         <input
@@ -154,7 +154,7 @@ export function QuestionSetBasket({
           checked={publishedOnly}
           onChange={(event) => setPublishedOnly(event.currentTarget.checked)}
         />
-        Published only
+        仅已上架
       </label>
       <button
         type="button"

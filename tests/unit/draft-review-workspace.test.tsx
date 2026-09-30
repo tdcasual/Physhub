@@ -93,38 +93,39 @@ describe("DraftReviewWorkspace", () => {
   it("renders source material, editable draft fields, preview, and suggestions", () => {
     renderWorkspace();
 
-    expect(screen.getByRole("heading", { name: "Draft Review" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "审题" })).toBeInTheDocument();
     expect(screen.getByText("motion.txt")).toBeInTheDocument();
     expect(screen.getByText(/Original pasted source/)).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Save" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Reject" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Send back" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Promote" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "保存" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "退回", exact: true })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "退回草稿" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "入库" })).toBeInTheDocument();
 
-    expect(screen.getByLabelText("Stem Markdown")).toHaveValue(draft.stemMd);
+    expect(screen.getByLabelText("题干")).toHaveValue(draft.stemMd);
     expect(screen.getByLabelText("Correct option")).toHaveValue("B");
 
-    const preview = screen.getByRole("region", { name: "Live Preview" });
+    const preview = screen.getByRole("region", { name: "预览" });
     expect(within(preview).getByText(/A cart moves/)).toBeInTheDocument();
     expect(within(preview).getByText(/Velocity changes uniformly/)).toBeInTheDocument();
     expect(document.querySelector(".katex")).not.toBeNull();
 
     expect(screen.getByText("Kinematics")).toBeInTheDocument();
     expect(screen.getByText("88% confidence")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "运行记录" }));
     expect(screen.getByText("mock-structure-agent")).toBeInTheDocument();
   });
 
   it("updates the live preview without persisting edits", () => {
     renderWorkspace();
 
-    fireEvent.change(screen.getByLabelText("Stem Markdown"), {
+    fireEvent.change(screen.getByLabelText("题干"), {
       target: { value: "Edited stem with $F=ma$." },
     });
-    fireEvent.change(screen.getByLabelText("Solution Markdown"), {
+    fireEvent.change(screen.getByLabelText("解析"), {
       target: { value: "Edited solution." },
     });
 
-    const preview = screen.getByRole("region", { name: "Live Preview" });
+    const preview = screen.getByRole("region", { name: "预览" });
     expect(within(preview).getByText(/Edited stem/)).toBeInTheDocument();
     expect(within(preview).getByText(/Edited solution/)).toBeInTheDocument();
   });
@@ -148,7 +149,7 @@ describe("DraftReviewWorkspace", () => {
 
     renderWorkspace();
 
-    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    fireEvent.click(screen.getByRole("button", { name: "保存" }));
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
     expect(fetchMock).toHaveBeenCalledWith(
       "/api/drafts/draft_1",
@@ -162,7 +163,7 @@ describe("DraftReviewWorkspace", () => {
       answer: { type: "single", value: "B" },
     });
 
-    fireEvent.click(screen.getByRole("button", { name: "Send back" }));
+    fireEvent.click(screen.getByRole("button", { name: "退回草稿" }));
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
     expect(JSON.parse(String(fetchMock.mock.calls[1][1]?.body))).toMatchObject({
       status: "DRAFT",
@@ -170,7 +171,7 @@ describe("DraftReviewWorkspace", () => {
       answer: { type: "single", value: "B" },
     });
 
-    fireEvent.click(screen.getByRole("button", { name: "Reject" }));
+    fireEvent.click(screen.getByRole("button", { name: "退回", exact: true }));
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(3));
     expect(JSON.parse(String(fetchMock.mock.calls[2][1]?.body))).toMatchObject({
       status: "REJECTED",
@@ -193,7 +194,7 @@ describe("DraftReviewWorkspace", () => {
       answerJson: null,
     });
 
-    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    fireEvent.click(screen.getByRole("button", { name: "保存" }));
     await waitFor(() => expect(fetchMock).toHaveBeenCalled());
 
     const body = JSON.parse(String(fetchMock.mock.calls[0][1]?.body)) as Record<
@@ -208,14 +209,14 @@ describe("DraftReviewWorkspace", () => {
   it("makes rejected drafts read-only", () => {
     renderWorkspace({ ...draft, status: "REJECTED" });
 
-    expect(screen.queryByRole("button", { name: "Save" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Reject" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Send back" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Promote" })).not.toBeInTheDocument();
-    expect(screen.getByLabelText("Stem Markdown")).toBeDisabled();
-    expect(screen.getByLabelText("Solution Markdown")).toBeDisabled();
+    expect(screen.queryByRole("button", { name: "保存" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "退回", exact: true })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "退回草稿" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "入库" })).not.toBeInTheDocument();
+    expect(screen.getByLabelText("题干")).toBeDisabled();
+    expect(screen.getByLabelText("解析")).toBeDisabled();
     expect(screen.getByLabelText("Correct option")).toBeDisabled();
-    expect(screen.getByRole("button", { name: "Add option" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "加选项" })).toBeDisabled();
   });
 
   it("renders the source image through the raw asset file route", () => {
@@ -243,10 +244,10 @@ describe("DraftReviewWorkspace", () => {
       promotedQuestionId: "question_9",
     });
 
-    expect(screen.queryByRole("button", { name: "Promote" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Save" })).not.toBeInTheDocument();
-    expect(screen.getByText(/Question question_9/)).toBeInTheDocument();
-    expect(screen.getByText(/Promoted/)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "入库" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "保存" })).not.toBeInTheDocument();
+    expect(screen.getByText(/题库 question_9/)).toBeInTheDocument();
+    expect(screen.getAllByText(/已入库/).length).toBeGreaterThan(0);
   });
 
   it("persists editor fields then shows validation errors from promote", async () => {
@@ -264,7 +265,7 @@ describe("DraftReviewWorkspace", () => {
 
     renderWorkspace();
 
-    fireEvent.click(screen.getByRole("button", { name: "Promote" }));
+    fireEvent.click(screen.getByRole("button", { name: "入库" }));
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
     expect(fetchMock.mock.calls[0]?.[0]).toBe("/api/drafts/draft_1");
     expect(fetchMock.mock.calls[0]?.[1]).toEqual(
@@ -286,7 +287,7 @@ describe("DraftReviewWorkspace", () => {
       }),
     );
     expect(screen.getByText("答案必须匹配选项")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Promote" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "入库" })).toBeInTheDocument();
   });
 
   it("does not promote if persisting editor fields fails", async () => {
@@ -298,14 +299,14 @@ describe("DraftReviewWorkspace", () => {
 
     renderWorkspace();
 
-    fireEvent.click(screen.getByRole("button", { name: "Promote" }));
+    fireEvent.click(screen.getByRole("button", { name: "入库" }));
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
     expect(fetchMock.mock.calls[0]?.[0]).toBe("/api/drafts/draft_1");
     expect(fetchMock.mock.calls[0]?.[1]).toEqual(
       expect.objectContaining({ method: "PATCH" }),
     );
     expect(screen.getByText("Unable to update draft")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Promote" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "入库" })).toBeInTheDocument();
   });
 
   it("shows promotedAt and the new question id after a successful promote", async () => {
@@ -331,14 +332,14 @@ describe("DraftReviewWorkspace", () => {
 
     renderWorkspace();
 
-    fireEvent.click(screen.getByRole("button", { name: "Promote" }));
+    fireEvent.click(screen.getByRole("button", { name: "入库" }));
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
     expect(fetchMock.mock.calls[0]?.[0]).toBe("/api/drafts/draft_1");
     expect(fetchMock.mock.calls[1]?.[0]).toBe("/api/drafts/draft_1/promote");
 
-    expect(screen.queryByRole("button", { name: "Promote" })).not.toBeInTheDocument();
-    expect(screen.getByText(/Question question_1/)).toBeInTheDocument();
-    expect(screen.getByText(/Promoted/)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "入库" })).not.toBeInTheDocument();
+    expect(screen.getByText(/题库 question_1/)).toBeInTheDocument();
+    expect(screen.getAllByText(/已入库/).length).toBeGreaterThan(0);
   });
 
   it("accepts and rejects pending suggestions through PATCH /api/suggestions/:id", async () => {
@@ -352,7 +353,7 @@ describe("DraftReviewWorkspace", () => {
 
     renderWorkspace();
 
-    fireEvent.click(screen.getByRole("button", { name: "Accept suggestion" }));
+    fireEvent.click(screen.getByRole("button", { name: "接受建议" }));
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
     expect(fetchMock).toHaveBeenCalledWith(
       "/api/suggestions/suggestion_1",
@@ -377,7 +378,7 @@ describe("DraftReviewWorkspace", () => {
 
     renderWorkspace();
 
-    fireEvent.click(screen.getByRole("button", { name: "Reject suggestion" }));
+    fireEvent.click(screen.getByRole("button", { name: "不用该建议" }));
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
     expect(JSON.parse(String(fetchMock.mock.calls[0][1]?.body))).toEqual({
       status: "rejected",
@@ -406,8 +407,8 @@ describe("DraftReviewWorkspace", () => {
       ],
     });
 
-    expect(screen.getByRole("button", { name: "Accept suggestion" })).toBeDisabled();
-    expect(screen.getByRole("button", { name: "Reject suggestion" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "接受建议" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "不用该建议" })).toBeEnabled();
   });
 
   it("disables promote until a knowledge point is selected", () => {
@@ -416,9 +417,9 @@ describe("DraftReviewWorkspace", () => {
       knowledgePointIds: [],
     });
 
-    expect(screen.getByRole("button", { name: "Promote" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "入库" })).toBeDisabled();
     expect(
-      screen.getByText("Promote requires at least one knowledge point."),
+      screen.getByText("入库前请先勾选至少一个知识点。"),
     ).toBeInTheDocument();
   });
 
@@ -445,7 +446,7 @@ describe("DraftReviewWorkspace", () => {
 
     renderWorkspace();
     fireEvent.click(screen.getByRole("checkbox", { name: "高一" }));
-    fireEvent.click(screen.getByRole("button", { name: "Promote" }));
+    fireEvent.click(screen.getByRole("button", { name: "入库" }));
 
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
     expect(JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body))).toMatchObject({

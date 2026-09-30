@@ -12,9 +12,8 @@ vi.mock("next/navigation", () => ({
 }));
 
 function readContract() {
-  const contract = screen
-    .getByRole("heading", { name: "JSON Contract" })
-    .nextElementSibling;
+  fireEvent.click(screen.getByRole("button", { name: "技术细节" }));
+  const contract = screen.getByText("技术细节").parentElement?.querySelector("pre");
 
   if (!contract) {
     throw new Error("JSON contract block was not rendered");
@@ -31,16 +30,16 @@ describe("QuestionEditor", () => {
     render(<QuestionEditor {...taxonomyFixtures} />);
 
     expect(
-      screen.getByRole("heading", { name: "Manual Question Editor" }),
+      screen.getByRole("heading", { name: "录入试题" }),
     ).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Live Preview" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "预览" })).toBeInTheDocument();
 
-    const stemInput = screen.getByLabelText("Stem Markdown");
+    const stemInput = screen.getByLabelText("题干");
     fireEvent.change(stemInput, {
       target: { value: "A cart moves with acceleration $a$." },
     });
 
-    const preview = screen.getByRole("region", { name: "Live Preview" });
+    const preview = screen.getByRole("region", { name: "预览" });
     expect(
       within(preview).getByText(/A cart moves with acceleration/),
     ).toBeInTheDocument();
@@ -144,7 +143,7 @@ describe("QuestionEditor", () => {
 
     try {
       render(<QuestionEditor {...taxonomyFixtures} />);
-      fireEvent.click(screen.getByRole("button", { name: "Save as draft" }));
+      fireEvent.click(screen.getByRole("button", { name: "存为草稿" }));
 
       await waitFor(() => expect(fetchMock).toHaveBeenCalled());
       expect(fetchMock).toHaveBeenCalledWith(
@@ -177,7 +176,7 @@ describe("QuestionEditor", () => {
     try {
       render(<QuestionEditor {...taxonomyFixtures} />);
       fireEvent.click(screen.getByRole("checkbox", { name: "运动学" }));
-      fireEvent.click(screen.getByRole("button", { name: "Save as draft" }));
+      fireEvent.click(screen.getByRole("button", { name: "存为草稿" }));
 
       await waitFor(() => expect(fetchMock).toHaveBeenCalled());
       expect(JSON.parse(String(fetchMock.mock.calls[0][1]?.body))).toMatchObject({

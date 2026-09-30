@@ -35,7 +35,7 @@ describe("TaxonomyPage", () => {
 
     render(await TaxonomyPage());
 
-    expect(screen.getByRole("heading", { name: "Unlock editor" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "登录" })).toBeInTheDocument();
     expect(mocks.listKnowledgePoints).not.toHaveBeenCalled();
     expect(mocks.listTags).not.toHaveBeenCalled();
   });

@@ -128,21 +128,21 @@ export function TaxonomyAdmin({
 
   return (
     <div className="mx-auto w-full max-w-7xl space-y-8 px-6 py-8 lg:px-10">
-      <h1 className="text-3xl font-semibold">Knowledge points and tags</h1>
+      <h1 className="font-serif text-3xl font-semibold">知识点和标签</h1>
       {error ? <p className="text-sm text-red-800">{error}</p> : null}
       <section className="space-y-4">
-        <h2 className="text-xl font-semibold">Knowledge points</h2>
+        <h2 className="font-serif text-xl font-semibold">知识点</h2>
         <form className="flex flex-wrap gap-3" onSubmit={(event) => void createKnowledgePoint(event)}>
           <input
             required
-            placeholder="Name"
+            placeholder="名称"
             value={kpName}
             onChange={(event) => setKpName(event.currentTarget.value)}
             className="border border-stone-900/20 px-3 py-2"
           />
           <input
             required
-            placeholder="Slug"
+            placeholder="slug（高级）"
             value={kpSlug}
             onChange={(event) => setKpSlug(event.currentTarget.value)}
             className="border border-stone-900/20 px-3 py-2"
@@ -153,7 +153,7 @@ export function TaxonomyAdmin({
             className="border border-stone-900/20 px-3 py-2"
             aria-label="Parent knowledge point"
           >
-            <option value="">Root</option>
+            <option value="">根节点</option>
             {knowledgePoints.map((item) => (
               <option key={item.id} value={item.id}>
                 {item.name}
@@ -161,7 +161,7 @@ export function TaxonomyAdmin({
             ))}
           </select>
           <button type="submit" className="border border-stone-900 bg-stone-900 px-3 py-2 text-sm font-semibold text-white">
-            Add
+            添加
           </button>
         </form>
         <ul className="space-y-2">
@@ -186,7 +186,7 @@ export function TaxonomyAdmin({
                   }
                   className="border border-stone-900/20 px-2 py-1 text-sm"
                 >
-                  <option value="">Root</option>
+                  <option value="">根节点</option>
                   {knowledgePoints
                     .filter((candidate) => candidate.id !== item.id)
                     .map((candidate) => (
@@ -200,14 +200,14 @@ export function TaxonomyAdmin({
                   onClick={() => void saveParent(item)}
                   className="inline-flex min-h-11 items-center px-2 text-sm font-semibold"
                 >
-                  Save parent
+                  保存父节点
                 </button>
                 <button
                   type="button"
                   onClick={() => void remove(`/api/knowledge-points/${item.id}`)}
                   className="inline-flex min-h-11 items-center px-2 text-sm font-semibold"
                 >
-                  Delete
+                  删除
                 </button>
               </div>
             </li>
@@ -215,18 +215,18 @@ export function TaxonomyAdmin({
         </ul>
       </section>
       <section className="space-y-4">
-        <h2 className="text-xl font-semibold">Tags</h2>
+        <h2 className="font-serif text-xl font-semibold">标签</h2>
         <form className="flex flex-wrap gap-3" onSubmit={(event) => void createTag(event)}>
           <input
             required
-            placeholder="Name"
+            placeholder="名称"
             value={tagName}
             onChange={(event) => setTagName(event.currentTarget.value)}
             className="border border-stone-900/20 px-3 py-2"
           />
           <input
             required
-            placeholder="Slug"
+            placeholder="slug（高级）"
             value={tagSlug}
             onChange={(event) => setTagSlug(event.currentTarget.value)}
             className="border border-stone-900/20 px-3 py-2"
@@ -238,7 +238,7 @@ export function TaxonomyAdmin({
             className="border border-stone-900/20 px-3 py-2"
           />
           <button type="submit" className="border border-stone-900 bg-stone-900 px-3 py-2 text-sm font-semibold text-white">
-            Add
+            添加
           </button>
         </form>
         <ul className="space-y-2">
@@ -252,7 +252,7 @@ export function TaxonomyAdmin({
                 onClick={() => void remove(`/api/tags/${item.id}`)}
                 className="inline-flex min-h-11 items-center px-2 text-sm font-semibold"
               >
-                Delete
+                删除
               </button>
             </li>
           ))}

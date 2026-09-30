@@ -21,7 +21,7 @@ vi.mock("@/lib/domain/taxonomy-repository", () => ({
 }));
 
 vi.mock("@/components/question/question-editor", () => ({
-  QuestionEditor: () => <section>Manual Question Editor</section>,
+  QuestionEditor: () => <section>录入试题</section>,
 }));
 
 import NewQuestionPage from "@/app/(dashboard)/questions/new/page";
@@ -41,8 +41,8 @@ describe("NewQuestionPage", () => {
 
     render(await NewQuestionPage());
 
-    expect(screen.getByRole("heading", { name: "Unlock editor" })).toBeInTheDocument();
-    expect(screen.queryByText("Manual Question Editor")).not.toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "登录" })).toBeInTheDocument();
+    expect(screen.queryByText("录入试题")).not.toBeInTheDocument();
     expect(mocks.listKnowledgePoints).not.toHaveBeenCalled();
     expect(mocks.listTags).not.toHaveBeenCalled();
   });
@@ -50,7 +50,7 @@ describe("NewQuestionPage", () => {
   it("renders the editor after a valid session cookie", async () => {
     render(await NewQuestionPage());
 
-    expect(screen.getByText("Manual Question Editor")).toBeInTheDocument();
+    expect(screen.getByText("录入试题")).toBeInTheDocument();
     expect(mocks.listKnowledgePoints).toHaveBeenCalled();
     expect(mocks.listTags).toHaveBeenCalled();
   });

@@ -1,10 +1,12 @@
 import { Prisma } from "@prisma/client";
-import { FileQuestion } from "lucide-react";
 import Link from "next/link";
 
-import { UnlockForm } from "@/components/auth/unlock-form";
+import { LockedPage } from "@/components/auth/locked-page";
+import { EmptyState } from "@/components/ui/empty-state";
+import { Stamp } from "@/components/ui/stamp";
 import { readEditorSessionFromCookies } from "@/lib/auth/human-auth";
 import { prisma } from "@/lib/db/prisma";
+import { labelDraftStatus } from "@/lib/ui/labels";
 
 export const dynamic = "force-dynamic";
 
@@ -15,6 +17,11 @@ const unpromotedDraftSelect = {
   status: true,
   stemMd: true,
   updatedAt: true,
+  knowledgePointIds: true,
+  agentRuns: {
+    select: { id: true },
+    take: 1,
+  },
 } satisfies Prisma.QuestionDraftSelect;
 
 type UnpromotedDraft = Prisma.QuestionDraftGetPayload<{
@@ -25,7 +32,7 @@ function truncateStem(stemMd: string | null): string {
   const stem = stemMd?.replace(/\s+/g, " ").trim() ?? "";
 
   if (!stem) {
-    return "Untitled draft";
+    return "未写题干";
   }
 
   if (stem.length <= STEM_PREVIEW_LENGTH) {
@@ -57,62 +64,114 @@ async function getUnpromotedDrafts(): Promise<UnpromotedDraft[]> {
   });
 }
 
-export default async function DraftsPage() {
+export default async function DraftsPage({
+  searchParams,
+}: {
+  searchParams?: Promise<{ status?: string }>;
+} = {}) {
   const session = await readEditorSessionFromCookies();
 
   if (!session) {
-    return <UnlockForm />;
+    return <LockedPage />;
   }
 
+  const params = (await searchParams) ?? {};
+  const filter =
+    params.status === "DRAFT" || params.status === "REJECTED"
+      ? params.status
+      : "NEEDS_REVIEW";
   const drafts = await getUnpromotedDrafts();
+  const visible = drafts.filter((draft) => draft.status === filter);
+  const counts = {
+    NEEDS_REVIEW: drafts.filter((draft) => draft.status === "NEEDS_REVIEW").length,
+    DRAFT: drafts.filter((draft) => draft.status === "DRAFT").length,
+    REJECTED: drafts.filter((draft) => draft.status === "REJECTED").length,
+  };
+
+  const filters = [
+    { status: "NEEDS_REVIEW", label: "待审", count: counts.NEEDS_REVIEW },
+    { status: "DRAFT", label: "草稿", count: counts.DRAFT },
+    { status: "REJECTED", label: "已退回", count: counts.REJECTED },
+  ] as const;
 
   return (
-    <main className="min-h-screen bg-[var(--background)] text-[var(--foreground)]">
+    <main className="min-h-[calc(100vh-4rem)] bg-[var(--paper)] text-[var(--ink)]">
       <div className="mx-auto w-full max-w-7xl space-y-6 px-6 py-8 lg:px-10">
-        <header className="flex flex-col gap-3 border-b border-stone-900/15 pb-5 sm:flex-row sm:items-end sm:justify-between">
+        <header className="flex flex-col gap-3 border-b border-[var(--ink-border)] pb-5 sm:flex-row sm:items-end sm:justify-between">
           <div>
-            <p className="text-sm font-semibold uppercase tracking-[0.16em] text-orange-800">
-              Draft workspace
-            </p>
-            <h1 className="mt-2 text-3xl font-semibold">Drafts</h1>
+            <p className="text-sm font-medium text-[var(--patina)]">审稿</p>
+            <h1 className="mt-2 font-serif text-3xl font-semibold">工作台</h1>
           </div>
-          <p className="text-sm text-stone-900/60">
-            Unpromoted drafts only. Promoted items live under Questions.
+          <p className="text-sm text-[var(--ink-faint)]">
+            已入库的题在题库里。
           </p>
         </header>
 
-        {drafts.length === 0 ? (
-          <section className="border border-stone-900/15 bg-stone-50 p-6">
-            <FileQuestion aria-hidden="true" className="size-6 text-orange-800" />
-            <h2 className="mt-4 text-xl font-semibold">No unpromoted drafts.</h2>
-            <p className="mt-2 max-w-2xl leading-7 text-stone-900/70">
-              Drafts in DRAFT, NEEDS_REVIEW, or REJECTED will appear here.
-            </p>
-          </section>
+        <nav aria-label="草稿筛选" className="flex flex-wrap gap-2">
+          {filters.map((item) => {
+            const href =
+              item.status === "NEEDS_REVIEW"
+                ? "/drafts"
+                : `/drafts?status=${item.status}`;
+            const current = filter === item.status;
+
+            return (
+              <Link
+                key={item.status}
+                href={href}
+                aria-current={current ? "page" : undefined}
+                className={`inline-flex min-h-11 items-center border px-3 text-sm font-semibold ${
+                  current
+                    ? "border-[var(--ink)] bg-[var(--ink)] text-[var(--paper)]"
+                    : "border-[var(--ink-border)] bg-[var(--paper-raised)] text-[var(--ink-soft)] hover:text-[var(--ink)]"
+                }`}
+              >
+                {item.label}
+                <span className="ml-2 font-normal tabular-nums">{item.count}</span>
+              </Link>
+            );
+          })}
+        </nav>
+
+        {visible.length === 0 ? (
+          <EmptyState
+            title={filter === "NEEDS_REVIEW" ? "暂无待审稿" : "这一栏是空的"}
+            action={
+              <Link
+                href="/questions/new"
+                className="inline-flex min-h-11 items-center border border-[var(--seal)] bg-[var(--seal)] px-4 text-sm font-semibold text-[var(--paper)]"
+              >
+                去录入
+              </Link>
+            }
+          >
+            {filter === "NEEDS_REVIEW"
+              ? "Agent 交来的题会出现在这里。也可以自己录入。"
+              : "切换上方筛选项，或去录入一题。"}
+          </EmptyState>
         ) : (
-          <section aria-label="Unpromoted drafts" className="space-y-4">
-            {drafts.map((draft) => (
+          <section aria-label="草稿列表" className="space-y-3">
+            {visible.map((draft) => (
               <article
                 key={draft.id}
-                className="border border-stone-900/15 bg-stone-50 p-5"
+                className="border border-[var(--ink-border)] bg-[var(--paper-raised)] p-5"
               >
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                   <div>
-                    <h2 className="text-xl font-semibold">
-                      <Link
-                        href={`/drafts/${draft.id}`}
-                        className="hover:underline"
-                      >
+                    <h2 className="font-serif text-xl font-semibold">
+                      <Link href={`/drafts/${draft.id}`} className="hover:underline">
                         {truncateStem(draft.stemMd)}
                       </Link>
                     </h2>
-                    <p className="mt-1 text-sm text-stone-900/60">
-                      Updated {formatUpdatedAt(draft.updatedAt)}
+                    <p className="mt-1 text-sm text-[var(--ink-faint)]">
+                      {draft.agentRuns.length > 0 ? "来自 agent" : "手录"}
+                      {" · "}
+                      {formatUpdatedAt(draft.updatedAt)}
                     </p>
                   </div>
-                  <span className="border border-lime-800/25 bg-lime-50 px-2 py-1 text-xs font-semibold uppercase tracking-[0.08em] text-lime-800">
-                    {draft.status}
-                  </span>
+                  <Stamp status={draft.status}>
+                    {labelDraftStatus(draft.status)}
+                  </Stamp>
                 </div>
               </article>
             ))}

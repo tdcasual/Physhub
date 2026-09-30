@@ -2,6 +2,8 @@ import { FileQuestion, Tags } from "lucide-react";
 import Link from "next/link";
 
 import { MarkdownLatex } from "@/lib/renderer/render-markdown";
+import { labelQuestionStatus, labelQuestionType } from "@/lib/ui/labels";
+import { Stamp } from "@/components/ui/stamp";
 
 export type QuestionListItem = {
   id: string;
@@ -14,10 +16,6 @@ export type QuestionListItem = {
   primaryKnowledgePointName: string | null;
   tagNames: string[];
 };
-
-function formatEnumLabel(value: string) {
-  return value.replace(/_/g, " ");
-}
 
 function formatUpdatedAt(value: string) {
   return new Intl.DateTimeFormat("zh-CN", {
@@ -37,17 +35,16 @@ export function QuestionList({
     return (
       <section className="border border-stone-900/15 bg-stone-50 p-6">
         <FileQuestion aria-hidden="true" className="size-6 text-orange-800" />
-        <h2 className="mt-4 text-xl font-semibold">No questions yet.</h2>
-        <p className="mt-2 max-w-2xl leading-7 text-stone-900/70">
-          Reviewed and published questions will appear here after they are added
-          to the bank.
+        <h2 className="mt-4 font-serif text-xl font-semibold">题库还是空的</h2>
+        <p className="mt-2 max-w-2xl leading-7 text-[var(--ink-soft)]">
+          审定或上架后的题会出现在这里。
         </p>
       </section>
     );
   }
 
   return (
-    <section aria-label="Recent questions" className="space-y-4">
+    <section aria-label="最近题目" className="space-y-4">
       {questions.map((question) => (
         <article
           key={question.id}
@@ -64,20 +61,20 @@ export function QuestionList({
                 </Link>
               </h2>
               <p className="mt-1 text-sm text-stone-900/60">
-                Updated {formatUpdatedAt(question.updatedAt)}
+                {formatUpdatedAt(question.updatedAt)}
               </p>
             </div>
 
             <div className="flex flex-wrap gap-2 text-xs font-semibold uppercase tracking-[0.08em]">
-              <span className="border border-lime-800/25 bg-lime-50 px-2 py-1 text-lime-800">
-                {question.status}
-              </span>
-              <span className="border border-stone-900/15 bg-white px-2 py-1 text-stone-700">
-                {formatEnumLabel(question.type)}
+              <Stamp status={question.status}>
+                {labelQuestionStatus(question.status)}
+              </Stamp>
+              <span className="border border-[var(--ink-border)] bg-[var(--paper-raised)] px-2 py-1 text-[var(--ink-soft)]">
+                {labelQuestionType(question.type)}
               </span>
               {question.difficulty ? (
                 <span className="border border-orange-800/25 bg-orange-50 px-2 py-1 text-orange-800">
-                  Difficulty {question.difficulty}
+                  难度 {question.difficulty}
                 </span>
               ) : null}
             </div>
@@ -112,7 +109,7 @@ export function QuestionList({
                 onClick={() => onAddToBasket(question)}
                 className="inline-flex min-h-11 items-center border border-stone-900/20 bg-white px-3 text-xs font-semibold"
               >
-                Add to basket
+                加入组卷篮
               </button>
             ) : null}
           </footer>

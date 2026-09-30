@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { cleanup, render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
@@ -36,26 +36,28 @@ describe("DraftsPage", () => {
 
     render(await DraftsPage());
 
-    expect(screen.getByRole("heading", { name: "Unlock editor" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "登录" })).toBeInTheDocument();
     expect(mocks.findMany).not.toHaveBeenCalled();
-    expect(screen.queryByText("No unpromoted drafts.")).not.toBeInTheDocument();
+    expect(screen.queryByText("暂无待审稿")).not.toBeInTheDocument();
   });
 
   it("lists unpromoted drafts with status, updated time, and truncated stem", async () => {
     const longStem = `${"如图所示为某物体做直线运动的 v-t 图像。".repeat(8)} extra`;
 
-    mocks.findMany.mockResolvedValueOnce([
+    mocks.findMany.mockResolvedValue([
       {
         id: "draft_1",
         status: "NEEDS_REVIEW",
         stemMd: longStem,
         updatedAt: new Date("2026-05-15T08:00:00.000Z"),
+        agentRuns: [{ id: "run_1" }],
       },
       {
         id: "draft_2",
         status: "DRAFT",
         stemMd: null,
         updatedAt: new Date("2026-05-14T08:00:00.000Z"),
+        agentRuns: [],
       },
     ]);
 
@@ -78,12 +80,16 @@ describe("DraftsPage", () => {
     expect(truncatedLink).toHaveAttribute("href", "/drafts/draft_1");
     expect(truncatedLink.textContent?.endsWith("…")).toBe(true);
     expect(truncatedLink.textContent?.length).toBeLessThanOrEqual(121);
-    expect(screen.getByText("NEEDS_REVIEW")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Untitled draft" })).toHaveAttribute(
+    expect(screen.getAllByText("待审").length).toBeGreaterThan(0);
+    expect(screen.getByText(/来自 agent/)).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "未写题干" })).not.toBeInTheDocument();
+
+    cleanup();
+    render(await DraftsPage({ searchParams: Promise.resolve({ status: "DRAFT" }) }));
+    expect(screen.getByRole("link", { name: "未写题干" })).toHaveAttribute(
       "href",
       "/drafts/draft_2",
     );
-    expect(screen.getAllByText(/Updated /)).toHaveLength(2);
   });
 
   it("renders an empty state when there are no unpromoted drafts", async () => {
@@ -91,6 +97,6 @@ describe("DraftsPage", () => {
 
     render(await DraftsPage());
 
-    expect(screen.getByText("No unpromoted drafts.")).toBeInTheDocument();
+    expect(screen.getByText("暂无待审稿")).toBeInTheDocument();
   });
 });

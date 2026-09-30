@@ -49,7 +49,7 @@ export function RawAssetUpload({
   return (
     <div className="space-y-2">
       <label className="block text-sm font-medium text-stone-900/70">
-        Source image or text file
+        来源图片或文本文件
         <input
           type="file"
           className="mt-2 block w-full text-sm"
