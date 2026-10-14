@@ -1,4 +1,4 @@
-import { FileQuestion, Tags } from "lucide-react";
+import { Tags } from "lucide-react";
 import Link from "next/link";
 
 import { MarkdownLatex } from "@/lib/renderer/render-markdown";
@@ -33,9 +33,8 @@ export function QuestionList({
 }) {
   if (questions.length === 0) {
     return (
-      <section className="border border-stone-900/15 bg-stone-50 p-6">
-        <FileQuestion aria-hidden="true" className="size-6 text-orange-800" />
-        <h2 className="mt-4 font-serif text-xl font-semibold">题库还是空的</h2>
+      <section className="border border-[var(--ink-border)] bg-[var(--paper-mute)] p-6">
+        <h2 className="font-serif text-xl font-semibold">题库还是空的</h2>
         <p className="mt-2 max-w-2xl leading-7 text-[var(--ink-soft)]">
           审定或上架后的题会出现在这里。
         </p>

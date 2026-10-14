@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import type { DraftStatus, JobStatus, QuestionType, RawAssetKind, RawAssetStatus } from "@prisma/client";
 
 import { AnswerEditor } from "@/components/question/answer-editor";
@@ -8,6 +8,7 @@ import { OptionEditor } from "@/components/question/option-editor";
 import { QuestionPreview } from "@/components/question/question-preview";
 import { RawAssetUpload } from "@/components/raw-asset/raw-asset-upload";
 import { TaxonomyFields } from "@/components/taxonomy/taxonomy-fields";
+import { Button } from "@/components/ui/button";
 import {
   defaultAnswerForType,
   isChoiceType,
@@ -19,7 +20,16 @@ import {
 } from "@/lib/domain/editor-answer";
 import { suggestionPayloadMissingKnowledgePointId } from "@/lib/domain/suggestion-policy";
 import type { KnowledgePointDto, TagDto } from "@/lib/domain/taxonomy-repository";
-import { labelDraftStatus, labelQuestionType } from "@/lib/ui/labels";
+import {
+  overlayStorageKey,
+  useEditorOverlay,
+  useLinkLeaveConfirm,
+} from "@/lib/ui/editor-overlay";
+import {
+  buildDraftEditorPatch,
+  type DraftEditorSnapshot,
+} from "@/lib/ui/editor-patches";
+import { labelDraftStatus, labelQuestionType, mapUiError } from "@/lib/ui/labels";
 import { TechDetails } from "@/components/ui/tech-details";
 
 export type JsonPrimitive = string | number | boolean | null;
@@ -176,10 +186,10 @@ function formatDate(value: string) {
 
 function formatConfidence(value: number | null) {
   if (value === null) {
-    return "No confidence";
+    return "未给置信度";
   }
 
-  return `${Math.round(value * 100)}% confidence`;
+  return `置信度 ${Math.round(value * 100)}%`;
 }
 
 function jsonPreview(value: JsonValue | null) {
@@ -227,10 +237,45 @@ export function DraftReviewWorkspace({
   const canEdit = status === "DRAFT" || status === "NEEDS_REVIEW";
   const showOptions = isChoiceType(type) || type === "";
   const canPromote = canEdit && knowledgePointIds.length > 0;
+  const snapshot: DraftEditorSnapshot = useMemo(
+    () => ({
+      type,
+      stemMd,
+      options,
+      answer,
+      solutionMd,
+      knowledgePointIds,
+      tagIds,
+      difficulty,
+    }),
+    [answer, difficulty, knowledgePointIds, options, solutionMd, stemMd, tagIds, type],
+  );
+  const hydrate = useCallback((next: DraftEditorSnapshot) => {
+    setStemMd(next.stemMd);
+    setOptions(next.options);
+    setAnswer(next.answer);
+    setSolutionMd(next.solutionMd);
+    setKnowledgePointIds(next.knowledgePointIds);
+    setTagIds(next.tagIds);
+    setDifficulty(next.difficulty);
+    setType(next.type);
+  }, []);
+  const overlay = useEditorOverlay<DraftEditorSnapshot>({
+    storageKey: overlayStorageKey("draft", draft.id),
+    snapshot,
+    serverBaseVersion: draft.updatedAt,
+    onHydrate: hydrate,
+  });
+  useLinkLeaveConfirm(overlay.isDirty);
+
+  function buildEditorFields() {
+    return buildDraftEditorPatch(snapshot, showOptions);
+  }
 
   async function patchDraft(
     action: string,
     body: Record<string, unknown>,
+    submitted: DraftEditorSnapshot,
   ) {
     setPendingAction(action);
     setActionError(null);
@@ -244,103 +289,78 @@ export function DraftReviewWorkspace({
       });
       const payload = (await response.json()) as {
         error?: string;
-        draft?: { status?: DraftStatus };
+        draft?: { status?: DraftStatus; updatedAt?: string };
       };
 
       if (!response.ok) {
-        setActionError(payload.error ?? "Unable to update draft");
-        return;
+        setActionError(mapUiError(payload.error ?? "无法保存草稿"));
+        return { ok: false, leftover: true };
       }
 
       if (payload.draft?.status) {
         setStatus(payload.draft.status);
       }
+
+      const leftover = overlay.markClean(
+        payload.draft?.updatedAt ?? new Date().toISOString(),
+        submitted,
+      );
+      return { ok: true, leftover };
     } catch {
-      setActionError("Unable to update draft");
+      setActionError("无法保存草稿");
+      return { ok: false, leftover: true };
     } finally {
       setPendingAction(null);
     }
   }
 
-  function buildEditorFields() {
-    const body: Record<string, unknown> = {
-      stemMd,
-      solutionMd,
-      knowledgePointIds,
-      tagIds,
-    };
-
-    if (type) {
-      body.type = type;
-    }
-
-    if (typeof difficulty === "number") {
-      body.difficulty = difficulty;
-    }
-
-    if (showOptions && previewOptions.length > 0) {
-      body.options = previewOptions;
-    }
-
-    const canSendSingleAnswer =
-      answer.type === "single" &&
-      (type === "SINGLE_CHOICE" || type === "") &&
-      answer.value.trim().length > 0 &&
-      previewOptions.some((option) => option.label === answer.value);
-
-    if (canSendSingleAnswer) {
-      body.answer = answer;
-    }
-
-    if (answer.type === "multiple" && answer.value.length > 0) {
-      body.answer = answer;
-    }
-
-    if (answer.type === "text" && answer.value.trim().length > 0) {
-      body.answer = answer;
-    }
-
-    return body;
-  }
-
   function handleSave() {
-    return patchDraft("save", buildEditorFields());
+    return patchDraft("save", buildEditorFields(), snapshot);
   }
 
   function handleReject() {
-    return patchDraft("reject", { ...buildEditorFields(), status: "REJECTED" });
+    return patchDraft(
+      "reject",
+      { ...buildEditorFields(), status: "REJECTED" },
+      snapshot,
+    );
   }
 
-  function handleSendBack() {
-    return patchDraft("send-back", { ...buildEditorFields(), status: "DRAFT" });
-  }
+  async function persistEditorFields(): Promise<{
+    ok: boolean;
+    leftover: boolean;
+  }> {
+    const submitted = snapshot;
 
-  async function persistEditorFields(): Promise<boolean> {
     try {
       const response = await fetch(`/api/drafts/${draft.id}`, {
         method: "PATCH",
         credentials: "include",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify(buildEditorFields()),
+        body: JSON.stringify(buildDraftEditorPatch(submitted, showOptions)),
       });
       const payload = (await response.json()) as {
         error?: string;
-        draft?: { status?: DraftStatus };
+        draft?: { status?: DraftStatus; updatedAt?: string };
       };
 
       if (!response.ok) {
-        setActionError(payload.error ?? "Unable to update draft");
-        return false;
+        setActionError(mapUiError(payload.error ?? "无法保存草稿"));
+        return { ok: false, leftover: true };
       }
 
       if (payload.draft?.status) {
         setStatus(payload.draft.status);
       }
 
-      return true;
+      const leftover = overlay.markClean(
+        payload.draft?.updatedAt ?? new Date().toISOString(),
+        submitted,
+      );
+      return { ok: true, leftover };
     } catch {
-      setActionError("Unable to update draft");
-      return false;
+      setActionError("无法保存草稿");
+      return { ok: false, leftover: true };
     }
   }
 
@@ -351,7 +371,10 @@ export function DraftReviewWorkspace({
     try {
       const saved = await persistEditorFields();
 
-      if (!saved) {
+      if (!saved.ok || saved.leftover) {
+        if (saved.ok && saved.leftover) {
+          setActionError("还有未保存的修改，未入库");
+        }
         return;
       }
 
@@ -370,7 +393,7 @@ export function DraftReviewWorkspace({
       };
 
       if (!response.ok) {
-        setActionError(payload.error ?? "Unable to promote draft");
+        setActionError(mapUiError(payload.error ?? "无法入库"));
         return;
       }
 
@@ -385,7 +408,7 @@ export function DraftReviewWorkspace({
           promotedQuestionId,
       );
     } catch {
-      setActionError("Unable to promote draft");
+      setActionError("无法入库");
     } finally {
       setPendingAction(null);
     }
@@ -408,10 +431,16 @@ export function DraftReviewWorkspace({
       const payload = (await response.json()) as {
         error?: string;
         suggestion?: { status?: string };
+        draft?: {
+          updatedAt?: string;
+          knowledgePointIds?: unknown;
+          difficulty?: number | null;
+          tagIds?: unknown;
+        };
       };
 
       if (!response.ok) {
-        setActionError(payload.error ?? "Unable to review suggestion");
+        setActionError(mapUiError(payload.error ?? "无法处理建议"));
         return;
       }
 
@@ -424,19 +453,45 @@ export function DraftReviewWorkspace({
       );
 
       if (nextStatus === "accepted") {
-        const accepted = suggestions.find((item) => item.id === suggestionId);
-        const acceptedIds = accepted
-          ? knowledgePointIdsFromPayload(accepted.payload)
-          : [];
+        if (payload.draft) {
+          if (Array.isArray(payload.draft.knowledgePointIds)) {
+            setKnowledgePointIds(
+              payload.draft.knowledgePointIds.filter(
+                (id): id is string => typeof id === "string" && id.length > 0,
+              ),
+            );
+          }
 
-        if (acceptedIds.length > 0) {
-          setKnowledgePointIds((current) => [
-            ...new Set([...current, ...acceptedIds]),
-          ]);
+          if ("difficulty" in payload.draft) {
+            setDifficulty(payload.draft.difficulty ?? null);
+          }
+
+          if (Array.isArray(payload.draft.tagIds)) {
+            setTagIds(
+              payload.draft.tagIds.filter(
+                (id): id is string => typeof id === "string" && id.length > 0,
+              ),
+            );
+          }
+
+          if (payload.draft.updatedAt) {
+            overlay.advanceBase(payload.draft.updatedAt);
+          }
+        } else {
+          const accepted = suggestions.find((item) => item.id === suggestionId);
+          const acceptedIds = accepted
+            ? knowledgePointIdsFromPayload(accepted.payload)
+            : [];
+
+          if (acceptedIds.length > 0) {
+            setKnowledgePointIds((current) => [
+              ...new Set([...current, ...acceptedIds]),
+            ]);
+          }
         }
       }
     } catch {
-      setActionError("Unable to review suggestion");
+      setActionError("无法处理建议");
     } finally {
       setPendingAction(null);
     }
@@ -463,7 +518,7 @@ export function DraftReviewWorkspace({
   }
 
   return (
-    <main className="min-h-screen bg-[var(--background)] text-[var(--foreground)]">
+    <main id="main" className="min-h-screen bg-[var(--background)] text-[var(--foreground)]">
       <div className="mx-auto w-full max-w-[96rem] space-y-6 px-5 py-6 lg:px-8">
         <header className="flex flex-col gap-4 border-b border-stone-900/15 pb-5 md:flex-row md:items-end md:justify-between">
           <div>
@@ -495,50 +550,44 @@ export function DraftReviewWorkspace({
           </dl>
         </header>
 
+        {overlay.restored ? (
+          <p role="status" className="text-sm text-[var(--patina)]">
+            已恢复未提交的修改
+          </p>
+        ) : null}
+
         {canEdit ? (
           <div className="flex flex-wrap items-center gap-3">
-            <button
+            <Button
               type="button"
+              variant="primary"
               onClick={() => {
                 void handleSave();
               }}
               disabled={pendingAction !== null}
-              className="border border-stone-900 bg-stone-900 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
             >
               保存
-            </button>
-            <button
+            </Button>
+            <Button
               type="button"
+              variant="secondary"
               onClick={() => {
                 void handleReject();
               }}
               disabled={pendingAction !== null}
-              className="border border-stone-900/30 bg-white px-4 py-2 text-sm font-semibold disabled:opacity-50"
             >
               退回
-            </button>
-            {status === "NEEDS_REVIEW" ? (
-              <button
-                type="button"
-                onClick={() => {
-                  void handleSendBack();
-                }}
-                disabled={pendingAction !== null}
-                className="border border-stone-900/30 bg-white px-4 py-2 text-sm font-semibold disabled:opacity-50"
-              >
-                退回草稿
-              </button>
-            ) : null}
-            <button
+            </Button>
+            <Button
               type="button"
+              variant="primary"
               onClick={() => {
                 void handlePromote();
               }}
               disabled={pendingAction !== null || !canPromote}
-              className="border border-lime-900 bg-lime-800 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
             >
               入库
-            </button>
+            </Button>
             {!canPromote ? (
               <p className="text-sm text-[var(--ink-soft)]">
                 入库前请先勾选至少一个知识点。
@@ -574,16 +623,16 @@ export function DraftReviewWorkspace({
               <div className="space-y-4">
                 <dl className="grid gap-3 text-sm">
                   <div>
-                    <dt className="font-medium text-stone-900/55">Name</dt>
+                    <dt className="font-medium text-[var(--ink-faint)]">文件名</dt>
                     <dd className="mt-1 font-semibold">{draft.sourceRawAsset.originalName}</dd>
                   </div>
                   <div className="grid grid-cols-2 gap-3">
                     <div>
-                      <dt className="font-medium text-stone-900/55">Kind</dt>
+                      <dt className="font-medium text-[var(--ink-faint)]">类型</dt>
                       <dd className="mt-1">{draft.sourceRawAsset.kind}</dd>
                     </div>
                     <div>
-                      <dt className="font-medium text-stone-900/55">Status</dt>
+                      <dt className="font-medium text-[var(--ink-faint)]">状态</dt>
                       <dd className="mt-1">{draft.sourceRawAsset.status}</dd>
                     </div>
                   </div>
@@ -604,7 +653,7 @@ export function DraftReviewWorkspace({
                   />
                 ) : (
                   <pre className="max-h-[34rem] overflow-auto whitespace-pre-wrap border border-stone-900/15 bg-white p-3 text-sm leading-6 text-stone-900">
-                    {sourceText || "No extracted text is available for this raw asset."}
+                    {sourceText || "这份来源没有可显示的文本。"}
                   </pre>
                 )}
 
@@ -618,13 +667,20 @@ export function DraftReviewWorkspace({
               </div>
             ) : (
               <p className="text-sm leading-6 text-stone-900/65">
-                This draft is not linked to a raw asset.
+                这份草稿还没有关联来源文件。
               </p>
             )}
             {canEdit ? (
               <RawAssetUpload
                 onUploaded={(rawAssetId) => {
-                  void patchDraft("attach-source", { sourceRawAssetId: rawAssetId });
+                  void patchDraft(
+                    "attach-source",
+                    {
+                      ...buildEditorFields(),
+                      sourceRawAssetId: rawAssetId,
+                    },
+                    snapshot,
+                  );
                 }}
               />
             ) : null}
@@ -632,11 +688,11 @@ export function DraftReviewWorkspace({
 
           <section aria-labelledby="structured-draft-heading" className="space-y-5">
             <div>
-              <p className="text-sm font-semibold uppercase tracking-[0.16em] text-orange-800">
-                Structured draft
+              <p className="text-sm font-medium text-[var(--patina)]">
+                结构化草稿
               </p>
-              <h2 id="structured-draft-heading" className="mt-2 text-xl font-semibold">
-                Editable Parser Output
+              <h2 id="structured-draft-heading" className="mt-2 font-serif text-xl font-semibold">
+                可编辑内容
               </h2>
             </div>
 
@@ -729,7 +785,7 @@ export function DraftReviewWorkspace({
                 </h2>
               </div>
               <QuestionPreview
-                stemMd={stemMd || "No stem text yet."}
+                stemMd={stemMd || "还没有题干。"}
                 options={previewOptions}
                 solutionMd={solutionMd}
                 showSolution
@@ -822,7 +878,7 @@ export function DraftReviewWorkspace({
                         <div>
                           <p className="text-sm font-semibold">{run.agentName}</p>
                           <p className="mt-1 text-xs text-stone-900/55">
-                            {run.toolName ?? "No tool"} · {formatDate(run.createdAt)}
+                            {run.toolName ?? "无工具"} · {formatDate(run.createdAt)}
                           </p>
                         </div>
                         <span className="text-xs font-semibold uppercase tracking-[0.12em] text-lime-800">

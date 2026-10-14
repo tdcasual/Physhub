@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
   buildQuestionSearchWhere,
+  residualSearchText,
   SearchRequestValidationError,
   searchQuestions,
   understandQuestionSearchQuery,
@@ -72,21 +73,8 @@ function searchableQuestion(overrides: Record<string, unknown> = {}) {
         },
       },
     ],
-    assets: [
-      {
-        questionId: "question_1",
-        assetId: "asset_1",
-        asset: {
-          id: "asset_1",
-          kind: "IMAGE",
-          storageKey: "questions/q_motion_0001.png",
-          mimeType: "image/png",
-          metadataJson: {},
-          createdAt: new Date("2026-05-15T00:00:00.000Z"),
-          updatedAt: new Date("2026-05-15T00:00:00.000Z"),
-        },
-      },
-    ],
+    hasRenderedImage: true,
+    sourceRawAsset: { kind: "IMAGE" },
     ...overrides,
   };
 }
@@ -160,9 +148,7 @@ describe("buildQuestionSearchWhere", () => {
       difficulty: {
         in: [2],
       },
-      assets: {
-        some: {},
-      },
+      hasRenderedImage: true,
       AND: expect.arrayContaining([
         {
           OR: expect.arrayContaining([
@@ -236,7 +222,7 @@ describe("searchQuestions", () => {
       where: expect.objectContaining({
         status: { in: ["PUBLISHED"] },
         difficulty: { in: [1, 2] },
-        assets: { some: {} },
+        hasRenderedImage: true,
       }),
       select: expect.objectContaining({
         id: true,
@@ -244,10 +230,9 @@ describe("searchQuestions", () => {
         type: true,
         status: true,
         stemMd: true,
+        hasRenderedImage: true,
       }),
-      orderBy: {
-        createdAt: "desc",
-      },
+      orderBy: [{ createdAt: "desc" }, { id: "desc" }],
       take: 3,
     });
     expect(result).toEqual({
@@ -276,7 +261,7 @@ describe("searchQuestions", () => {
             { field: "text", value: "高一" },
             { field: "text", value: "运动学" },
             { field: "difficulty", value: "2" },
-            { field: "assets", value: "has_image" },
+            { field: "source", value: "has_image" },
           ]),
         },
       ],
@@ -425,3 +410,34 @@ describe("POST /api/search/questions", () => {
     expect(response.status).toBe(500);
   });
 });
+
+describe("residualSearchText", () => {
+  it("drops intent-only 有图 so search does not require the literal", () => {
+    const understanding = understandQuestionSearchQuery("有图");
+    expect(understanding.has_image).toBe(true);
+    expect(residualSearchText(understanding)).toBeUndefined();
+    expect(buildQuestionSearchWhere(understanding)).toMatchObject({
+      hasRenderedImage: true,
+    });
+    expect(buildQuestionSearchWhere(understanding).AND).toBeUndefined();
+  });
+
+  it("maps 基础题 to difficulty without requiring the literal", () => {
+    const understanding = understandQuestionSearchQuery("基础题");
+    expect(understanding.difficulty).toEqual([1, 2]);
+    expect(residualSearchText(understanding)).toBeUndefined();
+    const where = buildQuestionSearchWhere(understanding);
+    expect(where.difficulty).toEqual({ in: [1, 2] });
+    expect(JSON.stringify(where)).not.toContain("基础题");
+  });
+
+  it("keeps 位移 when combined with 有图", () => {
+    const understanding = understandQuestionSearchQuery("位移 有图");
+    expect(understanding.has_image).toBe(true);
+    expect(understanding.knowledge_points).toEqual(["位移"]);
+    expect(buildQuestionSearchWhere(understanding)).toMatchObject({
+      hasRenderedImage: true,
+    });
+  });
+});
+

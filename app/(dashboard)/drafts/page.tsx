@@ -1,4 +1,3 @@
-import { Prisma } from "@prisma/client";
 import Link from "next/link";
 
 import { LockedPage } from "@/components/auth/locked-page";
@@ -6,27 +5,18 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { Stamp } from "@/components/ui/stamp";
 import { readEditorSessionFromCookies } from "@/lib/auth/human-auth";
 import { prisma } from "@/lib/db/prisma";
+import {
+  UNPROMOTED_PAGE_SIZE,
+  countUnpromotedDraftsByStatus,
+  listUnpromotedDrafts,
+  parseUnpromotedDraftPage,
+  parseUnpromotedDraftStatus,
+} from "@/lib/domain/draft-listing";
 import { labelDraftStatus } from "@/lib/ui/labels";
 
 export const dynamic = "force-dynamic";
 
 const STEM_PREVIEW_LENGTH = 120;
-
-const unpromotedDraftSelect = {
-  id: true,
-  status: true,
-  stemMd: true,
-  updatedAt: true,
-  knowledgePointIds: true,
-  agentRuns: {
-    select: { id: true },
-    take: 1,
-  },
-} satisfies Prisma.QuestionDraftSelect;
-
-type UnpromotedDraft = Prisma.QuestionDraftGetPayload<{
-  select: typeof unpromotedDraftSelect;
-}>;
 
 function truncateStem(stemMd: string | null): string {
   const stem = stemMd?.replace(/\s+/g, " ").trim() ?? "";
@@ -49,25 +39,25 @@ function formatUpdatedAt(value: Date) {
   }).format(value);
 }
 
-async function getUnpromotedDrafts(): Promise<UnpromotedDraft[]> {
-  return prisma.questionDraft.findMany({
-    select: unpromotedDraftSelect,
-    where: {
-      status: {
-        in: ["DRAFT", "NEEDS_REVIEW", "REJECTED"],
-      },
-    },
-    orderBy: {
-      updatedAt: "desc",
-    },
-    take: 50,
-  });
+function draftsHref(status: string, page: number) {
+  const params = new URLSearchParams();
+
+  if (status !== "NEEDS_REVIEW") {
+    params.set("status", status);
+  }
+
+  if (page > 1) {
+    params.set("page", String(page));
+  }
+
+  const query = params.toString();
+  return query ? `/drafts?${query}` : "/drafts";
 }
 
 export default async function DraftsPage({
   searchParams,
 }: {
-  searchParams?: Promise<{ status?: string }>;
+  searchParams?: Promise<{ status?: string; page?: string }>;
 } = {}) {
   const session = await readEditorSessionFromCookies();
 
@@ -76,17 +66,14 @@ export default async function DraftsPage({
   }
 
   const params = (await searchParams) ?? {};
-  const filter =
-    params.status === "DRAFT" || params.status === "REJECTED"
-      ? params.status
-      : "NEEDS_REVIEW";
-  const drafts = await getUnpromotedDrafts();
-  const visible = drafts.filter((draft) => draft.status === filter);
-  const counts = {
-    NEEDS_REVIEW: drafts.filter((draft) => draft.status === "NEEDS_REVIEW").length,
-    DRAFT: drafts.filter((draft) => draft.status === "DRAFT").length,
-    REJECTED: drafts.filter((draft) => draft.status === "REJECTED").length,
-  };
+  const filter = parseUnpromotedDraftStatus(params.status);
+  const page = parseUnpromotedDraftPage(params.page);
+  const [visible, counts] = await Promise.all([
+    listUnpromotedDrafts(prisma, filter, { page }),
+    countUnpromotedDraftsByStatus(prisma),
+  ]);
+  const totalForFilter = counts[filter];
+  const totalPages = Math.max(1, Math.ceil(totalForFilter / UNPROMOTED_PAGE_SIZE));
 
   const filters = [
     { status: "NEEDS_REVIEW", label: "待审", count: counts.NEEDS_REVIEW },
@@ -95,7 +82,10 @@ export default async function DraftsPage({
   ] as const;
 
   return (
-    <main className="min-h-[calc(100vh-4rem)] bg-[var(--paper)] text-[var(--ink)]">
+    <main
+      id="main"
+      className="min-h-[calc(100vh-4rem)] bg-[var(--paper)] text-[var(--ink)]"
+    >
       <div className="mx-auto w-full max-w-7xl space-y-6 px-6 py-8 lg:px-10">
         <header className="flex flex-col gap-3 border-b border-[var(--ink-border)] pb-5 sm:flex-row sm:items-end sm:justify-between">
           <div>
@@ -109,10 +99,7 @@ export default async function DraftsPage({
 
         <nav aria-label="草稿筛选" className="flex flex-wrap gap-2">
           {filters.map((item) => {
-            const href =
-              item.status === "NEEDS_REVIEW"
-                ? "/drafts"
-                : `/drafts?status=${item.status}`;
+            const href = draftsHref(item.status, 1);
             const current = filter === item.status;
 
             return (
@@ -175,6 +162,32 @@ export default async function DraftsPage({
                 </div>
               </article>
             ))}
+            {totalForFilter > UNPROMOTED_PAGE_SIZE ? (
+              <nav
+                aria-label="草稿分页"
+                className="flex flex-wrap items-center gap-3 pt-2 text-sm"
+              >
+                {page > 1 ? (
+                  <Link
+                    href={draftsHref(filter, page - 1)}
+                    className="inline-flex min-h-11 items-center border border-[var(--ink-border)] bg-[var(--paper-raised)] px-3 font-semibold"
+                  >
+                    上一页
+                  </Link>
+                ) : null}
+                <span className="text-[var(--ink-soft)]">
+                  第 {page} / {totalPages} 页
+                </span>
+                {page < totalPages ? (
+                  <Link
+                    href={draftsHref(filter, page + 1)}
+                    className="inline-flex min-h-11 items-center border border-[var(--ink-border)] bg-[var(--paper-raised)] px-3 font-semibold"
+                  >
+                    下一页
+                  </Link>
+                ) : null}
+              </nav>
+            ) : null}
           </section>
         )}
       </div>

@@ -19,6 +19,7 @@ export type AgentAuth = {
   apiKeyId: string | null;
   name: string;
   scopes: string[];
+  createdById: string | null;
 };
 
 const bearerPrefix = "Bearer ";
@@ -82,19 +83,26 @@ async function lookupApiKey(token: string): Promise<AgentAuth | null> {
       return null;
     }
 
-    try {
-      await prisma.apiKey.update({
-        where: { id: apiKey.id },
-        data: { lastUsedAt: new Date() },
-      });
-    } catch {
-      // Authentication still succeeds if lastUsedAt cannot be written.
+    const lastUsedAt = apiKey.lastUsedAt;
+    const shouldTouchLastUsed =
+      lastUsedAt == null || Date.now() - lastUsedAt.getTime() >= 60_000;
+
+    if (shouldTouchLastUsed) {
+      try {
+        await prisma.apiKey.update({
+          where: { id: apiKey.id },
+          data: { lastUsedAt: new Date() },
+        });
+      } catch {
+        // Authentication still succeeds if lastUsedAt cannot be written.
+      }
     }
 
     return {
       apiKeyId: apiKey.id,
       name: apiKey.name,
       scopes: apiKey.scopes,
+      createdById: apiKey.createdById ?? null,
     };
   } catch {
     return null;
@@ -118,6 +126,7 @@ export async function readAgentAuth(
         apiKeyId: null,
         name: "dev-agent",
         scopes: [...devAgentScopes],
+        createdById: null,
       };
     }
   }

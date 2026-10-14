@@ -1,5 +1,3 @@
-import type { Prisma } from "@prisma/client";
-
 export class TaxonomyValidationError extends Error {
   constructor(message: string) {
     super(message);
@@ -39,8 +37,18 @@ function requireNameSlug(input: unknown): { name: string; slug: string } {
   return { name, slug };
 }
 
-function jsonContainsId(value: Prisma.JsonValue | null, id: string): boolean {
-  return Array.isArray(value) && value.includes(id);
+async function countDraftsContainingJsonId(
+  db: TaxonomyDb,
+  field: "knowledgePointIds" | "tagIds",
+  id: string,
+) {
+  return db.questionDraft.count({
+    where: {
+      [field]: {
+        array_contains: [id],
+      },
+    },
+  });
 }
 
 export async function createKnowledgePoint(input: unknown, db: TaxonomyDb) {
@@ -146,20 +154,14 @@ export async function deleteKnowledgePoint(id: string, db: TaxonomyDb) {
     throw new TaxonomyNotFoundError("Knowledge point not found");
   }
 
-  const [linkCount, primaryCount, suggestionCount, childCount, drafts] =
+  const [linkCount, primaryCount, suggestionCount, childCount, draftRefs] =
     await Promise.all([
       db.questionKnowledgePoint.count({ where: { knowledgePointId: id } }),
       db.question.count({ where: { primaryKnowledgePointId: id } }),
       db.suggestion.count({ where: { knowledgePointId: id } }),
       db.knowledgePoint.count({ where: { parentId: id } }),
-      db.questionDraft.findMany({
-        select: { knowledgePointIds: true, tagIds: true },
-      }),
+      countDraftsContainingJsonId(db, "knowledgePointIds", id),
     ]);
-
-  const draftRefs = drafts.filter((draft) =>
-    jsonContainsId(draft.knowledgePointIds, id),
-  ).length;
 
   if (
     linkCount + primaryCount + suggestionCount + childCount + draftRefs >
@@ -213,15 +215,10 @@ export async function deleteTag(id: string, db: TaxonomyDb) {
     throw new TaxonomyNotFoundError("Tag not found");
   }
 
-  const [linkCount, drafts] = await Promise.all([
+  const [linkCount, draftRefs] = await Promise.all([
     db.questionTag.count({ where: { tagId: id } }),
-    db.questionDraft.findMany({
-      select: { knowledgePointIds: true, tagIds: true },
-    }),
+    countDraftsContainingJsonId(db, "tagIds", id),
   ]);
-
-  const draftRefs = drafts.filter((draft) => jsonContainsId(draft.tagIds, id))
-    .length;
 
   if (linkCount + draftRefs > 0) {
     throw new TaxonomyConflictError("Tag is still referenced");

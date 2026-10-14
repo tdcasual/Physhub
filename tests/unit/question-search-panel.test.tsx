@@ -56,7 +56,7 @@ describe("QuestionSearchPanel", () => {
     expect(
       await screen.findByRole("heading", { name: "q_motion_0001" }),
     ).toBeInTheDocument();
-    expect(screen.getByText("Score 22")).toBeInTheDocument();
+    expect(screen.getByText("相关 22")).toBeInTheDocument();
     expect(screen.getByText("text:运动学")).toBeInTheDocument();
   });
 
@@ -90,7 +90,7 @@ describe("QuestionSearchPanel", () => {
       target: { value: "找高一运动学基础题" },
     });
     fireEvent.click(screen.getByRole("button", { name: "搜索" }));
-    fireEvent.click(await screen.findByRole("button", { name: "Add to basket" }));
+    fireEvent.click(await screen.findByRole("button", { name: "加入组卷篮" }));
 
     expect(onAddToBasket).toHaveBeenCalledWith({
       id: "question_1",
@@ -113,7 +113,7 @@ describe("QuestionSearchPanel", () => {
     fireEvent.click(screen.getByRole("button", { name: "搜索" }));
 
     expect(await screen.findByRole("alert")).toHaveTextContent(
-      "Search query is required",
+      "请先输入要找的内容。",
     );
   });
 });

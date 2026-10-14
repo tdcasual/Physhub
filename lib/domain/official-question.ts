@@ -8,6 +8,7 @@ import {
   QuestionValidationError,
 } from "@/lib/domain/question-repository";
 import type { QuestionInput } from "@/lib/domain/question-schema";
+import { questionHasImage } from "@/lib/search/question-image";
 
 export class QuestionNotFoundError extends Error {
   constructor(message = "Question not found") {
@@ -34,6 +35,9 @@ const officialQuestionInclude = {
     include: {
       tag: true,
     },
+  },
+  sourceRawAsset: {
+    select: { kind: true },
   },
   versions: {
     select: { version: true },
@@ -170,6 +174,10 @@ export async function updateOfficialQuestionContent(
         answerJson: persisted.answerJson,
         solutionMd,
         difficulty,
+        hasRenderedImage: questionHasImage({
+          sourceRawAsset: existing.sourceRawAsset,
+          stemMd: persisted.stemMd,
+        }),
         primaryKnowledgePointId: persisted.primaryKnowledgePointId,
         knowledgePoints: {
           create: input.knowledgePointIds.map((knowledgePointId, index) => ({

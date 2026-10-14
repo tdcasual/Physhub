@@ -36,7 +36,7 @@ export function mapQuestionSetApiError(
 }
 
 export async function POST(request: Request) {
-  const auth = await requireHumanApiAuth(request);
+  const auth = await requireHumanApiAuth(request, { workbench: true });
 
   if (!auth.ok) {
     return auth.response;

@@ -176,14 +176,18 @@ async function getDb(): Promise<PrismaClientSingleton> {
   return prisma;
 }
 
-export async function listQuestions(): Promise<QuestionWithRelations[]> {
+export async function listQuestions(options?: {
+  take?: number;
+}): Promise<QuestionWithRelations[]> {
   const db = await getDb();
+  const take = options?.take ?? 50;
 
   return db.question.findMany({
     include: questionInclude,
     orderBy: {
       createdAt: "desc",
     },
+    take,
   });
 }
 
@@ -199,8 +203,9 @@ export async function getQuestion(
 }
 
 export async function createQuestion(
-  _rawInput?: unknown,
+  rawInput?: unknown,
 ): Promise<never> {
+  void rawInput;
   throw new QuestionPersistenceError(
     "Official questions must be created by promoting a draft",
   );

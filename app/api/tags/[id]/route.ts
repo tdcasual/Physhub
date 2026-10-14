@@ -13,7 +13,7 @@ type TagRouteContext = {
 };
 
 export async function PATCH(request: Request, context: TagRouteContext) {
-  const auth = await requireHumanApiAuth(request);
+  const auth = await requireHumanApiAuth(request, { workbench: true });
 
   if (!auth.ok) {
     return auth.response;
@@ -36,7 +36,7 @@ export async function PATCH(request: Request, context: TagRouteContext) {
 }
 
 export async function DELETE(request: Request, context: TagRouteContext) {
-  const auth = await requireHumanApiAuth(request);
+  const auth = await requireHumanApiAuth(request, { workbench: true });
 
   if (!auth.ok) {
     return auth.response;

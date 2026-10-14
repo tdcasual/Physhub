@@ -50,7 +50,7 @@ export async function PATCH(
   request: Request,
   context: SuggestionRouteContext,
 ) {
-  const auth = await requireHumanApiAuth(request);
+  const auth = await requireHumanApiAuth(request, { workbench: true });
 
   if (!auth.ok) {
     return auth.response;
@@ -127,7 +127,40 @@ export async function PATCH(
       return reviewedSuggestion;
     });
 
-    return NextResponse.json({ suggestion: updatedSuggestion });
+    let draft = null;
+
+    if (
+      status === "accepted" &&
+      suggestion.kind === "metadata" &&
+      suggestion.draftId
+    ) {
+      draft = await prisma.questionDraft.findUnique({
+        where: { id: suggestion.draftId },
+        select: {
+          updatedAt: true,
+          knowledgePointIds: true,
+          difficulty: true,
+          tagIds: true,
+        },
+      });
+    }
+
+    return NextResponse.json({
+      suggestion: updatedSuggestion,
+      ...(draft
+        ? {
+            draft: {
+              updatedAt:
+                draft.updatedAt instanceof Date
+                  ? draft.updatedAt.toISOString()
+                  : draft.updatedAt,
+              knowledgePointIds: draft.knowledgePointIds,
+              difficulty: draft.difficulty,
+              tagIds: draft.tagIds,
+            },
+          }
+        : {}),
+    });
   } catch (error) {
     if (error instanceof SuggestionPayloadError) {
       return NextResponse.json({ error: error.message }, { status: 422 });

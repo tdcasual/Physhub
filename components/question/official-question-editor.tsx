@@ -1,12 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import type { QuestionType } from "@prisma/client";
 
 import { AnswerEditor } from "@/components/question/answer-editor";
 import { OptionEditor } from "@/components/question/option-editor";
 import { QuestionPreview } from "@/components/question/question-preview";
 import { TaxonomyFields } from "@/components/taxonomy/taxonomy-fields";
+import { Button } from "@/components/ui/button";
 import {
   defaultAnswerForType,
   isChoiceType,
@@ -16,7 +17,17 @@ import {
   type EditableOption,
 } from "@/lib/domain/editor-answer";
 import type { KnowledgePointDto, TagDto } from "@/lib/domain/taxonomy-repository";
-import { labelQuestionStatus } from "@/lib/ui/labels";
+import {
+  overlayStorageKey,
+  useEditorOverlay,
+  useLinkLeaveConfirm,
+} from "@/lib/ui/editor-overlay";
+import {
+  buildOfficialEditorPatch,
+  officialSnapshotIncomplete,
+  type OfficialEditorSnapshot,
+} from "@/lib/ui/editor-patches";
+import { labelQuestionStatus, mapUiError } from "@/lib/ui/labels";
 
 export type OfficialQuestionEditorQuestion = {
   id: string;
@@ -30,6 +41,7 @@ export type OfficialQuestionEditorQuestion = {
   difficulty: number | null;
   knowledgePointIds: string[];
   tagIds: string[];
+  version: number;
 };
 
 function validOptions(options: EditableOption[]) {
@@ -37,6 +49,8 @@ function validOptions(options: EditableOption[]) {
     (option) => option.label.trim() && option.value.trim(),
   );
 }
+
+export { buildOfficialEditorPatch };
 
 export function OfficialQuestionEditor({
   question,
@@ -68,8 +82,55 @@ export function OfficialQuestionEditor({
   const [pending, setPending] = useState(false);
   const showOptions = isChoiceType(type) || type === "";
   const previewOptions = validOptions(options);
+  const snapshot: OfficialEditorSnapshot = useMemo(
+    () => ({
+      type: (type || question.type) as QuestionType,
+      stemMd,
+      options,
+      answer,
+      solutionMd,
+      knowledgePointIds,
+      tagIds,
+      difficulty,
+    }),
+    [
+      answer,
+      difficulty,
+      knowledgePointIds,
+      options,
+      question.type,
+      solutionMd,
+      stemMd,
+      tagIds,
+      type,
+    ],
+  );
+  const hydrate = useCallback((next: OfficialEditorSnapshot) => {
+    setStemMd(next.stemMd);
+    setOptions(next.options);
+    setType(next.type);
+    setAnswer(next.answer);
+    setSolutionMd(next.solutionMd);
+    setKnowledgePointIds(next.knowledgePointIds);
+    setTagIds(next.tagIds);
+    setDifficulty(next.difficulty);
+  }, []);
+  const overlay = useEditorOverlay<OfficialEditorSnapshot>({
+    storageKey: overlayStorageKey("question", question.id),
+    snapshot,
+    serverBaseVersion: question.version,
+    onHydrate: hydrate,
+  });
+  useLinkLeaveConfirm(overlay.isDirty);
 
-  async function patch(body: unknown) {
+  async function persistSnapshot(): Promise<{ ok: boolean; leftover: boolean }> {
+    const submitted = snapshot;
+
+    if (officialSnapshotIncomplete(submitted, showOptions)) {
+      setMessage("请先补全选项和答案");
+      return { ok: false, leftover: true };
+    }
+
     setPending(true);
     setMessage(null);
 
@@ -78,7 +139,7 @@ export function OfficialQuestionEditor({
         method: "PATCH",
         credentials: "include",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify(body),
+        body: JSON.stringify(buildOfficialEditorPatch(submitted, showOptions)),
       });
       const payload = (await response.json()) as {
         error?: string;
@@ -87,7 +148,53 @@ export function OfficialQuestionEditor({
       };
 
       if (!response.ok) {
-        setMessage(payload.error ?? "Unable to update question");
+        setMessage(mapUiError(payload.error ?? "无法保存试题"));
+        return { ok: false, leftover: true };
+      }
+
+      if (payload.question?.status) {
+        setStatus(payload.question.status);
+      }
+
+      const leftover = overlay.markClean(
+        payload.version ?? question.version,
+        submitted,
+      );
+      setMessage(
+        leftover
+          ? "已保存，还有未提交的后续修改"
+          : payload.version
+            ? `已保存第 ${payload.version} 版`
+            : "已保存",
+      );
+      return { ok: true, leftover };
+    } catch {
+      setMessage("无法保存试题");
+      return { ok: false, leftover: true };
+    } finally {
+      setPending(false);
+    }
+  }
+
+  async function patchStatus(nextStatus: "PUBLISHED" | "DEPRECATED") {
+    setPending(true);
+    setMessage(null);
+
+    try {
+      const response = await fetch(`/api/questions/${question.id}`, {
+        method: "PATCH",
+        credentials: "include",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ status: nextStatus }),
+      });
+      const payload = (await response.json()) as {
+        error?: string;
+        version?: number;
+        question?: { status?: string };
+      };
+
+      if (!response.ok) {
+        setMessage(mapUiError(payload.error ?? "无法更新试题"));
         return;
       }
 
@@ -95,16 +202,50 @@ export function OfficialQuestionEditor({
         setStatus(payload.question.status);
       }
 
-      setMessage(
-        payload.version
-          ? `Saved version ${payload.version}`
-          : "Saved",
-      );
+      if (payload.version !== undefined) {
+        overlay.advanceBase(payload.version);
+      }
+
+      setMessage(nextStatus === "PUBLISHED" ? "已上架" : "已停用");
     } catch {
-      setMessage("Unable to update question");
+      setMessage("无法更新试题");
     } finally {
       setPending(false);
     }
+  }
+
+  async function handlePublish() {
+    if (overlay.isDirty) {
+      const result = await persistSnapshot();
+
+      if (!result.ok || result.leftover) {
+        if (result.ok && result.leftover) {
+          setMessage("还有未保存的修改，未上架");
+        }
+        return;
+      }
+    }
+
+    await patchStatus("PUBLISHED");
+  }
+
+  async function handleDeprecate() {
+    if (!window.confirm("确定停用这道题？")) {
+      return;
+    }
+
+    if (overlay.isDirty) {
+      const result = await persistSnapshot();
+
+      if (!result.ok || result.leftover) {
+        if (result.ok && result.leftover) {
+          setMessage("还有未保存的修改，未停用");
+        }
+        return;
+      }
+    }
+
+    await patchStatus("DEPRECATED");
   }
 
   return (
@@ -117,13 +258,18 @@ export function OfficialQuestionEditor({
             {labelQuestionStatus(status)}
           </p>
         </div>
+        {overlay.restored ? (
+          <p role="status" className="text-sm text-[var(--patina)]">
+            已恢复未提交的修改
+          </p>
+        ) : null}
         <label className="block space-y-2 text-sm font-medium text-[var(--ink-soft)]">
           题干
           <textarea
             value={stemMd}
             onChange={(event) => setStemMd(event.currentTarget.value)}
             rows={8}
-            className="w-full border border-stone-900/20 bg-white px-4 py-3 font-mono text-sm"
+            className="w-full border border-[var(--ink-border)] bg-[var(--paper-raised)] px-4 py-3 font-mono text-sm"
           />
         </label>
         <TaxonomyFields
@@ -156,47 +302,42 @@ export function OfficialQuestionEditor({
             value={solutionMd}
             onChange={(event) => setSolutionMd(event.currentTarget.value)}
             rows={5}
-            className="w-full border border-stone-900/20 bg-white px-4 py-3 font-mono text-sm"
+            className="w-full border border-[var(--ink-border)] bg-[var(--paper-raised)] px-4 py-3 font-mono text-sm"
           />
         </label>
         <div className="flex flex-wrap gap-3">
-          <button
+          <Button
             type="button"
+            variant="primary"
             disabled={pending}
-            onClick={() =>
-              void patch({
-                type: type || question.type,
-                stemMd,
-                ...(showOptions ? { options: previewOptions } : {}),
-                answer,
-                solutionMd,
-                knowledgePointIds,
-                tagIds,
-                ...(typeof difficulty === "number" ? { difficulty } : {}),
-              })
-            }
-            className="border border-stone-900 bg-stone-900 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
+            onClick={() => {
+              void persistSnapshot();
+            }}
           >
             保存修订
-          </button>
-          <button
+          </Button>
+          <Button
             type="button"
+            variant="secondary"
             disabled={pending || status !== "REVIEWED"}
-            onClick={() => void patch({ status: "PUBLISHED" })}
-            className="inline-flex min-h-11 items-center border border-[var(--seal)] bg-[var(--seal)] px-4 text-sm font-semibold text-[var(--paper)] disabled:opacity-50"
+            onClick={() => {
+              void handlePublish();
+            }}
           >
             上架
-          </button>
-          <button
+          </Button>
+          <Button
             type="button"
+            variant="ghost"
             disabled={pending || status === "DEPRECATED"}
-            onClick={() => void patch({ status: "DEPRECATED" })}
-            className="inline-flex min-h-11 items-center border border-[var(--ink-border)] bg-[var(--paper-raised)] px-4 text-sm font-semibold disabled:opacity-50"
+            onClick={() => {
+              void handleDeprecate();
+            }}
           >
             停用
-          </button>
+          </Button>
         </div>
-        {message ? <p className="text-sm text-stone-900/80">{message}</p> : null}
+        {message ? <p className="text-sm text-[var(--ink-soft)]">{message}</p> : null}
       </section>
       <aside role="region" aria-label="预览">
         <QuestionPreview

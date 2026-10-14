@@ -217,7 +217,6 @@ export function AgentKeyManager({
 
       {issuedToken ? (
         <section
-          role="dialog"
           aria-labelledby="issued-key-title"
           className="border border-[var(--seal)] bg-[var(--seal-soft)] p-5"
         >

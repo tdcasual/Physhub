@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server";
 
 import { requireHumanApiAuth } from "@/lib/auth/human-auth";
+import {
+  buildContentDisposition,
+  isInlineRawAssetMime,
+} from "@/lib/domain/raw-asset-upload";
 import { readLocalUpload } from "@/lib/storage/storage-service";
 
 type RawAssetFileRouteContext = {
@@ -28,6 +32,7 @@ export async function GET(
       select: {
         storageKey: true,
         mimeType: true,
+        originalName: true,
       },
     });
 
@@ -44,6 +49,11 @@ export async function GET(
       status: 200,
       headers: {
         "Content-Type": rawAsset.mimeType || "application/octet-stream",
+        "X-Content-Type-Options": "nosniff",
+        "Content-Disposition": buildContentDisposition(
+          rawAsset.originalName,
+          isInlineRawAssetMime(rawAsset.mimeType),
+        ),
       },
     });
   } catch {

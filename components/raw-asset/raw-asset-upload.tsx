@@ -33,14 +33,14 @@ export function RawAssetUpload({
       };
 
       if (!response.ok || !payload.rawAsset?.id) {
-        setError(payload.error ?? "Unable to upload");
+        setError(payload.error ?? "无法上传");
         return;
       }
 
       setAssetId(payload.rawAsset.id);
       onUploaded(payload.rawAsset.id);
     } catch {
-      setError("Unable to upload");
+      setError("无法上传");
     } finally {
       setUploading(false);
     }
@@ -48,7 +48,7 @@ export function RawAssetUpload({
 
   return (
     <div className="space-y-2">
-      <label className="block text-sm font-medium text-stone-900/70">
+      <label className="block text-sm font-medium text-[var(--ink-soft)]">
         来源图片或文本文件
         <input
           type="file"
@@ -60,7 +60,7 @@ export function RawAssetUpload({
         />
       </label>
       {assetId ? (
-        <p className="text-sm text-stone-900/70">Attached raw asset {assetId}</p>
+        <p className="text-sm text-[var(--ink-soft)]">已关联来源 {assetId}</p>
       ) : null}
       {error ? <p className="text-sm text-red-800">{error}</p> : null}
     </div>

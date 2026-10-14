@@ -16,7 +16,10 @@ export async function POST(
   request: Request,
   context: PromoteDraftRouteContext,
 ) {
-  const auth = await requireHumanApiAuth(request, { publishRoute: true });
+  const auth = await requireHumanApiAuth(request, {
+    publishRoute: true,
+    workbench: true,
+  });
 
   if (!auth.ok) {
     return auth.response;

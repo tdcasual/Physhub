@@ -35,7 +35,19 @@ export async function POST(request: Request) {
 
   try {
     const key = parseIdempotencyKey(request);
-    const parsed = await parseRawAssetFormData(await request.formData());
+    let formData: FormData;
+
+    try {
+      formData = await request.formData();
+    } catch {
+      return jsonWithRequestId(
+        { error: "Invalid request body" },
+        400,
+        requestId,
+      );
+    }
+
+    const parsed = await parseRawAssetFormData(formData);
     const prepared = prepareParsedRawAsset(parsed);
     const result = await withMultipartIdempotency({
       apiKeyId: idempotencyApiKeyId(agent.apiKeyId),

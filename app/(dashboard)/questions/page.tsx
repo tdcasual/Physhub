@@ -77,7 +77,7 @@ export default async function QuestionsPage() {
   const questions = await getRecentQuestions();
 
   return (
-    <main className="min-h-screen bg-[var(--background)] text-[var(--foreground)]">
+    <main id="main" className="min-h-screen bg-[var(--background)] text-[var(--foreground)]">
       <div className="mx-auto w-full max-w-7xl space-y-6 px-6 py-8 lg:px-10">
         <header className="flex flex-col gap-3 border-b border-[var(--ink-border)] pb-5 sm:flex-row sm:items-end sm:justify-between">
           <div>

@@ -12,7 +12,7 @@ export default async function Home() {
   }
 
   return (
-    <main className="min-h-[calc(100vh-4rem)] bg-[var(--paper)] text-[var(--ink)]">
+    <main id="main" className="min-h-[calc(100vh-4rem)] bg-[var(--paper)] text-[var(--ink)]">
       <section className="mx-auto grid w-full max-w-6xl gap-12 px-6 py-16 lg:grid-cols-[1.1fr_0.9fr] lg:items-start lg:px-10">
         <div className="max-w-2xl">
           <p className="text-sm font-medium text-[var(--patina)]">高中物理</p>

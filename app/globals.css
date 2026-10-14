@@ -7,7 +7,7 @@
   --paper-mute: oklch(93.5% 0.016 85);
   --ink: oklch(24% 0.025 250);
   --ink-soft: oklch(38% 0.02 250);
-  --ink-faint: oklch(52% 0.015 250);
+  --ink-faint: oklch(38% 0.02 250);
   --ink-border: oklch(82% 0.018 85);
   --seal: oklch(48% 0.155 32);
   --seal-hover: oklch(42% 0.16 32);
@@ -44,6 +44,7 @@
 
 html {
   min-height: 100%;
+  color-scheme: light;
 }
 
 body {

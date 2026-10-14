@@ -16,7 +16,7 @@ export async function PATCH(
   request: Request,
   context: KnowledgePointRouteContext,
 ) {
-  const auth = await requireHumanApiAuth(request);
+  const auth = await requireHumanApiAuth(request, { workbench: true });
 
   if (!auth.ok) {
     return auth.response;
@@ -46,7 +46,7 @@ export async function DELETE(
   request: Request,
   context: KnowledgePointRouteContext,
 ) {
-  const auth = await requireHumanApiAuth(request);
+  const auth = await requireHumanApiAuth(request, { workbench: true });
 
   if (!auth.ok) {
     return auth.response;

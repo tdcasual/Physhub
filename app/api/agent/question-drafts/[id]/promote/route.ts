@@ -60,7 +60,10 @@ export async function POST(
       path: new URL(request.url).pathname,
       body: rawBody,
       execute: async (tx) => {
-        const promoted = await promoteDraftToQuestion(id, { db: tx });
+        const promoted = await promoteDraftToQuestion(id, {
+          db: tx,
+          actorId: agent.createdById ?? undefined,
+        });
 
         await tx.agentRun.create({
           data: {

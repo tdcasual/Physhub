@@ -33,6 +33,7 @@ import {
   normalizeQuestionDraftInput,
   normalizeQuestionInput,
 } from "@/lib/domain/question-service";
+import { questionHasImage } from "@/lib/search/question-image";
 
 const PROMOTABLE_STATUSES = ["DRAFT", "NEEDS_REVIEW"] as const;
 const maxPublicIdAttempts = 5;
@@ -192,22 +193,24 @@ async function assertTagsExist(db: DraftDbClient, ids: string[]): Promise<void> 
   }
 }
 
-async function assertRawAssetExists(
+async function resolveSourceRawAsset(
   db: DraftDbClient,
   id: string | null,
-): Promise<void> {
+): Promise<{ kind: string } | null> {
   if (!id) {
-    return;
+    return null;
   }
 
   const rawAsset = await db.rawAsset.findUnique({
     where: { id },
-    select: { id: true },
+    select: { id: true, kind: true },
   });
 
   if (!rawAsset) {
     throw new DraftRelationError("Raw asset not found");
   }
+
+  return rawAsset;
 }
 
 async function resolveOwnerUserId(db: DraftDbClient): Promise<string> {
@@ -382,10 +385,14 @@ async function promoteInTransaction(
 
   await assertKnowledgePointsExist(tx, input.knowledgePointIds);
   await assertTagsExist(tx, tagIds);
-  await assertRawAssetExists(tx, draft.sourceRawAssetId);
+  const sourceRawAsset = await resolveSourceRawAsset(tx, draft.sourceRawAssetId);
 
   const persisted = buildPersistedQuestionContract(input);
   const publicId = buildManualPublicQuestionId();
+  const hasRenderedImage = questionHasImage({
+    sourceRawAsset,
+    stemMd: persisted.stemMd,
+  });
 
   // Helper Pick omits sourceRawAssetId and tags; persist both explicitly.
   const question = await tx.question.create({
@@ -393,6 +400,7 @@ async function promoteInTransaction(
       ...persisted,
       publicId,
       sourceRawAssetId: draft.sourceRawAssetId,
+      hasRenderedImage,
       createdById: actorId,
       reviewedById: actorId,
       knowledgePoints: {

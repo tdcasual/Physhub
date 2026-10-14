@@ -48,7 +48,7 @@ v1 does not include an MCP server or an in-process model.
    npm run dev
    ```
 
-Workbench navigation is **工作台** / **题库** / **录入** / **知识点**. Dashboard routes stay locked until a teacher logs in.
+Workbench navigation is **工作台** / **题库** / **录入** / **知识点** / **密钥**. Dashboard routes stay locked until a teacher logs in (`(dashboard)/layout.tsx` plus each page). The 工作台 draft queue filters by status in Prisma (`NEEDS_REVIEW` by default), shows global counts, and paginates 50 rows (`?status=&page=`). Same-status overflow is on page 2, not dropped.
 
 ## Secrets
 
@@ -69,9 +69,13 @@ Harness instructions live at [`skills/physhub/SKILL.md`](skills/physhub/SKILL.md
 
 ## Drafts and official questions
 
-- Agents and humans write **drafts**. Incomplete drafts are allowed.
+- Agents and humans write **drafts**. Incomplete drafts are allowed (empty option rows and empty answers save; promote stays strict).
 - Draft knowledge points and tags are JSON arrays (`knowledgePointIds`, `tagIds`) on `QuestionDraft`, not join tables. Promote re-checks that those ids still exist.
-- Official insert is always **promote**. Humans: `POST /api/drafts/:id/promote` or `POST /api/questions` (create-draft + promote). Agents: `POST /api/agent/question-drafts/:id/promote` or `POST /api/agent/questions`. Both land at `REVIEWED`. Agents cannot set `PUBLISHED` and cannot use the human publish URLs.
+- Official insert is always **promote**. Humans: `POST /api/drafts/:id/promote` or `POST /api/questions` (create-draft + promote). Agents: `POST /api/agent/question-drafts/:id/promote` or `POST /api/agent/questions`. Both land at `REVIEWED`. Agents cannot set `PUBLISHED` and cannot use the human publish URLs. Agent promote attributes `Question.createdById` from the API key’s `createdById` when the key has a creator (dev-agent falls back to the seed owner).
+- Official **上架** and draft **保存** persist a complete snapshot, including `difficulty: null` for 未设. 上架 writes fields first, then `{ status: "PUBLISHED" }` only after that persist succeeds.
+- Unsaved editor work uses a sessionStorage overlay (`physhub:overlay:{draft|question|new}:{id}`). In-app links confirm while dirty. Back/Forward is allowed; remount hydrates the overlay. History is not cancelled.
+- Uploads allowlist MIME, then sniff PNG/JPEG/WEBP/PDF magic bytes. File GET sets `X-Content-Type-Options: nosniff` and RFC 5987 `filename*`.
+- Search `has_image` means an IMAGE-kind source **or** a parsed local markdown figure (`/api/raw-assets/…`), stored as `Question.hasRenderedImage`. It is not `QuestionAsset`, not PDF/text sources, and not a substring coincidence. Intent-only queries (`有图`, `基础题`) do not require those literals in the stem.
 - Mock parse/classify HTTP routes are **rule fixtures**, not OCR. They require a human session and stay off unless `ENABLE_MOCK_PARSE=true` or `ENABLE_MOCK_CLASSIFY=true`. Production default is off. Mock classification suggestions omit `knowledge_points[].id` and cannot be accepted as confirmed metadata.
 
 ## Idempotency records
@@ -88,6 +92,6 @@ DELETE FROM "IdempotencyRecord" WHERE "createdAt" < now() - interval '90 days';
 npm run check
 ```
 
-That runs lint, TypeScript, and unit tests. Playwright E2E is separate (`npm run test:e2e`).
+That runs lint, TypeScript, and unit tests. CI (`.github/workflows/check.yml`) runs the same command after `prisma generate`. Playwright E2E is local only (`npm run test:e2e`); it is not in CI.
 
 See [docs/development.md](docs/development.md) for the quality-gate details.

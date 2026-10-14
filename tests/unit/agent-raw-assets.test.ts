@@ -1,9 +1,11 @@
+/** @vitest-environment node */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { POST as postAgentRawAssets } from "@/app/api/agent/raw-assets/route";
 import { GET as getAgentRawAssetFile } from "@/app/api/agent/raw-assets/[id]/file/route";
 import { devAgentScopes } from "@/lib/auth/agent-auth";
 import { RAW_ASSET_MAX_BYTES } from "@/lib/domain/raw-asset-upload";
+import { signedPngBytes } from "@/tests/unit/helpers/raw-asset-bytes";
 
 const { mockPrisma, mockReadAgentAuth, mockSaveLocalUpload, mockReadLocalUpload } =
   vi.hoisted(() => {
@@ -103,7 +105,7 @@ function agentMultipartRequest(
   boundary = "test-boundary",
 ) {
   const payload = {
-    bytes: file.bytes ?? Buffer.from("png-bytes"),
+    bytes: file.bytes ?? signedPngBytes(),
     filename: file.filename ?? "vt.png",
     mimeType: file.mimeType ?? "image/png",
   };
@@ -150,7 +152,7 @@ beforeEach(() => {
   mockPrisma.rawAsset.findUnique.mockResolvedValue(null);
   mockPrisma.agentRun.create.mockResolvedValue({ id: "run_1" });
   mockSaveLocalUpload.mockResolvedValue("/tmp/uploads/raw/vt.png");
-  mockReadLocalUpload.mockResolvedValue(Buffer.from("png-bytes"));
+  mockReadLocalUpload.mockResolvedValue(signedPngBytes());
 });
 
 afterEach(() => {
@@ -170,7 +172,7 @@ describe("POST /api/agent/raw-assets", () => {
         body: new Uint8Array(
           multipartBody(
             {
-              bytes: Buffer.from("png-bytes"),
+              bytes: signedPngBytes(),
               filename: "vt.png",
               mimeType: "image/png",
             },
@@ -208,7 +210,7 @@ describe("POST /api/agent/raw-assets", () => {
         body: new Uint8Array(
           multipartBody(
             {
-              bytes: Buffer.from("png-bytes"),
+              bytes: signedPngBytes(),
               filename: "vt.png",
               mimeType: "image/png",
             },
@@ -287,7 +289,7 @@ describe("POST /api/agent/raw-assets", () => {
   });
 
   it("replays the same file with a different multipart boundary", async () => {
-    const bytes = Buffer.from("png-bytes");
+    const bytes = signedPngBytes();
     const first = await postAgentRawAssets(
       agentMultipartRequest({ bytes }, {}, "boundary-one"),
     );
@@ -365,6 +367,7 @@ describe("GET /api/agent/raw-assets/:id/file", () => {
     mockPrisma.rawAsset.findUnique.mockResolvedValue({
       storageKey: "raw/vt.png",
       mimeType: "image/png",
+      originalName: "受力分析.png",
       questions: [],
       drafts: [],
     });
@@ -375,9 +378,14 @@ describe("GET /api/agent/raw-assets/:id/file", () => {
 
     expect(response.status).toBe(200);
     expect(response.headers.get("Content-Type")).toBe("image/png");
-    expect(Buffer.from(await response.arrayBuffer()).toString()).toBe(
-      "png-bytes",
+    expect(response.headers.get("X-Content-Type-Options")).toBe("nosniff");
+    expect(response.headers.get("Content-Disposition")).toContain(
+      "filename*=UTF-8''",
     );
+    expect(response.headers.get("Content-Disposition")).not.toMatch(
+      /filename="[^"]*[\u4e00-\u9fff]/,
+    );
+    expect(Buffer.from(await response.arrayBuffer())).toEqual(signedPngBytes());
   });
 
   it("returns 404 for an unlinked asset without drafts:create", async () => {

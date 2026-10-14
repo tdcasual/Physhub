@@ -128,11 +128,13 @@ export const questionSearchSelect = {
       },
     },
   },
-  assets: {
+  sourceRawAssetId: true,
+  sourceRawAsset: {
     select: {
-      assetId: true,
+      kind: true,
     },
   },
+  hasRenderedImage: true,
 } satisfies Prisma.QuestionSelect;
 
 const questionStatuses = [
@@ -294,7 +296,7 @@ function includesAnyImageIntent(query: string): boolean | undefined {
     return false;
   }
 
-  if (/(有图|带图|图像|图片|图表|示意图)/.test(query)) {
+  if (/(有图|带图|图片|图表|示意图)/.test(query)) {
     return true;
   }
 
@@ -335,6 +337,48 @@ function extractUsage(query: string): string[] | undefined {
   const usage = usageTerms.filter((term) => query.includes(term));
 
   return usage.length > 0 ? usage : undefined;
+}
+
+const imageIntentPattern = /无图|不要图|不带图|有图|带图|图片|图表|示意图/g;
+const difficultyIntentPattern =
+  /基础题|简单题|容易|入门|中等|普通|困难|压轴|提高|拔高|基础|简单/g;
+const findCountPattern = /找\s*\d+\s*道/g;
+const fillerPattern = /最好|适合/g;
+const punctuationOnlyPattern = /^[\p{P}\p{S}\s]*$/u;
+
+export function residualSearchText(
+  understanding: QuestionSearchUnderstanding,
+): string | undefined {
+  let residual = understanding.rawQuery;
+
+  residual = residual.replace(imageIntentPattern, " ");
+  residual = residual.replace(difficultyIntentPattern, " ");
+
+  if (understanding.grade) {
+    residual = residual.replaceAll(understanding.grade, " ");
+  }
+
+  if (understanding.chapter) {
+    residual = residual.replaceAll(understanding.chapter, " ");
+  }
+
+  for (const usage of understanding.usage ?? []) {
+    residual = residual.replaceAll(usage, " ");
+  }
+
+  for (const { pattern } of knowledgePointAliases) {
+    residual = residual.replace(pattern, " ");
+  }
+
+  residual = residual.replace(findCountPattern, " ");
+  residual = residual.replace(fillerPattern, " ");
+  residual = residual.replace(/\s+/g, " ").trim();
+
+  if (!residual || punctuationOnlyPattern.test(residual)) {
+    return undefined;
+  }
+
+  return residual;
 }
 
 export function understandQuestionSearchQuery(
@@ -474,8 +518,10 @@ export function buildQuestionSearchWhere(
     andClauses.push({ OR: usageContains(usage) });
   }
 
-  if (andClauses.length === 0 && understanding.rawQuery) {
-    andClauses.push({ OR: textContains(understanding.rawQuery) });
+  const residual = residualSearchText(understanding);
+
+  if (residual) {
+    andClauses.push({ OR: textContains(residual) });
   }
 
   return {
@@ -483,8 +529,8 @@ export function buildQuestionSearchWhere(
       ? { status: { in: normalizedConstraints.status } }
       : {}),
     ...(merged.difficulty ? { difficulty: { in: merged.difficulty } } : {}),
-    ...(merged.has_image === true ? { assets: { some: {} } } : {}),
-    ...(merged.has_image === false ? { assets: { none: {} } } : {}),
+    ...(merged.has_image === true ? { hasRenderedImage: true } : {}),
+    ...(merged.has_image === false ? { hasRenderedImage: false } : {}),
     ...(andClauses.length > 0 ? { AND: andClauses } : {}),
   };
 }
@@ -521,8 +567,12 @@ export function explainQuestionSearchMatch(
     reasons.push({ field: "difficulty", value: String(question.difficulty) });
   }
 
-  if (understanding.has_image === true && question.assets.length > 0) {
-    reasons.push({ field: "assets", value: "has_image" });
+  if (understanding.has_image === true && question.hasRenderedImage) {
+    reasons.push({ field: "source", value: "has_image" });
+  }
+
+  if (understanding.has_image === false && !question.hasRenderedImage) {
+    reasons.push({ field: "source", value: "no_image" });
   }
 
   return reasons.length > 0
@@ -536,7 +586,7 @@ function scoreQuestionSearchResult(
 ): number {
   const reasonScore = reasons.length * 10;
   const difficultyScore = question.difficulty ? Math.max(0, 6 - question.difficulty) : 0;
-  const assetScore = question.assets.length > 0 ? 2 : 0;
+  const assetScore = question.hasRenderedImage ? 2 : 0;
 
   return reasonScore + difficultyScore + assetScore;
 }
@@ -575,9 +625,7 @@ export async function searchQuestions(
     const questions = await prisma.question.findMany({
       where,
       select: questionSearchSelect,
-      orderBy: {
-        createdAt: "desc",
-      },
+      orderBy: [{ createdAt: "desc" }, { id: "desc" }],
       take: merged.limit,
     });
 

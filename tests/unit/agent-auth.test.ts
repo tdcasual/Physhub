@@ -143,6 +143,7 @@ describe("readAgentAuth", () => {
       apiKeyId: null,
       name: "dev-agent",
       scopes: expectedDevScopes,
+      createdById: null,
     });
     expect(mockApiKeyFindUnique).not.toHaveBeenCalled();
   });
@@ -185,6 +186,8 @@ describe("readAgentAuth", () => {
       keyHash,
       scopes: ["questions:read"],
       revokedAt: null,
+      createdById: "user_editor",
+      lastUsedAt: null,
     });
     mockApiKeyUpdate.mockResolvedValue({});
 
@@ -198,8 +201,33 @@ describe("readAgentAuth", () => {
       apiKeyId: "api_key_1",
       name: "harness",
       scopes: ["questions:read"],
+      createdById: "user_editor",
     });
     expect(mockApiKeyFindUnique).toHaveBeenCalledWith({ where: { keyHash } });
+    expect(mockApiKeyUpdate).toHaveBeenCalled();
+  });
+
+  it("does not rewrite lastUsedAt when it is fresher than 60s", async () => {
+    delete process.env.AGENT_API_KEY_DEV;
+    const token = "phk_stored-key";
+    const keyHash = createHash("sha256").update(token, "utf8").digest("hex");
+    mockApiKeyFindUnique.mockResolvedValue({
+      id: "api_key_1",
+      name: "harness",
+      keyHash,
+      scopes: ["questions:read"],
+      revokedAt: null,
+      createdById: "user_editor",
+      lastUsedAt: new Date(),
+    });
+
+    await readAgentAuth(
+      new Request("http://localhost/api/agent/questions/question_1", {
+        headers: { Authorization: `Bearer ${token}` },
+      }),
+    );
+
+    expect(mockApiKeyUpdate).not.toHaveBeenCalled();
   });
 
   it("returns null for a revoked api key", async () => {

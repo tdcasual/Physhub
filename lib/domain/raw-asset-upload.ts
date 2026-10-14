@@ -50,6 +50,83 @@ export class RawAssetUploadError extends Error {
   }
 }
 
+const PNG_SIGNATURE = Buffer.from([0x89, 0x50, 0x4e, 0x47]);
+const JPEG_SIGNATURE = Buffer.from([0xff, 0xd8, 0xff]);
+
+export function assertSniffedKind(mimeType: string, bytes: Buffer): void {
+  const kind = detectRawAssetKind(mimeType);
+
+  if (kind === "IMAGE") {
+    if (
+      mimeType === "image/png" &&
+      bytes.subarray(0, 4).equals(PNG_SIGNATURE)
+    ) {
+      return;
+    }
+
+    if (
+      (mimeType === "image/jpeg" || mimeType === "image/jpg") &&
+      bytes.subarray(0, 3).equals(JPEG_SIGNATURE)
+    ) {
+      return;
+    }
+
+    if (
+      mimeType === "image/webp" &&
+      bytes.subarray(0, 4).toString("ascii") === "RIFF" &&
+      bytes.subarray(8, 12).toString("ascii") === "WEBP"
+    ) {
+      return;
+    }
+
+    throw new RawAssetUploadError("Unsupported media type");
+  }
+
+  if (kind === "PDF") {
+    if (bytes.subarray(0, 4).toString("ascii") === "%PDF") {
+      return;
+    }
+
+    throw new RawAssetUploadError("Unsupported media type");
+  }
+
+  const head = bytes.subarray(0, 64).toString("latin1");
+
+  if (bytes.includes(0) || /^\s*<svg/i.test(head) || /^\s*<html/i.test(head)) {
+    throw new RawAssetUploadError("Unsupported media type");
+  }
+}
+
+export function asciiFilenameFallback(originalName: string | null | undefined) {
+  const stripped = (originalName ?? "")
+    .replace(/[\x00-\x1f\x7f"\\]/g, "")
+    .trim();
+  const ascii = stripped.replace(/[^\x20-\x7e]/g, "");
+  return ascii || "download";
+}
+
+export function encodeRfc5987AttrValue(value: string): string {
+  return encodeURIComponent(value).replace(/['()*]/g, (char) => {
+    return `%${char.charCodeAt(0).toString(16).toUpperCase()}`;
+  });
+}
+
+export function buildContentDisposition(
+  originalName: string | null | undefined,
+  inline: boolean,
+): string {
+  const fallback = asciiFilenameFallback(originalName);
+  const rawName = (originalName ?? "").replace(/[\x00-\x1f\x7f]/g, "") || fallback;
+  const encoded = encodeRfc5987AttrValue(rawName);
+  const type = inline ? "inline" : "attachment";
+  return `${type}; filename="${fallback}"; filename*=UTF-8''${encoded}`;
+}
+
+export function isInlineRawAssetMime(mimeType: string | null | undefined) {
+  const mime = (mimeType ?? "").toLowerCase();
+  return mime === "image/png" || mime === "image/jpeg" || mime === "image/webp";
+}
+
 export function detectRawAssetKind(
   mimeType: string | null | undefined,
 ): RawAssetKind {
@@ -152,11 +229,21 @@ export async function parseRawAssetFormData(
 
     const normalizedMimeType = mimeType.toLowerCase();
     const kind = detectRawAssetKind(normalizedMimeType);
+
+    if (
+      typeof file.size === "number" &&
+      file.size > RAW_ASSET_MAX_BYTES[kind]
+    ) {
+      throw new RawAssetUploadError("File too large");
+    }
+
     const bytes = Buffer.from(await file.arrayBuffer());
 
     if (bytes.length > RAW_ASSET_MAX_BYTES[kind]) {
       throw new RawAssetUploadError("File too large");
     }
+
+    assertSniffedKind(normalizedMimeType, bytes);
 
     const originalName = file.name || "upload.bin";
 

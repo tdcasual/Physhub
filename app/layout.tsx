@@ -18,8 +18,14 @@ export default async function RootLayout({
   const session = await readEditorSessionFromCookies();
 
   return (
-    <html lang="zh-CN">
+    <html lang="zh-CN" style={{ colorScheme: "light" }}>
       <body>
+        <a
+          href="#main"
+          className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-50 focus:border focus:border-[var(--ink)] focus:bg-[var(--paper-raised)] focus:px-4 focus:py-2"
+        >
+          跳到主内容
+        </a>
         <Nav unlocked={Boolean(session)} username={session?.username} />
         {children}
       </body>

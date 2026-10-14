@@ -28,6 +28,7 @@ const { mockPrisma } = vi.hoisted(() => ({
     },
     questionDraft: {
       findMany: vi.fn(),
+      count: vi.fn(),
     },
     user: {
       findUnique: vi.fn(),
@@ -53,6 +54,7 @@ describe("taxonomy write routes", () => {
     mockPrisma.suggestion.count.mockResolvedValue(0);
     mockPrisma.knowledgePoint.count.mockResolvedValue(0);
     mockPrisma.questionDraft.findMany.mockResolvedValue([]);
+    mockPrisma.questionDraft.count.mockResolvedValue(0);
   });
 
   afterEach(() => {
@@ -74,6 +76,12 @@ describe("taxonomy write routes", () => {
       error: "Knowledge point is still referenced",
     });
     expect(mockPrisma.knowledgePoint.delete).not.toHaveBeenCalled();
+    expect(mockPrisma.questionDraft.findMany).not.toHaveBeenCalled();
+    expect(mockPrisma.questionDraft.count).toHaveBeenCalledWith({
+      where: {
+        knowledgePointIds: { array_contains: ["kp_1"] },
+      },
+    });
   });
 
   it("returns 409 when deleting a referenced tag", async () => {

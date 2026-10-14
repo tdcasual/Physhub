@@ -28,10 +28,17 @@ The platform does not embed an LLM and does not ship an MCP server. External cod
    npm install
    ```
 
-4. Apply the committed `init_harness_first` migration:
+4. Generate the Prisma client and apply **all committed migrations** (not only `init_harness_first`), including `hasRenderedImage`:
 
    ```sh
+   npx prisma generate
    npm run db:migrate
+   ```
+
+   After migrate, backfill existing official questions once:
+
+   ```sh
+   npx tsx scripts/backfill-has-rendered-image.ts
    ```
 
 5. Seed development data:
@@ -48,7 +55,9 @@ The platform does not embed an LLM and does not ship an MCP server. External cod
    npm run dev
    ```
 
-Open `/questions` and log in with a teacher account. Dashboard pages do not query drafts or questions until that cookie is set. After unlocking, **锁定** in the nav (or `DELETE /api/auth/login`) clears the session cookie. Agent keys are on **密钥** (`/agent-keys`).
+Open `/questions` and log in with a teacher account. `(dashboard)/layout.tsx` gates the whole workbench: missing session renders 登录 and does not load children. Pages still check the cookie so unit tests can render without Prisma. After unlocking, **锁定** in the nav (or `DELETE /api/auth/login`) clears the session cookie. Agent keys are on **密钥** (`/agent-keys`).
+
+Raw-asset POST route tests run in the Vitest **node** environment (`// @vitest-environment node`) so `Request.formData()` works. Success fixtures use real PNG/PDF magic bytes.
 
 Non-production only: human APIs also accept `X-Physhub-Editor-Session` with the same HMAC hex as the cookie. Production ignores that header.
 
@@ -74,7 +83,7 @@ Run E2E tests when changing user flows, routing, production startup, or browser 
 npm run test:e2e
 ```
 
-The E2E command builds the app and starts the production server on port 3100. Playwright injects a test `EDITOR_SESSION_SECRET` via `webServer.env`; it does not rely on a developer `.env`.
+The E2E command builds the app and starts the production server on port 3100. Playwright sets `TEACHER_BOOTSTRAP_USERNAME` / `TEACHER_BOOTSTRAP_PASSWORD` on `webServer.env` (see `playwright.config.ts`). It does not inject `EDITOR_SESSION_SECRET`. A developer `.env` is still used for `DATABASE_URL`. CI does **not** run E2E; `.github/workflows/check.yml` runs `npm run check` only.
 
 E2E prerequisites (the suite does not skip when they are missing):
 

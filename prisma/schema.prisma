@@ -187,6 +187,7 @@ model Question {
   usageJson               Json?
   metadata                Json?
   sourceRawAssetId        String?
+  hasRenderedImage        Boolean        @default(false)
   primaryKnowledgePointId String?
   schemaVersion           Int            @default(1)
   createdById             String?
@@ -207,6 +208,8 @@ model Question {
   suggestions       Suggestion[]
   setItems          QuestionSetItem[]
   promotedFromDraft QuestionDraft?           @relation("PromotedFromDraft")
+
+  @@index([hasRenderedImage])
 }
 
 model QuestionKnowledgePoint {

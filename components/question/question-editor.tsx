@@ -1,11 +1,12 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { QuestionType } from "@prisma/client";
 
 import { RawAssetUpload } from "@/components/raw-asset/raw-asset-upload";
 import { TaxonomyFields } from "@/components/taxonomy/taxonomy-fields";
+import { Button } from "@/components/ui/button";
 import {
   DEFAULT_CHOICE_OPTIONS,
   defaultAnswerForType,
@@ -15,6 +16,15 @@ import {
   type EditableOption,
 } from "@/lib/domain/editor-answer";
 import type { KnowledgePointDto, TagDto } from "@/lib/domain/taxonomy-repository";
+import {
+  overlayStorageKey,
+  useEditorOverlay,
+  useLinkLeaveConfirm,
+} from "@/lib/ui/editor-overlay";
+import {
+  buildNewQuestionDraftBody,
+  type DraftEditorSnapshot,
+} from "@/lib/ui/editor-patches";
 import { TechDetails } from "@/components/ui/tech-details";
 import { QuestionPreview } from "./question-preview";
 import { AnswerEditor } from "./answer-editor";
@@ -88,27 +98,61 @@ export function QuestionEditor({
 
   const previewOptions = useMemo(() => validOptions(options), [options]);
   const showOptions = isChoiceType(type) || type === "";
+  const snapshot: DraftEditorSnapshot = useMemo(
+    () => ({
+      type,
+      stemMd,
+      options,
+      answer,
+      solutionMd,
+      knowledgePointIds,
+      tagIds,
+      difficulty,
+      sourceRawAssetId,
+    }),
+    [
+      answer,
+      difficulty,
+      knowledgePointIds,
+      options,
+      solutionMd,
+      sourceRawAssetId,
+      stemMd,
+      tagIds,
+      type,
+    ],
+  );
+  const hydrate = useCallback((next: DraftEditorSnapshot) => {
+    setStemMd(next.stemMd);
+    setOptions(next.options);
+    setAnswer(next.answer);
+    setSolutionMd(next.solutionMd);
+    setKnowledgePointIds(next.knowledgePointIds);
+    setTagIds(next.tagIds);
+    setDifficulty(next.difficulty);
+    setType(next.type);
+    setSourceRawAssetId(next.sourceRawAssetId ?? null);
+  }, []);
+  const overlay = useEditorOverlay<DraftEditorSnapshot>({
+    storageKey: overlayStorageKey("new", "new"),
+    snapshot,
+    serverBaseVersion: "new",
+    onHydrate: hydrate,
+  });
+  useLinkLeaveConfirm(overlay.isDirty);
 
   async function handleSaveAsDraft() {
     setSaving(true);
     setSaveError(null);
+
+    const submitted = snapshot;
 
     try {
       const response = await fetch("/api/drafts", {
         method: "POST",
         credentials: "include",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          ...(type ? { type } : {}),
-          stemMd,
-          ...(showOptions ? { options: previewOptions } : {}),
-          answer,
-          solutionMd,
-          knowledgePointIds,
-          tagIds,
-          ...(typeof difficulty === "number" ? { difficulty } : {}),
-          ...(sourceRawAssetId ? { sourceRawAssetId } : {}),
-        }),
+        body: JSON.stringify(buildNewQuestionDraftBody(submitted, showOptions)),
       });
       const payload = (await response.json()) as {
         error?: string;
@@ -116,13 +160,14 @@ export function QuestionEditor({
       };
 
       if (!response.ok || !payload.draft?.id) {
-        setSaveError(payload.error ?? "Unable to save draft");
+        setSaveError(payload.error ?? "无法保存草稿");
         return;
       }
 
+      overlay.markClean("new", submitted);
       router.push(`/drafts/${payload.draft.id}`);
     } catch {
-      setSaveError("Unable to save draft");
+      setSaveError("无法保存草稿");
     } finally {
       setSaving(false);
     }
@@ -172,6 +217,11 @@ export function QuestionEditor({
           <p className="mt-3 max-w-2xl leading-7 text-[var(--ink-soft)]">
             填写题干、选项、答案和解析，右侧是学生卷面预览。
           </p>
+          {overlay.restored ? (
+            <p role="status" className="mt-3 text-sm text-[var(--patina)]">
+              已恢复未提交的修改
+            </p>
+          ) : null}
         </div>
 
         <label className="block space-y-2 text-sm font-medium text-[var(--ink-soft)]">
@@ -214,16 +264,16 @@ export function QuestionEditor({
         </label>
 
         <div className="flex flex-wrap items-center gap-3">
-          <button
+          <Button
             type="button"
+            variant="primary"
             onClick={() => {
               void handleSaveAsDraft();
             }}
             disabled={saving}
-            className="inline-flex min-h-11 items-center border border-[var(--seal)] bg-[var(--seal)] px-4 text-sm font-semibold text-[var(--paper)] disabled:opacity-50"
           >
             存为草稿
-          </button>
+          </Button>
           {saveError ? (
             <p className="text-sm text-[var(--danger)]">{saveError}</p>
           ) : null}

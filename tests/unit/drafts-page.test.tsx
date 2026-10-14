@@ -12,12 +12,14 @@ vi.mock("next/headers", () => ({
 
 const mocks = vi.hoisted(() => ({
   findMany: vi.fn(),
+  groupBy: vi.fn(),
 }));
 
 vi.mock("@/lib/db/prisma", () => ({
   prisma: {
     questionDraft: {
       findMany: mocks.findMany,
+      groupBy: mocks.groupBy,
     },
   },
 }));
@@ -27,6 +29,8 @@ import DraftsPage from "@/app/(dashboard)/drafts/page";
 describe("DraftsPage", () => {
   beforeEach(() => {
     mocks.findMany.mockReset();
+    mocks.groupBy.mockReset();
+    mocks.groupBy.mockResolvedValue([]);
     dashboardCookieStore.get.mockReset();
     setDashboardCookie(true);
   });
@@ -44,33 +48,42 @@ describe("DraftsPage", () => {
   it("lists unpromoted drafts with status, updated time, and truncated stem", async () => {
     const longStem = `${"如图所示为某物体做直线运动的 v-t 图像。".repeat(8)} extra`;
 
-    mocks.findMany.mockResolvedValue([
+    const rows = [
       {
         id: "draft_1",
-        status: "NEEDS_REVIEW",
+        status: "NEEDS_REVIEW" as const,
         stemMd: longStem,
         updatedAt: new Date("2026-05-15T08:00:00.000Z"),
         agentRuns: [{ id: "run_1" }],
       },
       {
         id: "draft_2",
-        status: "DRAFT",
+        status: "DRAFT" as const,
         stemMd: null,
         updatedAt: new Date("2026-05-14T08:00:00.000Z"),
         agentRuns: [],
       },
+    ];
+    mocks.findMany.mockImplementation(async ({ where }: { where: { status: string } }) =>
+      rows.filter((row) => row.status === where.status),
+    );
+    mocks.groupBy.mockResolvedValue([
+      { status: "NEEDS_REVIEW", _count: { _all: 1 } },
+      { status: "DRAFT", _count: { _all: 1 } },
     ]);
 
     render(await DraftsPage());
 
     expect(mocks.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: {
-          status: {
-            in: ["DRAFT", "NEEDS_REVIEW", "REJECTED"],
-          },
-        },
+        where: { status: "NEEDS_REVIEW" },
         take: 50,
+        skip: 0,
+      }),
+    );
+    expect(mocks.findMany.mock.calls[0]?.[0]?.where).not.toEqual(
+      expect.objectContaining({
+        status: { in: ["DRAFT", "NEEDS_REVIEW", "REJECTED"] },
       }),
     );
 
@@ -86,9 +99,33 @@ describe("DraftsPage", () => {
 
     cleanup();
     render(await DraftsPage({ searchParams: Promise.resolve({ status: "DRAFT" }) }));
+    expect(mocks.findMany).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        where: { status: "DRAFT" },
+      }),
+    );
     expect(screen.getByRole("link", { name: "未写题干" })).toHaveAttribute(
       "href",
       "/drafts/draft_2",
+    );
+  });
+
+  it("requests skip 50 on page 2", async () => {
+    mocks.findMany.mockResolvedValue([]);
+    mocks.groupBy.mockResolvedValue([
+      { status: "NEEDS_REVIEW", _count: { _all: 51 } },
+    ]);
+
+    render(
+      await DraftsPage({ searchParams: Promise.resolve({ page: "2" }) }),
+    );
+
+    expect(mocks.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { status: "NEEDS_REVIEW" },
+        skip: 50,
+        take: 50,
+      }),
     );
   });
 

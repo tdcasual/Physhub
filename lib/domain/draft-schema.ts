@@ -1,18 +1,34 @@
 import { z } from "zod";
 
-import {
-  answerSchema,
-  optionSchema,
-  questionTypeSchema,
-} from "@/lib/domain/question-schema";
+import { questionTypeSchema } from "@/lib/domain/question-schema";
+
+export const draftOptionSchema = z.object({
+  label: z.string(),
+  value: z.string(),
+});
+
+export const draftAnswerSchema = z.discriminatedUnion("type", [
+  z.object({
+    type: z.literal("single"),
+    value: z.string(),
+  }),
+  z.object({
+    type: z.literal("multiple"),
+    value: z.array(z.string()),
+  }),
+  z.object({
+    type: z.literal("text"),
+    value: z.string(),
+  }),
+]);
 
 export const questionDraftFieldSchema = z.object({
   type: questionTypeSchema.optional(),
   stemMd: z.string().optional(),
-  options: z.array(optionSchema).optional(),
-  answer: answerSchema.optional(),
+  options: z.array(draftOptionSchema).optional(),
+  answer: draftAnswerSchema.optional(),
   solutionMd: z.string().optional(),
-  difficulty: z.number().int().min(1).max(5).optional(),
+  difficulty: z.number().int().min(1).max(5).nullable().optional(),
   knowledgePointIds: z.array(z.string().trim().min(1)).optional(),
   tagIds: z.array(z.string().trim().min(1)).optional(),
   sourceRawAssetId: z.string().trim().min(1).optional(),
@@ -77,6 +93,10 @@ export function omitAbsentDraftFields(raw: unknown): unknown {
       if (body[key] === null) {
         delete body[key];
       }
+      continue;
+    }
+
+    if (key === "difficulty" || key === "answer" || key === "options") {
       continue;
     }
 

@@ -16,7 +16,7 @@ export default async function NewQuestionPage() {
   ]);
 
   return (
-    <main className="min-h-screen bg-[var(--background)] text-[var(--foreground)]">
+    <main id="main" className="min-h-screen bg-[var(--background)] text-[var(--foreground)]">
       <QuestionEditor knowledgePoints={knowledgePoints} tags={tags} />
     </main>
   );

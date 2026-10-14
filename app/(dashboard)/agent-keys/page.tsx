@@ -17,7 +17,7 @@ export default async function AgentKeysPage() {
 
   if (!canEditWorkbench(session)) {
     return (
-      <main className="min-h-[calc(100vh-4rem)] bg-[var(--paper)] px-6 py-16 text-[var(--ink)]">
+      <main id="main" className="min-h-[calc(100vh-4rem)] bg-[var(--paper)] px-6 py-16 text-[var(--ink)]">
         <div className="mx-auto w-full max-w-2xl border border-[var(--ink-border)] bg-[var(--paper-raised)] px-6 py-8">
           <h1 className="font-serif text-3xl font-semibold">密钥</h1>
           <p className="mt-3 text-sm leading-6 text-[var(--ink-soft)]">
@@ -31,7 +31,7 @@ export default async function AgentKeysPage() {
   const apiKeys = await listManagedApiKeys();
 
   return (
-    <main className="min-h-[calc(100vh-4rem)] bg-[var(--paper)] text-[var(--ink)]">
+    <main id="main" className="min-h-[calc(100vh-4rem)] bg-[var(--paper)] text-[var(--ink)]">
       <AgentKeyManager initialKeys={apiKeys} />
     </main>
   );

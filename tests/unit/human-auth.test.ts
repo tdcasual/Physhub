@@ -35,6 +35,7 @@ import { GET as getKnowledgePoints } from "@/app/api/knowledge-points/route";
 import { POST as postQuestionSets } from "@/app/api/question-sets/route";
 import { POST as postQuestionSetExport } from "@/app/api/question-sets/[id]/export/route";
 import { GET as getQuestions, POST as postQuestions } from "@/app/api/questions/route";
+import { PATCH as patchQuestion } from "@/app/api/questions/[id]/route";
 import { POST as postClassifyQuestion } from "@/app/api/questions/[id]/classify/route";
 import { GET as getQuestion } from "@/app/api/questions/[id]/route";
 import { POST as postRawAssets } from "@/app/api/raw-assets/route";
@@ -544,6 +545,30 @@ describe("human API routes require an editor session", () => {
     );
 
     expect(response.status).toBe(401);
+  });
+});
+
+describe("VIEWER cannot write", () => {
+  it("returns 403 Forbidden on PATCH /api/questions/:id", async () => {
+    prismaMocks.userFindUnique.mockResolvedValue({
+      ...ownerRow(),
+      role: "VIEWER",
+    });
+
+    const response = await patchQuestion(
+      new Request("http://localhost/api/questions/question_1", {
+        method: "PATCH",
+        headers: {
+          "content-type": "application/json",
+          [EDITOR_SESSION_HEADER_NAME]: "physhub-test-session-token",
+        },
+        body: JSON.stringify({ stemMd: "edited" }),
+      }),
+      { params: Promise.resolve({ id: "question_1" }) },
+    );
+
+    expect(response.status).toBe(403);
+    await expect(response.json()).resolves.toEqual({ error: "Forbidden" });
   });
 });
 

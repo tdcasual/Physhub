@@ -43,7 +43,7 @@ export function UnlockForm() {
   return (
     <div className="w-full max-w-lg border border-[var(--ink-border)] bg-[var(--paper-raised)] px-6 py-8">
       <p className="text-sm font-medium text-[var(--patina)]">老师</p>
-      <h1 className="mt-2 font-serif text-3xl font-semibold">登录</h1>
+      <h2 className="mt-2 font-serif text-3xl font-semibold">登录</h2>
       <p className="mt-3 text-sm leading-6 text-[var(--ink-soft)]">
         使用帐号和密码进入工作台。草稿和答案仅登录后可见。
       </p>
@@ -56,6 +56,7 @@ export function UnlockForm() {
           name="username"
           type="text"
           autoComplete="username"
+          spellCheck={false}
           value={username}
           aria-invalid={error ? true : undefined}
           aria-describedby={error ? "login-error" : undefined}

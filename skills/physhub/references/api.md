@@ -50,6 +50,8 @@ Headers: `Authorization`
 
 Body: `{ "query": string, "constraints"?: { status?, limit?, grade?, chapter?, knowledge_points?, difficulty?, usage?, has_image? } }`.
 
+`has_image` is `Question.hasRenderedImage`: IMAGE-kind `sourceRawAsset` **or** a remark-parsed local figure whose URL starts with `/api/raw-assets/`. Not `QuestionAsset`, not PDF/text sources, not a stem substring. Promote/create/content PATCH recompute the column. Intent-only `有图` does not AND the literal into `stemMd`.
+
 Omitted or empty `constraints.status` → `["REVIEWED","PUBLISHED"]`.
 
 200:
@@ -128,7 +130,7 @@ Scope: `drafts:create`
 Headers: `Authorization`, `Idempotency-Key`  
 `Content-Type: multipart/form-data`. `file` or `text` (file wins if both). Neither → `400` `Provide a non-empty file or text field`.
 
-Allowed MIME: `image/png`, `image/jpeg`, `image/webp`, `application/pdf`, `text/markdown`, `text/x-markdown`, `text/plain`. Caps: IMAGE 10 MiB, PDF 20 MiB, markdown/text file 1 MiB, `text` field 100_000 chars. Empty `file.type` is rejected.
+Allowed MIME: `image/png`, `image/jpeg`, `image/webp`, `application/pdf`, `text/markdown`, `text/x-markdown`, `text/plain`. After the allowlist, PNG/JPEG/WEBP/PDF bytes must match magic signatures; HTML/SVG declared as PNG is `Unsupported media type`. Caps: IMAGE 10 MiB, PDF 20 MiB, markdown/text file 1 MiB, `text` field 100_000 chars. Empty `file.type` is rejected. File GET sets `X-Content-Type-Options: nosniff` and RFC 5987 `filename*`.
 
 201:
 
@@ -243,7 +245,7 @@ Complete question body, same fields as human `POST /api/questions` / [question-c
 Scope: `questions:publish`  
 Headers: `Authorization`, `Idempotency-Key`
 
-Promotes an existing `DRAFT` or `NEEDS_REVIEW` draft. Body optional (`{}` if omitted). Same quality gate as teacher promote. Result `question.status` is `REVIEWED`.
+Promotes an existing `DRAFT` or `NEEDS_REVIEW` draft. Body optional (`{}` if omitted). Same quality gate as teacher promote. Result `question.status` is `REVIEWED`. `question.createdById` is the API key’s `createdById` when present (dev-agent has none and falls back to the seed owner).
 
 201: `{ "request_id", "question", "draft" }` (same shapes as `create_official_question`).
 

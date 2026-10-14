@@ -2,6 +2,7 @@
 
 import { FormEvent, useMemo, useState } from "react";
 
+import { Button } from "@/components/ui/button";
 import { flattenKnowledgePointTree } from "@/lib/domain/taxonomy-tree";
 
 type KnowledgePoint = {
@@ -57,7 +58,7 @@ export function TaxonomyAdmin({
     const payload = (await response.json()) as { error?: string };
 
     if (!response.ok) {
-      setError(payload.error ?? "Unable to create knowledge point");
+      setError(payload.error ?? "无法添加知识点");
       return;
     }
 
@@ -80,7 +81,7 @@ export function TaxonomyAdmin({
     const payload = (await response.json()) as { error?: string };
 
     if (!response.ok) {
-      setError(payload.error ?? "Unable to create tag");
+      setError(payload.error ?? "无法添加标签");
       return;
     }
 
@@ -103,7 +104,7 @@ export function TaxonomyAdmin({
     const payload = (await response.json()) as { error?: string };
 
     if (!response.ok) {
-      setError(payload.error ?? "Unable to update knowledge point");
+      setError(payload.error ?? "无法保存知识点");
       return;
     }
 
@@ -111,6 +112,10 @@ export function TaxonomyAdmin({
   }
 
   async function remove(path: string) {
+    if (!window.confirm("确定删除？被题目引用的节点不能删。")) {
+      return;
+    }
+
     setError(null);
     const response = await fetch(path, {
       method: "DELETE",
@@ -119,7 +124,7 @@ export function TaxonomyAdmin({
     const payload = (await response.json()) as { error?: string };
 
     if (!response.ok) {
-      setError(payload.error ?? "Unable to delete");
+      setError(payload.error ?? "无法删除");
       return;
     }
 
@@ -132,43 +137,52 @@ export function TaxonomyAdmin({
       {error ? <p className="text-sm text-red-800">{error}</p> : null}
       <section className="space-y-4">
         <h2 className="font-serif text-xl font-semibold">知识点</h2>
-        <form className="flex flex-wrap gap-3" onSubmit={(event) => void createKnowledgePoint(event)}>
-          <input
-            required
-            placeholder="名称"
-            value={kpName}
-            onChange={(event) => setKpName(event.currentTarget.value)}
-            className="border border-stone-900/20 px-3 py-2"
-          />
-          <input
-            required
-            placeholder="slug（高级）"
-            value={kpSlug}
-            onChange={(event) => setKpSlug(event.currentTarget.value)}
-            className="border border-stone-900/20 px-3 py-2"
-          />
-          <select
-            value={kpParentId}
-            onChange={(event) => setKpParentId(event.currentTarget.value)}
-            className="border border-stone-900/20 px-3 py-2"
-            aria-label="Parent knowledge point"
-          >
-            <option value="">根节点</option>
-            {knowledgePoints.map((item) => (
-              <option key={item.id} value={item.id}>
-                {item.name}
-              </option>
-            ))}
-          </select>
-          <button type="submit" className="border border-stone-900 bg-stone-900 px-3 py-2 text-sm font-semibold text-white">
+        <form className="flex flex-wrap items-end gap-3" onSubmit={(event) => void createKnowledgePoint(event)}>
+          <label className="text-sm font-medium text-[var(--ink-soft)]" htmlFor="kp-name">
+            名称
+            <input
+              id="kp-name"
+              required
+              value={kpName}
+              onChange={(event) => setKpName(event.currentTarget.value)}
+              className="mt-1 block min-h-11 border border-[var(--ink-border)] bg-[var(--paper-raised)] px-3 py-2"
+            />
+          </label>
+          <label className="text-sm font-medium text-[var(--ink-soft)]" htmlFor="kp-slug">
+            slug
+            <input
+              id="kp-slug"
+              required
+              value={kpSlug}
+              onChange={(event) => setKpSlug(event.currentTarget.value)}
+              className="mt-1 block min-h-11 border border-[var(--ink-border)] bg-[var(--paper-raised)] px-3 py-2"
+            />
+          </label>
+          <label className="text-sm font-medium text-[var(--ink-soft)]" htmlFor="kp-parent">
+            父节点
+            <select
+              id="kp-parent"
+              value={kpParentId}
+              onChange={(event) => setKpParentId(event.currentTarget.value)}
+              className="mt-1 block min-h-11 border border-[var(--ink-border)] bg-[var(--paper-raised)] px-3 py-2"
+            >
+              <option value="">根节点</option>
+              {knowledgePoints.map((item) => (
+                <option key={item.id} value={item.id}>
+                  {item.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <Button type="submit" variant="primary">
             添加
-          </button>
+          </Button>
         </form>
         <ul className="space-y-2">
           {tree.map((item) => (
             <li
               key={item.id}
-              className="flex flex-col gap-3 border border-stone-900/10 bg-stone-50 px-3 py-2 sm:flex-row sm:items-center sm:justify-between"
+              className="flex flex-col gap-3 border border-[var(--ink-border)] bg-[var(--paper-mute)] px-3 py-2 sm:flex-row sm:items-center sm:justify-between"
               style={{ marginLeft: `${item.depth * 1.25}rem` }}
             >
               <span>
@@ -176,7 +190,7 @@ export function TaxonomyAdmin({
               </span>
               <div className="flex flex-wrap items-center gap-2">
                 <select
-                  aria-label={`Parent for ${item.name}`}
+                  aria-label={`${item.name} 的父节点`}
                   value={parentEdits[item.id] ?? item.parentId ?? ""}
                   onChange={(event) =>
                     setParentEdits((current) => ({
@@ -184,7 +198,7 @@ export function TaxonomyAdmin({
                       [item.id]: event.currentTarget.value,
                     }))
                   }
-                  className="border border-stone-900/20 px-2 py-1 text-sm"
+                  className="min-h-11 border border-[var(--ink-border)] bg-[var(--paper-raised)] px-2 py-1 text-sm"
                 >
                   <option value="">根节点</option>
                   {knowledgePoints
@@ -195,20 +209,19 @@ export function TaxonomyAdmin({
                       </option>
                     ))}
                 </select>
-                <button
+                <Button
                   type="button"
                   onClick={() => void saveParent(item)}
-                  className="inline-flex min-h-11 items-center px-2 text-sm font-semibold"
                 >
-                  保存父节点
-                </button>
-                <button
+                  保存
+                </Button>
+                <Button
                   type="button"
+                  variant="danger"
                   onClick={() => void remove(`/api/knowledge-points/${item.id}`)}
-                  className="inline-flex min-h-11 items-center px-2 text-sm font-semibold"
                 >
                   删除
-                </button>
+                </Button>
               </div>
             </li>
           ))}
@@ -216,44 +229,53 @@ export function TaxonomyAdmin({
       </section>
       <section className="space-y-4">
         <h2 className="font-serif text-xl font-semibold">标签</h2>
-        <form className="flex flex-wrap gap-3" onSubmit={(event) => void createTag(event)}>
-          <input
-            required
-            placeholder="名称"
-            value={tagName}
-            onChange={(event) => setTagName(event.currentTarget.value)}
-            className="border border-stone-900/20 px-3 py-2"
-          />
-          <input
-            required
-            placeholder="slug（高级）"
-            value={tagSlug}
-            onChange={(event) => setTagSlug(event.currentTarget.value)}
-            className="border border-stone-900/20 px-3 py-2"
-          />
-          <input
-            placeholder="Group"
-            value={tagGroup}
-            onChange={(event) => setTagGroup(event.currentTarget.value)}
-            className="border border-stone-900/20 px-3 py-2"
-          />
-          <button type="submit" className="border border-stone-900 bg-stone-900 px-3 py-2 text-sm font-semibold text-white">
+        <form className="flex flex-wrap items-end gap-3" onSubmit={(event) => void createTag(event)}>
+          <label className="text-sm font-medium text-[var(--ink-soft)]" htmlFor="tag-name">
+            名称
+            <input
+              id="tag-name"
+              required
+              value={tagName}
+              onChange={(event) => setTagName(event.currentTarget.value)}
+              className="mt-1 block min-h-11 border border-[var(--ink-border)] bg-[var(--paper-raised)] px-3 py-2"
+            />
+          </label>
+          <label className="text-sm font-medium text-[var(--ink-soft)]" htmlFor="tag-slug">
+            slug
+            <input
+              id="tag-slug"
+              required
+              value={tagSlug}
+              onChange={(event) => setTagSlug(event.currentTarget.value)}
+              className="mt-1 block min-h-11 border border-[var(--ink-border)] bg-[var(--paper-raised)] px-3 py-2"
+            />
+          </label>
+          <label className="text-sm font-medium text-[var(--ink-soft)]" htmlFor="tag-group">
+            分组
+            <input
+              id="tag-group"
+              value={tagGroup}
+              onChange={(event) => setTagGroup(event.currentTarget.value)}
+              className="mt-1 block min-h-11 border border-[var(--ink-border)] bg-[var(--paper-raised)] px-3 py-2"
+            />
+          </label>
+          <Button type="submit" variant="primary">
             添加
-          </button>
+          </Button>
         </form>
         <ul className="space-y-2">
           {tags.map((item) => (
-            <li key={item.id} className="flex items-center justify-between gap-3 border border-stone-900/10 bg-stone-50 px-3 py-2">
+            <li key={item.id} className="flex items-center justify-between gap-3 border border-[var(--ink-border)] bg-[var(--paper-mute)] px-3 py-2">
               <span>
                 {item.name} <span className="font-mono text-xs">{item.slug}</span>
               </span>
-              <button
+              <Button
                 type="button"
+                variant="danger"
                 onClick={() => void remove(`/api/tags/${item.id}`)}
-                className="inline-flex min-h-11 items-center px-2 text-sm font-semibold"
               >
                 删除
-              </button>
+              </Button>
             </li>
           ))}
         </ul>

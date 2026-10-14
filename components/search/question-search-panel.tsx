@@ -8,6 +8,7 @@ import Link from "next/link";
 import { MarkdownLatex } from "@/lib/renderer/render-markdown";
 import type { QuestionSearchResponse } from "@/lib/search/question-search";
 import type { BasketItem } from "@/components/search/question-set-basket";
+import { mapUiError } from "@/lib/ui/labels";
 
 type SearchState =
   | { status: "idle" }
@@ -20,10 +21,10 @@ async function readError(response: Response) {
     const body = (await response.json()) as { error?: unknown };
 
     return typeof body.error === "string"
-      ? body.error
-      : "Unable to search questions";
+      ? mapUiError(body.error)
+      : "无法检索试题";
   } catch {
-    return "Unable to search questions";
+    return "无法检索试题";
   }
 }
 
@@ -70,12 +71,12 @@ export function QuestionSearchPanel({
         response: (await response.json()) as QuestionSearchResponse,
       });
     } catch {
-      setSearchState({ status: "error", message: "Unable to search questions" });
+      setSearchState({ status: "error", message: "无法检索试题" });
     }
   }
 
   return (
-    <section className="border border-stone-900/15 bg-sky-100/70 p-5">
+    <section className="border border-[var(--ink-border)] bg-[var(--paper-mute)] p-5">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div>
           <p className="text-sm font-medium text-[var(--patina)]">检索</p>
@@ -123,8 +124,8 @@ export function QuestionSearchPanel({
       {searchState.status === "success" ? (
         <div className="mt-5 space-y-3">
           <div className="flex flex-wrap gap-2 text-sm text-stone-900/70">
-            <span>{searchState.response.results.length} results</span>
-            <span>Limit {searchState.response.understanding.limit}</span>
+            <span>找到 {searchState.response.results.length} 道题</span>
+            <span>最多 {searchState.response.understanding.limit} 道</span>
             {searchState.response.understanding.terms.map((term) => (
               <span
                 key={term}
@@ -137,7 +138,7 @@ export function QuestionSearchPanel({
 
           {searchState.response.results.length === 0 ? (
             <p className="border border-stone-900/15 bg-white p-4 text-sm text-stone-900/70">
-              No matching reviewed or published questions found.
+              没有匹配的已审定或已上架试题。
             </p>
           ) : (
             <div className="grid gap-3">
@@ -154,7 +155,7 @@ export function QuestionSearchPanel({
                     </h3>
                     <div className="flex flex-wrap gap-2 text-xs font-semibold uppercase tracking-[0.08em]">
                       <span className="border border-stone-900/15 px-2 py-1">
-                        Score {result.score}
+                        相关 {result.score}
                       </span>
                       <span className="border border-lime-800/25 bg-lime-50 px-2 py-1 text-lime-800">
                         {result.status}
@@ -171,7 +172,7 @@ export function QuestionSearchPanel({
                           }
                           className="inline-flex min-h-11 items-center border border-stone-900/20 bg-white px-3 text-xs font-semibold"
                         >
-                          Add to basket
+                          加入组卷篮
                         </button>
                       ) : null}
                     </div>

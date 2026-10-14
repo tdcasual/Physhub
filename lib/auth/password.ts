@@ -1,7 +1,4 @@
 import { randomBytes, scrypt as scryptCallback, timingSafeEqual } from "node:crypto";
-import { promisify } from "node:util";
-
-const scrypt = promisify(scryptCallback);
 
 const N = 16384;
 const R = 8;
@@ -18,13 +15,26 @@ export function isUsableUsername(username: string): boolean {
   return /^[a-zA-Z0-9._-]{2,32}$/.test(username);
 }
 
+function scryptKey(
+  password: string,
+  salt: Buffer,
+  keyLength: number,
+): Promise<Buffer> {
+  return new Promise((resolve, reject) => {
+    scryptCallback(password, salt, keyLength, { N, r: R, p: P }, (error, derived) => {
+      if (error) {
+        reject(error);
+        return;
+      }
+
+      resolve(derived as Buffer);
+    });
+  });
+}
+
 export async function hashPassword(password: string): Promise<string> {
   const salt = randomBytes(SALT_LENGTH);
-  const key = (await scrypt(password, salt, KEY_LENGTH, {
-    N,
-    r: R,
-    p: P,
-  })) as Buffer;
+  const key = await scryptKey(password, salt, KEY_LENGTH);
 
   return `${PREFIX}$${salt.toString("base64url")}$${key.toString("base64url")}`;
 }
@@ -50,11 +60,7 @@ export async function verifyPassword(
     return false;
   }
 
-  const actual = (await scrypt(password, salt, expected.length, {
-    N,
-    r: R,
-    p: P,
-  })) as Buffer;
+  const actual = await scryptKey(password, salt, expected.length);
 
   if (actual.length !== expected.length) {
     return false;

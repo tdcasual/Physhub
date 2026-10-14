@@ -14,6 +14,7 @@ const { mockPrisma } = vi.hoisted(() => ({
     },
     questionDraft: {
       update: vi.fn(),
+      findUnique: vi.fn(),
     },
     questionKnowledgePoint: {
       deleteMany: vi.fn(),
@@ -56,6 +57,8 @@ describe("suggestion review route", () => {
     mockPrisma.reviewRecord.create.mockReset();
     mockPrisma.question.update.mockReset();
     mockPrisma.questionDraft.update.mockReset();
+    mockPrisma.questionDraft.findUnique.mockReset();
+    mockPrisma.questionDraft.findUnique.mockResolvedValue(null);
     mockPrisma.questionKnowledgePoint.deleteMany.mockReset();
     mockPrisma.questionKnowledgePoint.createMany.mockReset();
     mockPrisma.questionTag.deleteMany.mockReset();
@@ -637,6 +640,12 @@ describe("suggestion review route", () => {
       id: "suggestion_1",
       status: "accepted",
     });
+    mockPrisma.questionDraft.findUnique.mockResolvedValue({
+      updatedAt: new Date("2026-05-16T11:00:00.000Z"),
+      knowledgePointIds: ["kp_1"],
+      difficulty: 2,
+      tagIds: ["tag_1"],
+    });
 
     const { PATCH } = await import("@/app/api/suggestions/[id]/route");
     const response = await PATCH(patchRequest({ status: "accepted" }), {
@@ -644,12 +653,33 @@ describe("suggestion review route", () => {
     });
 
     expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual({
+      suggestion: {
+        id: "suggestion_1",
+        status: "accepted",
+      },
+      draft: {
+        updatedAt: "2026-05-16T11:00:00.000Z",
+        knowledgePointIds: ["kp_1"],
+        difficulty: 2,
+        tagIds: ["tag_1"],
+      },
+    });
     expect(mockPrisma.questionDraft.update).toHaveBeenCalledWith({
       where: { id: "draft_1" },
       data: {
         knowledgePointIds: ["kp_1"],
         difficulty: 2,
         tagIds: ["tag_1"],
+      },
+    });
+    expect(mockPrisma.questionDraft.findUnique).toHaveBeenCalledWith({
+      where: { id: "draft_1" },
+      select: {
+        updatedAt: true,
+        knowledgePointIds: true,
+        difficulty: true,
+        tagIds: true,
       },
     });
     expect(mockPrisma.question.update).not.toHaveBeenCalled();

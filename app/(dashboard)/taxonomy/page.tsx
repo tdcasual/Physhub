@@ -18,7 +18,7 @@ export default async function TaxonomyPage() {
   ]);
 
   return (
-    <main className="min-h-screen bg-[var(--background)] text-[var(--foreground)]">
+    <main id="main" className="min-h-screen bg-[var(--background)] text-[var(--foreground)]">
       <TaxonomyAdmin knowledgePoints={knowledgePoints} tags={tags} />
     </main>
   );

@@ -28,6 +28,11 @@ export default async function OfficialQuestionPage({
       include: {
         knowledgePoints: true,
         tags: true,
+        versions: {
+          select: { version: true },
+          orderBy: { version: "desc" },
+          take: 1,
+        },
       },
     }),
     listKnowledgePoints(),
@@ -47,7 +52,7 @@ export default async function OfficialQuestionPage({
   };
 
   return (
-    <main className="min-h-screen bg-[var(--background)] text-[var(--foreground)]">
+    <main id="main" className="min-h-screen bg-[var(--background)] text-[var(--foreground)]">
       <OfficialQuestionEditor
         question={{
           id: question.id,
@@ -63,6 +68,7 @@ export default async function OfficialQuestionPage({
             (link) => link.knowledgePointId,
           ),
           tagIds: question.tags.map((link) => link.tagId),
+          version: question.versions[0]?.version ?? 1,
         }}
         knowledgePoints={knowledgePoints}
         tags={tags}

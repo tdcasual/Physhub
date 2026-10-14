@@ -25,7 +25,7 @@ export function QuestionSetBasket({
   items: BasketItem[];
   onRemove: (id: string) => void;
 }) {
-  const [title, setTitle] = useState("Untitled set");
+  const [title, setTitle] = useState("未命名组卷");
   const [format, setFormat] = useState<"markdown" | "latex">("markdown");
   const [teacher, setTeacher] = useState(true);
   const [publishedOnly, setPublishedOnly] = useState(false);
@@ -61,7 +61,7 @@ export function QuestionSetBasket({
       };
 
       if (!created.ok || !createdPayload.questionSet?.id) {
-        setError(createdPayload.error ?? "Unable to create question set");
+        setError(createdPayload.error ?? "无法创建试卷");
         return;
       }
 
@@ -80,13 +80,13 @@ export function QuestionSetBasket({
       };
 
       if (!exported.ok || !exportPayload.content) {
-        setError(exportPayload.error ?? "Unable to export");
+        setError(exportPayload.error ?? "无法导出");
         return;
       }
 
       setOutput(exportPayload.content);
     } catch {
-      setError("Unable to export");
+      setError("无法导出");
     }
   }
 
@@ -140,7 +140,7 @@ export function QuestionSetBasket({
           </select>
         </label>
       </div>
-      <label className="mt-3 flex items-center gap-2 text-sm">
+      <label className="mt-3 flex min-h-11 items-center gap-2 text-sm">
         <input
           type="checkbox"
           checked={teacher}
@@ -148,7 +148,7 @@ export function QuestionSetBasket({
         />
         教师版（含答案）
       </label>
-      <label className="mt-3 flex items-center gap-2 text-sm">
+      <label className="mt-3 flex min-h-11 items-center gap-2 text-sm">
         <input
           type="checkbox"
           checked={publishedOnly}
@@ -160,9 +160,9 @@ export function QuestionSetBasket({
         type="button"
         disabled={uniqueIds.length === 0}
         onClick={() => void handleExport()}
-        className="mt-4 border border-stone-900 bg-stone-900 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
+        className="mt-4 inline-flex min-h-11 items-center border border-[var(--ink)] bg-[var(--ink)] px-4 text-sm font-semibold text-[var(--paper)] disabled:opacity-50"
       >
-        Create and export
+        导出
       </button>
       {error ? <p className="mt-3 text-sm text-red-800">{error}</p> : null}
       {output ? (

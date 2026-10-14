@@ -56,5 +56,28 @@ export function mapUiError(error: string) {
     return "只有编辑可以管理 Agent 密钥";
   }
 
+  if (
+    error === "Unable to update draft" ||
+    error === "Unable to save draft"
+  ) {
+    return "无法保存草稿";
+  }
+
+  if (error === "Search query is required") {
+    return "请先输入要找的内容。";
+  }
+
+  if (error === "Unable to search questions") {
+    return "无法检索试题";
+  }
+
+  if (error === "Unable to create question set") {
+    return "无法创建试卷";
+  }
+
+  if (error === "Unable to export question set") {
+    return "无法导出";
+  }
+
   return error;
 }

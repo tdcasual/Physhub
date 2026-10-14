@@ -34,7 +34,7 @@ export const questionInputSchema = z.object({
   options: z.array(optionSchema).optional(),
   answer: answerSchema,
   solutionMd: z.string().optional(),
-  difficulty: z.number().int().min(1).max(5).optional(),
+  difficulty: z.number().int().min(1).max(5).nullable().optional(),
   knowledgePointIds: z.array(z.string().trim().min(1)).min(1),
 });
 

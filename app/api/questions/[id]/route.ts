@@ -33,7 +33,7 @@ export async function GET(request: Request, context: QuestionRouteContext) {
 }
 
 export async function PATCH(request: Request, context: QuestionRouteContext) {
-  const auth = await requireHumanApiAuth(request);
+  const auth = await requireHumanApiAuth(request, { workbench: true });
 
   if (!auth.ok) {
     return auth.response;

@@ -144,6 +144,7 @@ function agentAuth(scopes: readonly string[] = devAgentScopes) {
     apiKeyId: null,
     name: "dev-agent",
     scopes: [...scopes],
+    createdById: null,
   };
 }
 
@@ -223,6 +224,13 @@ describe("POST /api/agent/questions", () => {
     expect(mockPrisma.question.create).toHaveBeenCalled();
     expect(mockPrisma.questionVersion.create).toHaveBeenCalled();
     expect(mockPrisma.reviewRecord.create).toHaveBeenCalled();
+    expect(mockPrisma.question.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          createdById: "user_owner",
+        }),
+      }),
+    );
     expect(mockPrisma.agentRun.create).toHaveBeenCalledWith({
       data: expect.objectContaining({
         toolName: "create_official_question",
@@ -316,6 +324,33 @@ describe("POST /api/agent/question-drafts/:id/promote", () => {
         draftId: "draft_1",
       }),
     });
+  });
+
+  it("forwards the API key creator as the question actor", async () => {
+    mockReadAgentAuth.mockResolvedValue({
+      apiKeyId: "api_key_1",
+      name: "harness",
+      scopes: [...devAgentScopes],
+      createdById: "user_editor",
+    });
+
+    const response = await postAgentPromoteDraft(
+      agentJsonRequest(
+        "http://localhost/api/agent/question-drafts/draft_1/promote",
+        {},
+      ),
+      { params: Promise.resolve({ id: "draft_1" }) },
+    );
+
+    expect(response.status).toBe(201);
+    expect(mockPrisma.question.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          createdById: "user_editor",
+          reviewedById: "user_editor",
+        }),
+      }),
+    );
   });
 
   it("returns 409 when the draft is already promoted", async () => {

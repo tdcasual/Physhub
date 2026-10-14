@@ -21,7 +21,7 @@ export function Button({
   return (
     <button
       {...props}
-      className={`inline-flex min-h-11 items-center justify-center px-4 text-sm font-semibold disabled:opacity-50 ${variants[variant]} ${className}`}
+      className={`inline-flex min-h-11 items-center justify-center border px-4 text-sm font-semibold disabled:opacity-50 ${variants[variant]} ${className}`}
     />
   );
 }

@@ -1,5 +1,5 @@
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
   DraftReviewWorkspace,
@@ -85,7 +85,12 @@ function renderWorkspace(
 }
 
 describe("DraftReviewWorkspace", () => {
+  beforeEach(() => {
+    sessionStorage.clear();
+  });
+
   afterEach(() => {
+    sessionStorage.clear();
     vi.unstubAllGlobals();
     vi.restoreAllMocks();
   });
@@ -97,12 +102,12 @@ describe("DraftReviewWorkspace", () => {
     expect(screen.getByText("motion.txt")).toBeInTheDocument();
     expect(screen.getByText(/Original pasted source/)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "保存" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "退回", exact: true })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "退回草稿" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /^退回$/ })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "退回草稿" })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "入库" })).toBeInTheDocument();
 
     expect(screen.getByLabelText("题干")).toHaveValue(draft.stemMd);
-    expect(screen.getByLabelText("Correct option")).toHaveValue("B");
+    expect(screen.getByLabelText("正确选项")).toHaveValue("B");
 
     const preview = screen.getByRole("region", { name: "预览" });
     expect(within(preview).getByText(/A cart moves/)).toBeInTheDocument();
@@ -110,7 +115,7 @@ describe("DraftReviewWorkspace", () => {
     expect(document.querySelector(".katex")).not.toBeNull();
 
     expect(screen.getByText("Kinematics")).toBeInTheDocument();
-    expect(screen.getByText("88% confidence")).toBeInTheDocument();
+    expect(screen.getByText("置信度 88%")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "运行记录" }));
     expect(screen.getByText("mock-structure-agent")).toBeInTheDocument();
   });
@@ -130,16 +135,12 @@ describe("DraftReviewWorkspace", () => {
     expect(within(preview).getByText(/Edited solution/)).toBeInTheDocument();
   });
 
-  it("saves, sends a draft back, and rejects through PATCH /api/drafts/:id", async () => {
+  it("saves and rejects through PATCH /api/drafts/:id", async () => {
     const fetchMock = vi
       .fn()
       .mockResolvedValueOnce({
         ok: true,
         json: async () => ({ draft: { id: "draft_1", status: "NEEDS_REVIEW" } }),
-      })
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({ draft: { id: "draft_1", status: "DRAFT" } }),
       })
       .mockResolvedValueOnce({
         ok: true,
@@ -161,25 +162,18 @@ describe("DraftReviewWorkspace", () => {
     expect(JSON.parse(String(fetchMock.mock.calls[0][1]?.body))).toMatchObject({
       stemMd: draft.stemMd,
       answer: { type: "single", value: "B" },
+      difficulty: draft.difficulty,
     });
 
-    fireEvent.click(screen.getByRole("button", { name: "退回草稿" }));
+    fireEvent.click(screen.getByRole("button", { name: /^退回$/ }));
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
     expect(JSON.parse(String(fetchMock.mock.calls[1][1]?.body))).toMatchObject({
-      status: "DRAFT",
-      stemMd: draft.stemMd,
-      answer: { type: "single", value: "B" },
-    });
-
-    fireEvent.click(screen.getByRole("button", { name: "退回", exact: true }));
-    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(3));
-    expect(JSON.parse(String(fetchMock.mock.calls[2][1]?.body))).toMatchObject({
       status: "REJECTED",
       stemMd: draft.stemMd,
     });
   });
 
-  it("omits an empty single-choice answer when saving an incomplete draft", async () => {
+  it("persists empty options and an empty answer when saving an incomplete draft", async () => {
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,
       json: async () => ({ draft: { id: "draft_1", status: "DRAFT" } }),
@@ -201,21 +195,25 @@ describe("DraftReviewWorkspace", () => {
       string,
       unknown
     >;
-    expect(body).toMatchObject({ stemMd: draft.stemMd });
-    expect(body).not.toHaveProperty("answer");
-    expect(body).not.toHaveProperty("options");
+    expect(body).toMatchObject({
+      stemMd: draft.stemMd,
+      options: [],
+      answer: { type: "single", value: "" },
+      difficulty: draft.difficulty,
+    });
+    expect(body).not.toHaveProperty("type");
   });
 
   it("makes rejected drafts read-only", () => {
     renderWorkspace({ ...draft, status: "REJECTED" });
 
     expect(screen.queryByRole("button", { name: "保存" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "退回", exact: true })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /^退回$/ })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "退回草稿" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "入库" })).not.toBeInTheDocument();
     expect(screen.getByLabelText("题干")).toBeDisabled();
     expect(screen.getByLabelText("解析")).toBeDisabled();
-    expect(screen.getByLabelText("Correct option")).toBeDisabled();
+    expect(screen.getByLabelText("正确选项")).toBeDisabled();
     expect(screen.getByRole("button", { name: "加选项" })).toBeDisabled();
   });
 
@@ -305,7 +303,7 @@ describe("DraftReviewWorkspace", () => {
     expect(fetchMock.mock.calls[0]?.[1]).toEqual(
       expect.objectContaining({ method: "PATCH" }),
     );
-    expect(screen.getByText("Unable to update draft")).toBeInTheDocument();
+    expect(screen.getByText("无法保存草稿")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "入库" })).toBeInTheDocument();
   });
 
@@ -452,6 +450,157 @@ describe("DraftReviewWorkspace", () => {
     expect(JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body))).toMatchObject({
       knowledgePointIds: ["kp_motion", "kp_g1"],
       type: "SINGLE_CHOICE",
+    });
+  });
+
+  it("attaches a source together with the current editor snapshot", async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (url.includes("/api/raw-assets") && init?.method === "POST") {
+        return {
+          ok: true,
+          json: async () => ({ rawAsset: { id: "raw_new" } }),
+        };
+      }
+
+      return {
+        ok: true,
+        json: async () => ({
+          draft: {
+            id: "draft_1",
+            status: "NEEDS_REVIEW",
+            updatedAt: "2026-05-16T11:00:00.000Z",
+          },
+        }),
+      };
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const view = renderWorkspace();
+    fireEvent.change(screen.getByLabelText("题干"), {
+      target: { value: "edited stem after attach" },
+    });
+    fireEvent.change(screen.getByLabelText("来源图片或文本文件"), {
+      target: {
+        files: [new File(["png"], "source.png", { type: "image/png" })],
+      },
+    });
+
+    await waitFor(() => expect(fetchMock.mock.calls.length).toBeGreaterThanOrEqual(2));
+    const patchCall = fetchMock.mock.calls.find((call) =>
+      String(call[0]).includes("/api/drafts/draft_1"),
+    );
+    expect(JSON.parse(String(patchCall?.[1]?.body))).toMatchObject({
+      stemMd: "edited stem after attach",
+      sourceRawAssetId: "raw_new",
+    });
+
+    view.unmount();
+    renderWorkspace({
+      ...draft,
+      stemMd: "edited stem after attach",
+      updatedAt: "2026-05-16T11:00:00.000Z",
+    });
+    expect(screen.getByLabelText("题干")).toHaveValue("edited stem after attach");
+    expect(screen.queryByRole("status")).not.toBeInTheDocument();
+  });
+
+  const metadataDraft: DraftReviewWorkspaceDraft = {
+    ...draft,
+    suggestions: [
+      {
+        id: "suggestion_meta",
+        kind: "metadata",
+        payload: {
+          knowledge_points: [{ id: "kp_g1", value: "高一" }],
+          difficulty: { value: 4 },
+          tag_ids: ["tag_image"],
+        },
+        confidence: 0.9,
+        status: "pending_review",
+        createdAt: "2026-05-16T10:01:00.000Z",
+        updatedAt: "2026-05-16T10:01:00.000Z",
+        knowledgePoint: null,
+        createdByAgentRun: {
+          agentName: "classifier",
+          toolName: "suggest_metadata",
+        },
+      },
+    ],
+  };
+
+  it("recovers unsaved stem after accepting metadata that advances updatedAt", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        suggestion: { id: "suggestion_meta", status: "accepted" },
+        draft: {
+          updatedAt: "2026-05-16T11:00:00.000Z",
+          knowledgePointIds: ["kp_g1"],
+          difficulty: 4,
+          tagIds: ["tag_image"],
+        },
+      }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const view = renderWorkspace(metadataDraft);
+    fireEvent.change(screen.getByLabelText("题干"), {
+      target: { value: "unsaved teacher edit" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "接受建议" }));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+    view.unmount();
+
+    renderWorkspace({
+      ...metadataDraft,
+      updatedAt: "2026-05-16T11:00:00.000Z",
+      knowledgePointIds: ["kp_g1"],
+      difficulty: 4,
+      tagIds: ["tag_image"],
+    });
+
+    expect(screen.getByLabelText("题干")).toHaveValue("unsaved teacher edit");
+    expect(screen.getByRole("status")).toHaveTextContent("已恢复未提交的修改");
+  });
+
+  it("saves accepted metadata instead of stale editor fields", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          suggestion: { id: "suggestion_meta", status: "accepted" },
+          draft: {
+            updatedAt: "2026-05-16T11:00:00.000Z",
+            knowledgePointIds: ["kp_g1"],
+            difficulty: 4,
+            tagIds: ["tag_image"],
+          },
+        }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          draft: {
+            id: "draft_1",
+            status: "NEEDS_REVIEW",
+            updatedAt: "2026-05-16T11:05:00.000Z",
+          },
+        }),
+      });
+    vi.stubGlobal("fetch", fetchMock);
+
+    renderWorkspace(metadataDraft);
+    fireEvent.click(screen.getByRole("button", { name: "接受建议" }));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+    fireEvent.click(screen.getByRole("button", { name: "保存" }));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
+
+    expect(JSON.parse(String(fetchMock.mock.calls[1][1]?.body))).toMatchObject({
+      knowledgePointIds: ["kp_g1"],
+      difficulty: 4,
+      tagIds: ["tag_image"],
     });
   });
 });

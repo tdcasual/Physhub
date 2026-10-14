@@ -18,7 +18,7 @@ export function QuestionPreview({
 }) {
   return (
     <article className="space-y-4 border border-[var(--ink-border)] bg-[var(--paper-raised)] p-6 shadow-[4px_6px_0_0_oklch(82%_0.02_85)]">
-      <div className="prose prose-slate max-w-none">
+      <div className="prose max-w-none">
         <MarkdownLatex content={stemMd} />
       </div>
 
@@ -27,7 +27,7 @@ export function QuestionPreview({
           {options.map((option, index) => (
             <div key={`${index}-${option.label}`} className="flex gap-2">
               <span className="font-semibold">{option.label}.</span>
-              <div className="prose prose-slate max-w-none">
+              <div className="prose max-w-none">
                 <MarkdownLatex content={option.value} />
               </div>
             </div>
@@ -36,9 +36,9 @@ export function QuestionPreview({
       ) : null}
 
       {showSolution && solutionMd ? (
-        <section className="border-t border-slate-200 pt-3">
-          <h3 className="text-sm font-semibold text-slate-700">解析</h3>
-          <div className="prose prose-slate max-w-none">
+        <section className="border-t border-[var(--ink-border)] pt-3">
+          <h3 className="text-sm font-semibold text-[var(--ink-soft)]">解析</h3>
+          <div className="prose max-w-none">
             <MarkdownLatex content={solutionMd} />
           </div>
         </section>

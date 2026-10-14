@@ -39,6 +39,7 @@ export async function POST(request: Request) {
       execute: async (tx) => {
         const promoted = await createQuestionByPromotingDraft(rawBody, {
           db: tx,
+          actorId: agent.createdById ?? undefined,
         });
 
         await tx.agentRun.create({

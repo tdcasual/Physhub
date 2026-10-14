@@ -329,7 +329,7 @@ describe("POST /api/drafts/:id/promote", () => {
     });
     expect(mockPrisma.rawAsset.findUnique).toHaveBeenCalledWith({
       where: { id: "raw_1" },
-      select: { id: true },
+      select: { id: true, kind: true },
     });
     expect(mockPrisma.rawAsset.findUnique).toHaveBeenCalledTimes(1);
   });

@@ -49,7 +49,9 @@ describe("AgentKeyManager", () => {
     });
 
     fireEvent.click(
-      within(screen.getByRole("dialog")).getByRole("button", { name: "复制" }),
+      within(screen.getByRole("region", { name: "新密钥" })).getByRole("button", {
+        name: "复制",
+      }),
     );
 
     await waitFor(() => {

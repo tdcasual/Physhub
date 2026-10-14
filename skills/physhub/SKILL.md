@@ -26,7 +26,7 @@ Allowed writes: raw asset, draft, official question (`REVIEWED`), promote draft,
 
 There is no agent delete, accept-suggestion, or `PUBLISHED`/`DEPRECATED` tool. Agent PATCH may set draft `status` to `NEEDS_REVIEW` only. `PROMOTED` / `REJECTED` drafts → `409` `Draft is not updatable`.
 
-To put a complete question in the bank: `POST /api/agent/questions` (create + promote) or `POST /api/agent/question-drafts/:id/promote` after `publishable: true`. Result status is `REVIEWED`, not `PUBLISHED`.
+To put a complete question in the bank: `POST /api/agent/questions` (create + promote) or `POST /api/agent/question-drafts/:id/promote` after `publishable: true`. Result status is `REVIEWED`, not `PUBLISHED`. The official row’s `createdById` is the API key’s `createdById` when the key has a teacher creator.
 
 Submit suggestions with `POST /api/agent/suggestions` (contract in [api.md](references/api.md)). Do not invent another path.
 
@@ -54,7 +54,7 @@ Stem figures: `![](/api/raw-assets/<id>/file)` (allowlist prefix `/api/raw-asset
 
 ## Search
 
-`POST /api/agent/search-questions` body is natural-language `query` plus optional `constraints`. Not SQL / Prisma `where`.
+`POST /api/agent/search-questions` body is natural-language `query` plus optional `constraints`. Not SQL / Prisma `where`. `constraints.has_image` matches an IMAGE-kind source or a **parsed** local markdown image (`/api/raw-assets/…` in the stem AST), via `Question.hasRenderedImage`. PDF/text sources and ordinary links do not count. Intent-only `有图` / `基础题` do not require those words in the stem.
 
 Official questions are `REVIEWED` or `PUBLISHED`. Omit `constraints.status` (or send `[]`) and the server defaults to `["REVIEWED","PUBLISHED"]`. `DEPRECATED` is excluded unless you pass it explicitly.
 

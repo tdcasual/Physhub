@@ -10,6 +10,18 @@ type AnswerEditorProps = {
   disabled?: boolean;
 };
 
+function answerTypeLabel(type: EditableAnswer["type"]) {
+  if (type === "single") {
+    return "单选";
+  }
+
+  if (type === "multiple") {
+    return "多选";
+  }
+
+  return "文本";
+}
+
 export function AnswerEditor({
   answer,
   options,
@@ -21,45 +33,45 @@ export function AnswerEditor({
   return (
     <section className="space-y-3">
       <h2 className="font-serif text-lg font-semibold">答案</h2>
-      <div className="grid gap-3 border border-stone-900/15 bg-stone-50 p-3 sm:grid-cols-[10rem_1fr]">
-        <label className="space-y-1 text-sm font-medium text-stone-900/70">
-          Type
+      <div className="grid gap-3 border border-[var(--ink-border)] bg-[var(--paper-mute)] p-3 sm:grid-cols-[10rem_1fr]">
+        <label className="space-y-1 text-sm font-medium text-[var(--ink-soft)]">
+          答案类型
           <input
-            value={answer.type}
+            value={answerTypeLabel(answer.type)}
             readOnly
-            className="w-full border border-stone-900/20 bg-stone-100 px-3 py-2 text-stone-700"
+            className="w-full border border-[var(--ink-border)] bg-[var(--paper-mute)] px-3 py-2 text-[var(--ink-soft)]"
           />
         </label>
         {answer.type === "single" ? (
-          <label className="space-y-1 text-sm font-medium text-stone-900/70">
-            Correct option
+          <label className="space-y-1 text-sm font-medium text-[var(--ink-soft)]">
+            正确选项
             <select
               value={answer.value}
               disabled={disabled || !hasOptions}
               onChange={(event) =>
                 onChange({ type: "single", value: event.currentTarget.value })
               }
-              className="w-full border border-stone-900/20 bg-white px-3 py-2 text-stone-950 disabled:bg-stone-100"
+              className="w-full border border-[var(--ink-border)] bg-[var(--paper-raised)] px-3 py-2 text-[var(--ink)] disabled:bg-[var(--paper-mute)]"
             >
               {options.map((option, index) => (
                 <option key={`${index}-${option.label}`} value={option.label}>
                   {option.label}
                 </option>
               ))}
-              {!hasOptions ? <option value="">No complete options</option> : null}
+              {!hasOptions ? <option value="">暂无完整选项</option> : null}
             </select>
           </label>
         ) : null}
         {answer.type === "multiple" ? (
           <fieldset className="space-y-2" disabled={disabled || !hasOptions}>
-            <legend className="text-sm font-medium text-stone-900/70">
-              Correct options
+            <legend className="text-sm font-medium text-[var(--ink-soft)]">
+              正确选项
             </legend>
             {hasOptions ? (
               <ul className="space-y-1">
                 {options.map((option, index) => (
                   <li key={`${index}-${option.label}`}>
-                    <label className="flex items-center gap-2 text-sm">
+                    <label className="flex min-h-11 items-center gap-2 text-sm">
                       <input
                         type="checkbox"
                         checked={answer.value.includes(option.label)}
@@ -76,13 +88,13 @@ export function AnswerEditor({
                 ))}
               </ul>
             ) : (
-              <p className="text-sm text-stone-900/65">No complete options</p>
+              <p className="text-sm text-[var(--ink-faint)]">暂无完整选项</p>
             )}
           </fieldset>
         ) : null}
         {answer.type === "text" ? (
-          <label className="space-y-1 text-sm font-medium text-stone-900/70">
-            Answer text
+          <label className="space-y-1 text-sm font-medium text-[var(--ink-soft)]">
+            答案文本
             <textarea
               value={answer.value}
               disabled={disabled}
@@ -90,7 +102,7 @@ export function AnswerEditor({
                 onChange({ type: "text", value: event.currentTarget.value })
               }
               rows={4}
-              className="w-full border border-stone-900/20 bg-white px-3 py-2 text-sm text-stone-950 disabled:bg-stone-100"
+              className="w-full border border-[var(--ink-border)] bg-[var(--paper-raised)] px-3 py-2 text-sm text-[var(--ink)] disabled:bg-[var(--paper-mute)]"
             />
           </label>
         ) : null}

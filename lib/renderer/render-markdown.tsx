@@ -3,15 +3,7 @@ import rehypeKatex from "rehype-katex";
 import rehypeSanitize from "rehype-sanitize";
 import remarkMath from "remark-math";
 
-function isSafeImageSrc(src: string) {
-  const trimmedSrc = src.trim();
-  return (
-    trimmedSrc.startsWith("/assets/") ||
-    trimmedSrc.startsWith("/uploads/") ||
-    trimmedSrc.startsWith("/api/assets/") ||
-    trimmedSrc.startsWith("/api/raw-assets/")
-  );
-}
+import { isSafeImageSrc } from "@/lib/renderer/safe-image-src";
 
 const markdownComponents: Components = {
   img: ({ src = "", alt = "" }) => {

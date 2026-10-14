@@ -78,8 +78,9 @@ describe("parseAndValidateQuestionInput", () => {
   });
 
   it("rejects a missing knowledgePointIds field with the same Chinese error", () => {
-    const { knowledgePointIds: _, ...withoutKnowledgePoints } =
-      validQuestionInput();
+    const withoutKnowledgePoints = { ...validQuestionInput() };
+    delete (withoutKnowledgePoints as { knowledgePointIds?: unknown })
+      .knowledgePointIds;
 
     expect(() => parseAndValidateQuestionInput(withoutKnowledgePoints)).toThrow(
       new QuestionValidationError("必须确认知识点"),
