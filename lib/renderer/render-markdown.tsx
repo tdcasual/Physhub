@@ -22,7 +22,7 @@ const markdownComponents: Components = {
       <img
         src={safeSrc}
         alt={alt}
-        className="max-w-full rounded border border-slate-200"
+        className="max-w-full rounded border border-[var(--ink-border)]"
       />
     );
   },

@@ -337,7 +337,26 @@ export function OfficialQuestionEditor({
             停用
           </Button>
         </div>
-        {message ? <p className="text-sm text-[var(--ink-soft)]">{message}</p> : null}
+        {message ? (
+          <p
+            role={
+              message.startsWith("无法") ||
+              message.startsWith("请先") ||
+              message.startsWith("还有")
+                ? "alert"
+                : "status"
+            }
+            className={`text-sm ${
+              message.startsWith("无法") ||
+              message.startsWith("请先") ||
+              message.startsWith("还有")
+                ? "text-[var(--danger)]"
+                : "text-[var(--ink-soft)]"
+            }`}
+          >
+            {message}
+          </p>
+        ) : null}
       </section>
       <aside role="region" aria-label="预览">
         <QuestionPreview

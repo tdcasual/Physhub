@@ -422,6 +422,15 @@ describe("residualSearchText", () => {
     expect(buildQuestionSearchWhere(understanding).AND).toBeUndefined();
   });
 
+  it("maps 无图 to hasRenderedImage false without requiring the literal", () => {
+    const understanding = understandQuestionSearchQuery("无图");
+    expect(understanding.has_image).toBe(false);
+    expect(residualSearchText(understanding)).toBeUndefined();
+    expect(buildQuestionSearchWhere(understanding)).toMatchObject({
+      hasRenderedImage: false,
+    });
+  });
+
   it("maps 基础题 to difficulty without requiring the literal", () => {
     const understanding = understandQuestionSearchQuery("基础题");
     expect(understanding.difficulty).toEqual([1, 2]);

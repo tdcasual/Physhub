@@ -21,6 +21,13 @@ export class SuggestionRelationError extends Error {
   }
 }
 
+export class SuggestionClosedError extends Error {
+  constructor(message = "Suggestions cannot be applied to a closed draft") {
+    super(message);
+    this.name = "SuggestionClosedError";
+  }
+}
+
 export function canSuggestionWriteDirectlyToQuestion(
   input: SuggestionWritePolicyInput,
 ) {
@@ -114,7 +121,7 @@ function parseDifficulty(payload: Record<string, unknown>): number | null | unde
   }
 
   if (typeof value === "number") {
-    return value;
+    return clampDifficulty(value);
   }
 
   if (isRecord(value)) {
@@ -123,11 +130,19 @@ function parseDifficulty(payload: Record<string, unknown>): number | null | unde
     }
 
     if (typeof value.value === "number") {
-      return value.value;
+      return clampDifficulty(value.value);
     }
   }
 
   return undefined;
+}
+
+function clampDifficulty(value: number): number {
+  if (!Number.isInteger(value) || value < 1 || value > 5) {
+    throw new SuggestionPayloadError("Invalid difficulty");
+  }
+
+  return value;
 }
 
 function parseTagIds(payload: Record<string, unknown>): string[] | undefined {
@@ -210,29 +225,30 @@ async function applyToQuestion(
   db: SuggestionDbClient,
   questionId: string,
   plan: MetadataSuggestionApplyPlan,
+  actorId?: string,
 ): Promise<void> {
   const data: Prisma.QuestionUncheckedUpdateInput = {};
+  const replaceKnowledgePoints =
+    plan.knowledgePointIds !== undefined && plan.knowledgePointIds.length > 0;
 
-  if (plan.knowledgePointIds !== undefined) {
+  if (replaceKnowledgePoints && plan.knowledgePointIds) {
     await db.questionKnowledgePoint.deleteMany({ where: { questionId } });
-
-    if (plan.knowledgePointIds.length > 0) {
-      await db.questionKnowledgePoint.createMany({
-        data: plan.knowledgePointIds.map((knowledgePointId, index) => ({
-          questionId,
-          knowledgePointId,
-          role: index === 0 ? "primary" : "secondary",
-        })),
-      });
-      data.primaryKnowledgePointId = plan.knowledgePointIds[0];
-    } else {
-      data.primaryKnowledgePointId = null;
-    }
+    await db.questionKnowledgePoint.createMany({
+      data: plan.knowledgePointIds.map((knowledgePointId, index) => ({
+        questionId,
+        knowledgePointId,
+        role: index === 0 ? "primary" : "secondary",
+      })),
+    });
+    data.primaryKnowledgePointId = plan.knowledgePointIds[0];
   }
 
   if (plan.difficulty !== undefined) {
     data.difficulty = plan.difficulty;
   }
+
+  const mutated =
+    Object.keys(data).length > 0 || plan.tagIds !== undefined;
 
   if (Object.keys(data).length > 0) {
     await db.question.update({
@@ -250,6 +266,59 @@ async function applyToQuestion(
       });
     }
   }
+
+  if (!mutated) {
+    return;
+  }
+
+  const question = await db.question.findUnique({
+    where: { id: questionId },
+    include: {
+      knowledgePoints: true,
+      tags: true,
+      versions: {
+        select: { version: true },
+        orderBy: { version: "desc" },
+        take: 1,
+      },
+    },
+  });
+
+  if (!question) {
+    return;
+  }
+
+  const knowledgePointIds = question.knowledgePoints.map(
+    (link) => link.knowledgePointId,
+  );
+  const tagIds = question.tags.map((link) => link.tagId);
+  const version = (question.versions[0]?.version ?? 0) + 1;
+
+  await db.questionVersion.create({
+    data: {
+      questionId,
+      version,
+      snapshot: {
+        id: question.id,
+        publicId: question.publicId,
+        type: question.type,
+        status: question.status,
+        stemMd: question.stemMd,
+        optionsJson: question.optionsJson ?? null,
+        answerJson: question.answerJson,
+        solutionMd: question.solutionMd,
+        difficulty: question.difficulty,
+        sourceRawAssetId: question.sourceRawAssetId,
+        primaryKnowledgePointId: question.primaryKnowledgePointId,
+        hasRenderedImage: question.hasRenderedImage,
+        publishedAt: question.publishedAt?.toISOString() ?? null,
+        knowledgePointIds,
+        tagIds,
+        updatedAt: question.updatedAt.toISOString(),
+      },
+      createdById: actorId,
+    },
+  });
 }
 
 async function applyToDraft(
@@ -290,6 +359,7 @@ export async function applyAcceptedMetadataSuggestion(
     draftId: string | null;
   },
   actor: SuggestionWriteActor = "human",
+  actorId?: string,
 ): Promise<void> {
   if (
     !canSuggestionWriteDirectlyToQuestion({
@@ -309,12 +379,25 @@ export async function applyAcceptedMetadataSuggestion(
   await assertKnowledgePointsExist(db, plan.knowledgePointIds);
   await assertTagsExist(db, plan.tagIds);
 
-  if (suggestion.questionId) {
-    await applyToQuestion(db, suggestion.questionId, plan);
+  if (suggestion.draftId) {
+    const draft = await db.questionDraft.findUnique({
+      where: { id: suggestion.draftId },
+      select: { status: true },
+    });
+
+    if (
+      !draft ||
+      draft.status === "PROMOTED" ||
+      draft.status === "REJECTED"
+    ) {
+      throw new SuggestionClosedError();
+    }
+
+    await applyToDraft(db, suggestion.draftId, plan);
     return;
   }
 
-  if (suggestion.draftId) {
-    await applyToDraft(db, suggestion.draftId, plan);
+  if (suggestion.questionId) {
+    await applyToQuestion(db, suggestion.questionId, plan, actorId);
   }
 }

@@ -129,6 +129,25 @@ describe("DraftsPage", () => {
     );
   });
 
+  it("clamps page past the last page back to the final page", async () => {
+    mocks.findMany.mockResolvedValue([]);
+    mocks.groupBy.mockResolvedValue([
+      { status: "NEEDS_REVIEW", _count: { _all: 1 } },
+    ]);
+
+    render(
+      await DraftsPage({ searchParams: Promise.resolve({ page: "9" }) }),
+    );
+
+    expect(mocks.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { status: "NEEDS_REVIEW" },
+        skip: 0,
+        take: 50,
+      }),
+    );
+  });
+
   it("renders an empty state when there are no unpromoted drafts", async () => {
     mocks.findMany.mockResolvedValueOnce([]);
 

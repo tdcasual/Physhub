@@ -63,4 +63,10 @@ describe("parseMetadataSuggestionPayload", () => {
       tagIds: [],
     });
   });
+
+  it("rejects difficulty outside 1-5", () => {
+    expect(() => parseMetadataSuggestionPayload({ difficulty: 6 })).toThrow(
+      "Invalid difficulty",
+    );
+  });
 });

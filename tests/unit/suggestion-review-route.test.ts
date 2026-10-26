@@ -11,6 +11,10 @@ const { mockPrisma } = vi.hoisted(() => ({
     },
     question: {
       update: vi.fn(),
+      findUnique: vi.fn(),
+    },
+    questionVersion: {
+      create: vi.fn(),
     },
     questionDraft: {
       update: vi.fn(),
@@ -56,6 +60,9 @@ describe("suggestion review route", () => {
     mockPrisma.suggestion.update.mockReset();
     mockPrisma.reviewRecord.create.mockReset();
     mockPrisma.question.update.mockReset();
+    mockPrisma.question.findUnique.mockReset();
+    mockPrisma.question.findUnique.mockResolvedValue(null);
+    mockPrisma.questionVersion.create.mockReset();
     mockPrisma.questionDraft.update.mockReset();
     mockPrisma.questionDraft.findUnique.mockReset();
     mockPrisma.questionDraft.findUnique.mockResolvedValue(null);
@@ -206,6 +213,7 @@ describe("suggestion review route", () => {
         resourceType: "suggestion",
         resourceId: existingSuggestion.id,
         action: "accepted",
+        actorId: "seed-owner",
         notes: "Looks correct",
       },
     });
@@ -235,6 +243,7 @@ describe("suggestion review route", () => {
         resourceType: "suggestion",
         resourceId: "suggestion_1",
         action: "pending_review",
+        actorId: "seed-owner",
         notes: undefined,
       },
     });
@@ -396,6 +405,13 @@ describe("suggestion review route", () => {
       ...existingSuggestion,
       status: "accepted",
     });
+    mockPrisma.questionDraft.findUnique.mockResolvedValue({
+      status: "NEEDS_REVIEW",
+      updatedAt: new Date("2026-05-16T11:00:00.000Z"),
+      knowledgePointIds: ["kp_1"],
+      difficulty: 2,
+      tagIds: ["tag_1"],
+    });
 
     const { PATCH } = await import("@/app/api/suggestions/[id]/route");
     const response = await PATCH(patchRequest({ status: "accepted" }), {
@@ -403,40 +419,21 @@ describe("suggestion review route", () => {
     });
 
     expect(response.status).toBe(200);
-    expect(mockPrisma.questionKnowledgePoint.deleteMany).toHaveBeenCalledWith({
-      where: { questionId: "question_1" },
-    });
-    expect(mockPrisma.questionKnowledgePoint.createMany).toHaveBeenCalledWith({
-      data: [
-        {
-          questionId: "question_1",
-          knowledgePointId: "kp_1",
-          role: "primary",
-        },
-      ],
-    });
-    expect(mockPrisma.question.update).toHaveBeenCalledWith({
-      where: { id: "question_1" },
+    expect(mockPrisma.questionDraft.update).toHaveBeenCalledWith({
+      where: { id: "draft_1" },
       data: {
-        primaryKnowledgePointId: "kp_1",
+        knowledgePointIds: ["kp_1"],
         difficulty: 2,
+        tagIds: ["tag_1"],
       },
     });
-    expect(mockPrisma.questionTag.deleteMany).toHaveBeenCalledWith({
-      where: { questionId: "question_1" },
-    });
-    expect(mockPrisma.questionTag.createMany).toHaveBeenCalledWith({
-      data: [{ questionId: "question_1", tagId: "tag_1" }],
-    });
-    expect(mockPrisma.questionDraft.update).not.toHaveBeenCalled();
+    expect(mockPrisma.question.update).not.toHaveBeenCalled();
+    expect(mockPrisma.questionKnowledgePoint.deleteMany).not.toHaveBeenCalled();
     expect(mockPrisma.suggestion.update).toHaveBeenCalledWith({
       where: { id: existingSuggestion.id },
       data: { status: "accepted" },
     });
-    expect(mockPrisma.question.update.mock.calls[0]?.[0]?.data).not.toHaveProperty(
-      "metadata",
-    );
-    expect(mockPrisma.question.update.mock.calls[0]?.[0]?.data).not.toHaveProperty(
+    expect(mockPrisma.questionDraft.update.mock.calls[0]?.[0]?.data).not.toHaveProperty(
       "risks",
     );
   });
@@ -641,6 +638,7 @@ describe("suggestion review route", () => {
       status: "accepted",
     });
     mockPrisma.questionDraft.findUnique.mockResolvedValue({
+      status: "NEEDS_REVIEW",
       updatedAt: new Date("2026-05-16T11:00:00.000Z"),
       knowledgePointIds: ["kp_1"],
       difficulty: 2,
@@ -673,15 +671,11 @@ describe("suggestion review route", () => {
         tagIds: ["tag_1"],
       },
     });
-    expect(mockPrisma.questionDraft.findUnique).toHaveBeenCalledWith({
-      where: { id: "draft_1" },
-      select: {
-        updatedAt: true,
-        knowledgePointIds: true,
-        difficulty: true,
-        tagIds: true,
-      },
-    });
+    expect(mockPrisma.questionDraft.findUnique).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: "draft_1" },
+      }),
+    );
     expect(mockPrisma.question.update).not.toHaveBeenCalled();
     expect(mockPrisma.questionKnowledgePoint.deleteMany).not.toHaveBeenCalled();
   });
@@ -715,9 +709,60 @@ describe("suggestion review route", () => {
         resourceType: "suggestion",
         resourceId: "suggestion_1",
         action: "rejected",
+        actorId: "seed-owner",
         notes: undefined,
       },
     });
+  });
+
+  it("rejects accept after the draft is promoted", async () => {
+    mockPrisma.suggestion.findUnique.mockResolvedValue({
+      id: "suggestion_1",
+      status: "pending_review",
+      questionId: "question_1",
+      draftId: "draft_1",
+      kind: "metadata",
+      payload: { knowledge_points: [{ id: "kp_1", value: "主知识点" }] },
+    });
+    mockPrisma.questionDraft.findUnique.mockResolvedValue({
+      status: "PROMOTED",
+    });
+
+    const { PATCH } = await import("@/app/api/suggestions/[id]/route");
+    const response = await PATCH(patchRequest({ status: "accepted" }), {
+      params: Promise.resolve({ id: "suggestion_1" }),
+    });
+
+    expect(response.status).toBe(409);
+    await expect(response.json()).resolves.toEqual({
+      error: "Suggestions cannot be applied to a closed draft",
+    });
+    expect(mockPrisma.question.update).not.toHaveBeenCalled();
+    expect(mockPrisma.questionDraft.update).not.toHaveBeenCalled();
+  });
+
+  it("does not wipe official knowledge points when knowledge_points is empty", async () => {
+    mockPrisma.suggestion.findUnique.mockResolvedValue({
+      id: "suggestion_1",
+      status: "pending_review",
+      questionId: "question_1",
+      draftId: null,
+      kind: "metadata",
+      payload: { knowledge_points: [] },
+    });
+    mockPrisma.suggestion.update.mockResolvedValue({
+      id: "suggestion_1",
+      status: "accepted",
+    });
+
+    const { PATCH } = await import("@/app/api/suggestions/[id]/route");
+    const response = await PATCH(patchRequest({ status: "accepted" }), {
+      params: Promise.resolve({ id: "suggestion_1" }),
+    });
+
+    expect(response.status).toBe(200);
+    expect(mockPrisma.questionKnowledgePoint.deleteMany).not.toHaveBeenCalled();
+    expect(mockPrisma.question.update).not.toHaveBeenCalled();
   });
 });
 

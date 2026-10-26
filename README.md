@@ -35,12 +35,15 @@ v1 does not include an MCP server or an in-process model.
    npm install
    ```
 
-5. Apply the committed `init_harness_first` migration and seed:
+5. Apply **all committed Prisma migrations** (not only `init_harness_first`; this includes teacher login, API-key wrap, and `hasRenderedImage`) and seed:
 
    ```sh
+   npx prisma generate
    npm run db:migrate
    npm run db:seed
    ```
+
+   Existing official questions: once after the image-flag migration, run `npx tsx scripts/backfill-has-rendered-image.ts`.
 
 6. Start the development server:
 

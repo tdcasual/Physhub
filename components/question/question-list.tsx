@@ -47,9 +47,9 @@ export function QuestionList({
       {questions.map((question) => (
         <article
           key={question.id}
-          className="border border-stone-900/15 bg-stone-50 p-5"
+          className="border border-[var(--ink-border)] bg-[var(--paper-mute)] p-5"
         >
-          <div className="flex flex-col gap-3 border-b border-stone-900/10 pb-4 sm:flex-row sm:items-start sm:justify-between">
+          <div className="flex flex-col gap-3 border-b border-[var(--ink-border)] pb-4 sm:flex-row sm:items-start sm:justify-between">
             <div>
               <h2 className="text-xl font-semibold">
                 <Link
@@ -59,7 +59,7 @@ export function QuestionList({
                   {question.publicId}
                 </Link>
               </h2>
-              <p className="mt-1 text-sm text-stone-900/60">
+              <p className="mt-1 text-sm text-[var(--ink-soft)]">
                 {formatUpdatedAt(question.updatedAt)}
               </p>
             </div>
@@ -72,30 +72,30 @@ export function QuestionList({
                 {labelQuestionType(question.type)}
               </span>
               {question.difficulty ? (
-                <span className="border border-orange-800/25 bg-orange-50 px-2 py-1 text-orange-800">
+                <span className="border border-orange-800/25 bg-orange-50 px-2 py-1 text-[var(--seal)]">
                   难度 {question.difficulty}
                 </span>
               ) : null}
             </div>
           </div>
 
-          <div className="prose prose-stone mt-4 max-w-none">
+          <div className="prose prose mt-4 max-w-none">
             <MarkdownLatex content={question.stemMd} />
           </div>
 
-          <footer className="mt-4 flex flex-wrap items-center gap-2 text-sm text-stone-900/70">
+          <footer className="mt-4 flex flex-wrap items-center gap-2 text-sm text-[var(--ink-soft)]">
             {question.primaryKnowledgePointName ? (
-              <span className="border border-stone-900/15 bg-white px-2 py-1 font-medium text-stone-900">
+              <span className="border border-[var(--ink-border)] bg-[var(--paper-raised)] px-2 py-1 font-medium text-[var(--ink)]">
                 {question.primaryKnowledgePointName}
               </span>
             ) : null}
             {question.tagNames.length > 0 ? (
               <span className="inline-flex items-center gap-2">
-                <Tags aria-hidden="true" className="size-4 text-stone-900/50" />
+                <Tags aria-hidden="true" className="size-4 text-[var(--ink)]/50" />
                 {question.tagNames.map((tagName) => (
                   <span
                     key={`${question.id}-${tagName}`}
-                    className="border border-stone-900/15 bg-white px-2 py-1"
+                    className="border border-[var(--ink-border)] bg-[var(--paper-raised)] px-2 py-1"
                   >
                     {tagName}
                   </span>
@@ -106,7 +106,7 @@ export function QuestionList({
               <button
                 type="button"
                 onClick={() => onAddToBasket(question)}
-                className="inline-flex min-h-11 items-center border border-stone-900/20 bg-white px-3 text-xs font-semibold"
+                className="inline-flex min-h-11 items-center border border-[var(--ink-border)] bg-[var(--paper-raised)] px-3 text-xs font-semibold"
               >
                 加入组卷篮
               </button>

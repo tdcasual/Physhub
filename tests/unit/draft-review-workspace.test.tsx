@@ -502,7 +502,6 @@ describe("DraftReviewWorkspace", () => {
       updatedAt: "2026-05-16T11:00:00.000Z",
     });
     expect(screen.getByLabelText("题干")).toHaveValue("edited stem after attach");
-    expect(screen.queryByRole("status")).not.toBeInTheDocument();
   });
 
   const metadataDraft: DraftReviewWorkspaceDraft = {

@@ -39,11 +39,19 @@ export async function hashPassword(password: string): Promise<string> {
   return `${PREFIX}$${salt.toString("base64url")}$${key.toString("base64url")}`;
 }
 
+let timingPadHash: Promise<string> | null = null;
+
+function timingPadHashValue(): Promise<string> {
+  timingPadHash ??= hashPassword("physhub-timing-pad");
+  return timingPadHash;
+}
+
 export async function verifyPassword(
   password: string,
   storedHash: string | null | undefined,
 ): Promise<boolean> {
   if (!storedHash) {
+    await verifyPassword(password, await timingPadHashValue());
     return false;
   }
 

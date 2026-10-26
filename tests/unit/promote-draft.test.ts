@@ -287,6 +287,7 @@ describe("POST /api/drafts/:id/promote", () => {
       data: expect.objectContaining({
         status: "REVIEWED",
         sourceRawAssetId: "raw_1",
+        hasRenderedImage: expect.any(Boolean),
         createdById: "user_owner",
         reviewedById: "user_owner",
         tags: {

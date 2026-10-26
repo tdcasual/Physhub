@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useRef, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -70,6 +70,13 @@ export function AgentKeyManager({
   const [busy, setBusy] = useState(false);
   const [issuedToken, setIssuedToken] = useState<string | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const issuedInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (issuedToken) {
+      issuedInputRef.current?.focus();
+    }
+  }, [issuedToken]);
 
   async function issue(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -230,6 +237,7 @@ export function AgentKeyManager({
             明文
             <input
               id="issued-key-token"
+              ref={issuedInputRef}
               readOnly
               value={issuedToken}
               className="mt-2 min-h-11 w-full border border-[var(--ink-border)] bg-[var(--paper)] px-3 py-2 font-mono text-sm font-normal"

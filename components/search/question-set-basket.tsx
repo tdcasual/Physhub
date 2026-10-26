@@ -2,6 +2,8 @@
 
 import { useMemo, useState } from "react";
 
+import { mapUiError } from "@/lib/ui/labels";
+
 export type BasketItem = {
   id: string;
   publicId: string;
@@ -61,7 +63,7 @@ export function QuestionSetBasket({
       };
 
       if (!created.ok || !createdPayload.questionSet?.id) {
-        setError(createdPayload.error ?? "无法创建试卷");
+        setError(mapUiError(createdPayload.error ?? "Unable to create question set"));
         return;
       }
 
@@ -80,7 +82,7 @@ export function QuestionSetBasket({
       };
 
       if (!exported.ok || !exportPayload.content) {
-        setError(exportPayload.error ?? "无法导出");
+        setError(mapUiError(exportPayload.error ?? "Unable to export question set"));
         return;
       }
 
@@ -91,7 +93,7 @@ export function QuestionSetBasket({
   }
 
   return (
-    <section className="border border-stone-900/15 bg-stone-50 p-5">
+    <section className="border border-[var(--ink-border)] bg-[var(--paper-mute)] p-5">
       <h2 className="font-serif text-xl font-semibold">组卷篮</h2>
       <p className="mt-2 text-sm text-[var(--ink-faint)]">
         只在本页有效，刷新或离开即清空。
@@ -104,7 +106,7 @@ export function QuestionSetBasket({
             <li key={item.id} className="flex items-start justify-between gap-3">
               <div>
                 <p className="font-semibold">{item.publicId}</p>
-                <p className="text-stone-900/70">{stemPreview(item.stemMd)}</p>
+                <p className="text-[var(--ink-soft)]">{stemPreview(item.stemMd)}</p>
               </div>
               <button
                 type="button"
@@ -123,7 +125,7 @@ export function QuestionSetBasket({
           <input
             value={title}
             onChange={(event) => setTitle(event.currentTarget.value)}
-            className="mt-1 w-full border border-stone-900/20 bg-white px-3 py-2"
+            className="mt-1 w-full border border-[var(--ink-border)] bg-[var(--paper-raised)] px-3 py-2"
           />
         </label>
         <label className="text-sm font-medium">
@@ -133,7 +135,7 @@ export function QuestionSetBasket({
             onChange={(event) =>
               setFormat(event.currentTarget.value as "markdown" | "latex")
             }
-            className="mt-1 w-full border border-stone-900/20 bg-white px-3 py-2"
+            className="mt-1 w-full border border-[var(--ink-border)] bg-[var(--paper-raised)] px-3 py-2"
           >
             <option value="markdown">Markdown</option>
             <option value="latex">LaTeX</option>
@@ -164,9 +166,13 @@ export function QuestionSetBasket({
       >
         导出
       </button>
-      {error ? <p className="mt-3 text-sm text-red-800">{error}</p> : null}
+      {error ? (
+        <p role="alert" className="mt-3 text-sm text-[var(--danger)]">
+          {error}
+        </p>
+      ) : null}
       {output ? (
-        <pre className="mt-4 max-h-80 overflow-auto bg-white p-3 text-xs">{output}</pre>
+        <pre className="mt-4 max-h-80 overflow-auto bg-[var(--paper-raised)] p-3 text-xs">{output}</pre>
       ) : null}
     </section>
   );

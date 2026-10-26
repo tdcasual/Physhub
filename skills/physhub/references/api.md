@@ -31,7 +31,7 @@ Same key + same body replays the stored response. Same key + different body → 
 | `get_question_draft` | `GET /api/agent/question-drafts/:id` | `drafts:read` | no |
 | `create_official_question` | `POST /api/agent/questions` | `questions:publish` | yes |
 | `promote_question_draft` | `POST /api/agent/question-drafts/:id/promote` | `questions:publish` | yes |
-| `submit_suggestions` | `POST /api/agent/suggestions` | `suggestions:create` | yes (404 if route absent) |
+| `submit_suggestions` | `POST /api/agent/suggestions` | `suggestions:create` | yes |
 | `check_question_quality` | `POST /api/agent/quality-check` | `quality:check` | yes |
 | `create_question_set` | `POST /api/agent/question-sets` | `question_sets:create` | yes |
 | `export_question_set` | `POST /api/agent/question-sets/:id/export` | `exports:create` | yes |
@@ -264,7 +264,7 @@ Promotes an existing `DRAFT` or `NEEDS_REVIEW` draft. Body optional (`{}` if omi
 Scope: `suggestions:create`  
 Headers: `Authorization`, `Idempotency-Key`
 
-Intended write path (same `/api/agent` prefix). If this checkout has no `app/api/agent/suggestions`, the request 404s; skip submit and keep `draft.id`.
+Write path: `POST /api/agent/suggestions`. Keep `draft.id` after a 4xx.
 
 Exactly one of `draftId` or `questionId` (`null` / omitted / `""` = absent). `kind`: `"metadata"`. Each `knowledge_points[]` entry needs `id` from `list_knowledge_points`. `tag_ids` from `list_tags`. Created `status` is `pending_review`.
 

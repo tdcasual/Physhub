@@ -6,6 +6,7 @@ import {
   applyAcceptedMetadataSuggestion,
   canSuggestionWriteDirectlyToQuestion,
   parseMetadataSuggestionPayload,
+  SuggestionClosedError,
   SuggestionPayloadError,
   SuggestionRelationError,
 } from "@/lib/domain/suggestion-policy";
@@ -107,7 +108,12 @@ export async function PATCH(
           kind: suggestion.kind,
         })
       ) {
-        await applyAcceptedMetadataSuggestion(tx, suggestion, "human");
+        await applyAcceptedMetadataSuggestion(
+          tx,
+          suggestion,
+          "human",
+          auth.session.userId,
+        );
       }
 
       const reviewedSuggestion = await tx.suggestion.update({
@@ -120,6 +126,7 @@ export async function PATCH(
           resourceType: "suggestion",
           resourceId: suggestion.id,
           action: status,
+          actorId: auth.session.userId,
           notes: typeof notes === "string" ? notes : undefined,
         },
       });
@@ -168,6 +175,10 @@ export async function PATCH(
 
     if (error instanceof SuggestionRelationError) {
       return NextResponse.json({ error: error.message }, { status: 422 });
+    }
+
+    if (error instanceof SuggestionClosedError) {
+      return NextResponse.json({ error: error.message }, { status: 409 });
     }
 
     if (isUniqueConflict(error)) {

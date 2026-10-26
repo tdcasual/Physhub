@@ -144,7 +144,7 @@ export function TaxonomyFields({
         ) : (
           tagGroups.map(([group, groupTags]) => (
             <div key={group} className="space-y-1">
-              <p className="text-xs font-semibold uppercase tracking-[0.08em] text-stone-900/55">
+              <p className="text-xs font-semibold uppercase tracking-[0.08em] text-[var(--ink-faint)]">
                 {group}
               </p>
               <ul className="space-y-1">

@@ -5,7 +5,12 @@ import { FormEvent, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { mapUiError } from "@/lib/ui/labels";
 
-export function UnlockForm() {
+export function UnlockForm({
+  headingLevel = 2,
+}: {
+  headingLevel?: 1 | 2;
+} = {}) {
+  const Heading = headingLevel === 1 ? "h1" : "h2";
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -43,7 +48,7 @@ export function UnlockForm() {
   return (
     <div className="w-full max-w-lg border border-[var(--ink-border)] bg-[var(--paper-raised)] px-6 py-8">
       <p className="text-sm font-medium text-[var(--patina)]">老师</p>
-      <h2 className="mt-2 font-serif text-3xl font-semibold">登录</h2>
+      <Heading className="mt-2 font-serif text-3xl font-semibold">登录</Heading>
       <p className="mt-3 text-sm leading-6 text-[var(--ink-soft)]">
         使用帐号和密码进入工作台。草稿和答案仅登录后可见。
       </p>

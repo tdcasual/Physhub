@@ -59,7 +59,7 @@ Open `/questions` and log in with a teacher account. `(dashboard)/layout.tsx` ga
 
 Raw-asset POST route tests run in the Vitest **node** environment (`// @vitest-environment node`) so `Request.formData()` works. Success fixtures use real PNG/PDF magic bytes.
 
-Non-production only: human APIs also accept `X-Physhub-Editor-Session` with the same HMAC hex as the cookie. Production ignores that header.
+Non-production only: human APIs also accept `X-Physhub-Editor-Session` with the same random session token as the `physhub_session` cookie (looked up by SHA-256 hash in `EditorSession`). Production ignores that header.
 
 ## Quality Commands
 

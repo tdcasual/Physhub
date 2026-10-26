@@ -29,7 +29,15 @@ import {
   buildDraftEditorPatch,
   type DraftEditorSnapshot,
 } from "@/lib/ui/editor-patches";
-import { labelDraftStatus, labelQuestionType, mapUiError } from "@/lib/ui/labels";
+import {
+  labelDraftStatus,
+  labelJobStatus,
+  labelQuestionType,
+  labelRawAssetKind,
+  labelRawAssetStatus,
+  labelSuggestionStatus,
+  mapUiError,
+} from "@/lib/ui/labels";
 import { TechDetails } from "@/components/ui/tech-details";
 
 export type JsonPrimitive = string | number | boolean | null;
@@ -231,6 +239,9 @@ export function DraftReviewWorkspace({
   const [pendingAction, setPendingAction] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [suggestions, setSuggestions] = useState(draft.suggestions);
+  const [sourceRawAssetId, setSourceRawAssetId] = useState(
+    draft.sourceRawAsset?.id ?? null,
+  );
 
   const previewOptions = useMemo(() => validOptions(options), [options]);
   const sourceText = draft.sourceRawAsset?.textContent?.trim();
@@ -247,8 +258,19 @@ export function DraftReviewWorkspace({
       knowledgePointIds,
       tagIds,
       difficulty,
+      sourceRawAssetId,
     }),
-    [answer, difficulty, knowledgePointIds, options, solutionMd, stemMd, tagIds, type],
+    [
+      answer,
+      difficulty,
+      knowledgePointIds,
+      options,
+      solutionMd,
+      sourceRawAssetId,
+      stemMd,
+      tagIds,
+      type,
+    ],
   );
   const hydrate = useCallback((next: DraftEditorSnapshot) => {
     setStemMd(next.stemMd);
@@ -259,6 +281,7 @@ export function DraftReviewWorkspace({
     setTagIds(next.tagIds);
     setDifficulty(next.difficulty);
     setType(next.type);
+    setSourceRawAssetId(next.sourceRawAssetId ?? null);
   }, []);
   const overlay = useEditorOverlay<DraftEditorSnapshot>({
     storageKey: overlayStorageKey("draft", draft.id),
@@ -520,7 +543,7 @@ export function DraftReviewWorkspace({
   return (
     <main id="main" className="min-h-screen bg-[var(--background)] text-[var(--foreground)]">
       <div className="mx-auto w-full max-w-[96rem] space-y-6 px-5 py-6 lg:px-8">
-        <header className="flex flex-col gap-4 border-b border-stone-900/15 pb-5 md:flex-row md:items-end md:justify-between">
+        <header className="flex flex-col gap-4 border-b border-[var(--ink-border)] pb-5 md:flex-row md:items-end md:justify-between">
           <div>
             <p className="text-sm font-medium text-[var(--patina)]">审稿</p>
             <h1 className="mt-2 font-serif text-3xl font-semibold">审题</h1>
@@ -594,13 +617,15 @@ export function DraftReviewWorkspace({
               </p>
             ) : null}
             {actionError ? (
-              <p className="text-sm text-red-800">{actionError}</p>
+              <p role="alert" className="text-sm text-[var(--danger)]">
+                {actionError}
+              </p>
             ) : null}
           </div>
         ) : null}
 
         {status === "PROMOTED" || promotedAt || promotedQuestionId ? (
-          <p className="text-sm text-stone-900/80">
+          <p className="text-sm text-[var(--ink)]/80">
             已入库
             {promotedAt ? ` ${formatDate(promotedAt)}` : ""}
             {promotedQuestionId ? ` · 题库 ${promotedQuestionId}` : ""}
@@ -610,7 +635,7 @@ export function DraftReviewWorkspace({
         <div className="grid gap-5 xl:grid-cols-[minmax(18rem,0.75fr)_minmax(24rem,1fr)_minmax(22rem,0.9fr)]">
           <section
             aria-labelledby="source-material-heading"
-            className="space-y-4 border border-stone-900/15 bg-stone-50 p-4"
+            className="space-y-4 border border-[var(--ink-border)] bg-[var(--paper-mute)] p-4"
           >
             <div>
               <p className="text-sm font-medium text-[var(--patina)]">来源</p>
@@ -629,16 +654,20 @@ export function DraftReviewWorkspace({
                   <div className="grid grid-cols-2 gap-3">
                     <div>
                       <dt className="font-medium text-[var(--ink-faint)]">类型</dt>
-                      <dd className="mt-1">{draft.sourceRawAsset.kind}</dd>
+                      <dd className="mt-1">
+                        {labelRawAssetKind(draft.sourceRawAsset.kind)}
+                      </dd>
                     </div>
                     <div>
                       <dt className="font-medium text-[var(--ink-faint)]">状态</dt>
-                      <dd className="mt-1">{draft.sourceRawAsset.status}</dd>
+                      <dd className="mt-1">
+                        {labelRawAssetStatus(draft.sourceRawAsset.status)}
+                      </dd>
                     </div>
                   </div>
                   {draft.sourceRawAsset.mimeType ? (
                     <div>
-                      <dt className="font-medium text-stone-900/55">MIME</dt>
+                      <dt className="font-medium text-[var(--ink-faint)]">文件类型</dt>
                       <dd className="mt-1 font-mono text-xs">{draft.sourceRawAsset.mimeType}</dd>
                     </div>
                   ) : null}
@@ -649,10 +678,10 @@ export function DraftReviewWorkspace({
                   <img
                     src={`/api/raw-assets/${draft.sourceRawAsset.id}/file`}
                     alt={draft.sourceRawAsset.originalName}
-                    className="max-h-[34rem] w-full border border-stone-900/15 bg-white object-contain"
+                    className="max-h-[34rem] w-full border border-[var(--ink-border)] bg-[var(--paper-raised)] object-contain"
                   />
                 ) : (
-                  <pre className="max-h-[34rem] overflow-auto whitespace-pre-wrap border border-stone-900/15 bg-white p-3 text-sm leading-6 text-stone-900">
+                  <pre className="max-h-[34rem] overflow-auto whitespace-pre-wrap border border-[var(--ink-border)] bg-[var(--paper-raised)] p-3 text-sm leading-6 text-[var(--ink)]">
                     {sourceText || "这份来源没有可显示的文本。"}
                   </pre>
                 )}
@@ -666,7 +695,7 @@ export function DraftReviewWorkspace({
                 ) : null}
               </div>
             ) : (
-              <p className="text-sm leading-6 text-stone-900/65">
+              <p className="text-sm leading-6 text-[var(--ink-soft)]">
                 这份草稿还没有关联来源文件。
               </p>
             )}
@@ -680,9 +709,19 @@ export function DraftReviewWorkspace({
                       sourceRawAssetId: rawAssetId,
                     },
                     snapshot,
-                  );
+                  ).then((result) => {
+                    if (result.ok) {
+                      setSourceRawAssetId(rawAssetId);
+                    }
+                  });
                 }}
               />
+            ) : null}
+            {sourceRawAssetId &&
+            sourceRawAssetId !== draft.sourceRawAsset?.id ? (
+              <p role="status" className="text-sm text-[var(--patina)]">
+                已关联新来源，刷新后显示预览。
+              </p>
             ) : null}
           </section>
 
@@ -703,7 +742,7 @@ export function DraftReviewWorkspace({
                 onChange={(event) => setStemMd(event.currentTarget.value)}
                 rows={8}
                 disabled={!canEdit}
-                className="w-full resize-y border border-stone-900/20 bg-white px-4 py-3 font-mono text-sm text-stone-950 shadow-sm disabled:bg-stone-100"
+                className="w-full resize-y border border-[var(--ink-border)] bg-[var(--paper-raised)] px-4 py-3 font-mono text-sm text-[var(--ink)] shadow-sm disabled:bg-[var(--paper-mute)]"
               />
             </label>
 
@@ -746,7 +785,7 @@ export function DraftReviewWorkspace({
                 onChange={(event) => setSolutionMd(event.currentTarget.value)}
                 rows={6}
                 disabled={!canEdit}
-                className="w-full resize-y border border-stone-900/20 bg-white px-4 py-3 font-mono text-sm text-stone-950 shadow-sm disabled:bg-stone-100"
+                className="w-full resize-y border border-[var(--ink-border)] bg-[var(--paper-raised)] px-4 py-3 font-mono text-sm text-[var(--ink)] shadow-sm disabled:bg-[var(--paper-mute)]"
               />
             </label>
 
@@ -792,7 +831,7 @@ export function DraftReviewWorkspace({
               />
             </section>
 
-            <section className="space-y-3 border border-stone-900/15 bg-white p-4">
+            <section className="space-y-3 border border-[var(--ink-border)] bg-[var(--paper-raised)] p-4">
               <h2 className="font-serif text-xl font-semibold">建议</h2>
               {suggestions.length > 0 ? (
                 <ul className="space-y-3">
@@ -806,56 +845,55 @@ export function DraftReviewWorkspace({
                     return (
                       <li
                         key={suggestion.id}
-                        className="border border-stone-900/15 bg-stone-50 p-3"
+                        className="border border-[var(--ink-border)] bg-[var(--paper-mute)] p-3"
                       >
                         <div className="flex flex-wrap items-start justify-between gap-2">
                           <div>
                             <p className="text-sm font-semibold">
                               {suggestion.knowledgePoint?.name ?? suggestion.kind}
                             </p>
-                            <p className="mt-1 text-xs uppercase tracking-[0.12em] text-stone-900/55">
-                              {suggestion.status.replaceAll("_", " ")}
+                            <p className="mt-1 text-xs uppercase tracking-[0.12em] text-[var(--ink-faint)]">
+                              {labelSuggestionStatus(suggestion.status)}
                             </p>
                           </div>
-                          <span className="text-sm font-medium text-orange-800">
+                          <span className="text-sm font-medium text-[var(--seal)]">
                             {formatConfidence(suggestion.confidence)}
                           </span>
                         </div>
                         {suggestion.createdByAgentRun ? (
-                          <p className="mt-3 text-xs text-stone-900/60">
+                          <p className="mt-3 text-xs text-[var(--ink-soft)]">
                             {suggestion.createdByAgentRun.agentName}
                             {suggestion.createdByAgentRun.toolName
                               ? ` · ${suggestion.createdByAgentRun.toolName}`
                               : ""}
                           </p>
                         ) : null}
-                        <pre className="mt-3 max-h-36 overflow-auto bg-white p-2 text-xs leading-5 text-stone-700">
+                        <pre className="mt-3 max-h-36 overflow-auto bg-[var(--paper-raised)] p-2 text-xs leading-5 text-[var(--ink-soft)]">
                           {jsonPreview(suggestion.payload)}
                         </pre>
-                        {suggestion.status === "pending_review" ? (
+                        {canEdit && suggestion.status === "pending_review" ? (
                           <div className="mt-3 flex flex-wrap gap-2">
-                            <button
+                            <Button
                               type="button"
+                              variant="primary"
                               aria-label="接受建议"
                               onClick={() => {
                                 void reviewSuggestion(suggestion.id, "accepted");
                               }}
                               disabled={reviewBusy || acceptDisabled}
-                              className="border border-stone-900 bg-stone-900 px-3 py-1.5 text-sm font-semibold text-white disabled:opacity-50"
                             >
                               接受
-                            </button>
-                            <button
+                            </Button>
+                            <Button
                               type="button"
                               aria-label="不用该建议"
                               onClick={() => {
                                 void reviewSuggestion(suggestion.id, "rejected");
                               }}
                               disabled={reviewBusy}
-                              className="border border-stone-900/30 bg-white px-3 py-1.5 text-sm font-semibold disabled:opacity-50"
                             >
                               不用
-                            </button>
+                            </Button>
                           </div>
                         ) : null}
                       </li>
@@ -863,7 +901,7 @@ export function DraftReviewWorkspace({
                   })}
                 </ul>
               ) : (
-                <p className="text-sm leading-6 text-stone-900/65">
+                <p className="text-sm leading-6 text-[var(--ink-soft)]">
                   这条草稿还没有建议。
                 </p>
               )}
@@ -873,16 +911,16 @@ export function DraftReviewWorkspace({
               {draft.agentRuns.length > 0 ? (
                 <ul className="space-y-3">
                   {draft.agentRuns.map((run) => (
-                    <li key={run.id} className="border border-stone-900/15 p-3">
+                    <li key={run.id} className="border border-[var(--ink-border)] p-3">
                       <div className="flex flex-wrap items-start justify-between gap-2">
                         <div>
                           <p className="text-sm font-semibold">{run.agentName}</p>
-                          <p className="mt-1 text-xs text-stone-900/55">
+                          <p className="mt-1 text-xs text-[var(--ink-faint)]">
                             {run.toolName ?? "无工具"} · {formatDate(run.createdAt)}
                           </p>
                         </div>
-                        <span className="text-xs font-semibold uppercase tracking-[0.12em] text-lime-800">
-                          {run.status}
+                        <span className="text-xs font-semibold uppercase tracking-[0.12em] text-[var(--patina)]">
+                          {labelJobStatus(run.status)}
                         </span>
                       </div>
                       <pre className="mt-2 max-h-44 overflow-auto bg-[var(--paper-mute)] p-2 text-xs leading-5 text-[var(--ink-soft)]">

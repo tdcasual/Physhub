@@ -8,6 +8,7 @@ import {
   QuestionValidationError,
 } from "@/lib/domain/question-repository";
 import type { QuestionInput } from "@/lib/domain/question-schema";
+import { validatePublishableQuestion } from "@/lib/domain/question-schema";
 import { questionHasImage } from "@/lib/search/question-image";
 
 export class QuestionNotFoundError extends Error {
@@ -95,9 +96,43 @@ function buildSnapshot(
     answerJson: question.answerJson,
     solutionMd: question.solutionMd,
     difficulty: question.difficulty,
+    sourceRawAssetId: question.sourceRawAssetId,
+    primaryKnowledgePointId: question.primaryKnowledgePointId,
+    hasRenderedImage: question.hasRenderedImage,
+    publishedAt: question.publishedAt?.toISOString() ?? null,
     knowledgePointIds,
     tagIds,
+    createdById: question.createdById,
+    reviewedById: question.reviewedById,
     updatedAt: question.updatedAt.toISOString(),
+  };
+}
+
+function officialQuestionAsPublishInput(
+  question: OfficialQuestion,
+): Partial<QuestionInput> {
+  const options = Array.isArray(question.optionsJson)
+    ? question.optionsJson.filter(
+        (option): option is { label: string; value: string } =>
+          Boolean(
+            option &&
+              typeof option === "object" &&
+              "label" in option &&
+              "value" in option &&
+              typeof option.label === "string" &&
+              typeof option.value === "string",
+          ),
+      )
+    : undefined;
+
+  return {
+    type: question.type,
+    stemMd: question.stemMd,
+    options,
+    answer: question.answerJson as QuestionInput["answer"],
+    knowledgePointIds: question.knowledgePoints.map(
+      (link) => link.knowledgePointId,
+    ),
   };
 }
 
@@ -231,6 +266,16 @@ export async function updateOfficialQuestionStatus(
 
     if (status === "PUBLISHED" && existing.status !== "REVIEWED") {
       throw new QuestionStatusError("Only REVIEWED questions can be published");
+    }
+
+    if (status === "PUBLISHED") {
+      const publishErrors = validatePublishableQuestion(
+        officialQuestionAsPublishInput(existing),
+      );
+
+      if (publishErrors.length > 0) {
+        throw new QuestionValidationError(publishErrors.join("; "));
+      }
     }
 
     if (status === "DEPRECATED" && existing.status === "DEPRECATED") {

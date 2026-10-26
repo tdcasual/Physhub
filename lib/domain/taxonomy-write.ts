@@ -63,9 +63,46 @@ export async function createKnowledgePoint(input: unknown, db: TaxonomyDb) {
       ? Math.trunc(body.sortOrder)
       : 0;
 
-  return db.knowledgePoint.create({
-    data: { name, slug, parentId, sortOrder },
-  });
+  if (parentId) {
+    const parent = await db.knowledgePoint.findUnique({
+      where: { id: parentId },
+      select: { id: true },
+    });
+
+    if (!parent) {
+      throw new TaxonomyNotFoundError("Parent knowledge point not found");
+    }
+  }
+
+  try {
+    return await db.knowledgePoint.create({
+      data: { name, slug, parentId, sortOrder },
+    });
+  } catch (error) {
+    throw mapPrismaTaxonomyError(error);
+  }
+}
+
+function mapPrismaTaxonomyError(error: unknown) {
+  if (
+    typeof error === "object" &&
+    error !== null &&
+    "code" in error &&
+    error.code === "P2002"
+  ) {
+    return new TaxonomyConflictError("Slug already exists");
+  }
+
+  if (
+    typeof error === "object" &&
+    error !== null &&
+    "code" in error &&
+    error.code === "P2003"
+  ) {
+    return new TaxonomyNotFoundError("Parent knowledge point not found");
+  }
+
+  return error instanceof Error ? error : new Error("Unable to update taxonomy");
 }
 
 async function assertNoParentCycle(
@@ -181,9 +218,13 @@ export async function createTag(input: unknown, db: TaxonomyDb) {
       ? body.group.trim()
       : null;
 
-  return db.tag.create({
-    data: { name, slug, group },
-  });
+  try {
+    return await db.tag.create({
+      data: { name, slug, group },
+    });
+  } catch (error) {
+    throw mapPrismaTaxonomyError(error);
+  }
 }
 
 export async function updateTag(id: string, input: unknown, db: TaxonomyDb) {

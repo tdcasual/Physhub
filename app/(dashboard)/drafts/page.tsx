@@ -67,13 +67,12 @@ export default async function DraftsPage({
 
   const params = (await searchParams) ?? {};
   const filter = parseUnpromotedDraftStatus(params.status);
-  const page = parseUnpromotedDraftPage(params.page);
-  const [visible, counts] = await Promise.all([
-    listUnpromotedDrafts(prisma, filter, { page }),
-    countUnpromotedDraftsByStatus(prisma),
-  ]);
+  const requestedPage = parseUnpromotedDraftPage(params.page);
+  const counts = await countUnpromotedDraftsByStatus(prisma);
   const totalForFilter = counts[filter];
   const totalPages = Math.max(1, Math.ceil(totalForFilter / UNPROMOTED_PAGE_SIZE));
+  const page = Math.min(requestedPage, totalPages);
+  const visible = await listUnpromotedDrafts(prisma, filter, { page });
 
   const filters = [
     { status: "NEEDS_REVIEW", label: "待审", count: counts.NEEDS_REVIEW },

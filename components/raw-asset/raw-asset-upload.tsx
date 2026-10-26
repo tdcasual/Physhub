@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 
+import { mapUiError } from "@/lib/ui/labels";
+
 export function RawAssetUpload({
   onUploaded,
 }: {
@@ -33,7 +35,7 @@ export function RawAssetUpload({
       };
 
       if (!response.ok || !payload.rawAsset?.id) {
-        setError(payload.error ?? "无法上传");
+        setError(mapUiError(payload.error ?? "Unable to create raw asset"));
         return;
       }
 
@@ -62,7 +64,11 @@ export function RawAssetUpload({
       {assetId ? (
         <p className="text-sm text-[var(--ink-soft)]">已关联来源 {assetId}</p>
       ) : null}
-      {error ? <p className="text-sm text-red-800">{error}</p> : null}
+      {error ? (
+        <p role="alert" className="text-sm text-[var(--danger)]">
+          {error}
+        </p>
+      ) : null}
     </div>
   );
 }

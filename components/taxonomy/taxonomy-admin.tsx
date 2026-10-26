@@ -4,6 +4,7 @@ import { FormEvent, useMemo, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { flattenKnowledgePointTree } from "@/lib/domain/taxonomy-tree";
+import { mapUiError } from "@/lib/ui/labels";
 
 type KnowledgePoint = {
   id: string;
@@ -58,7 +59,7 @@ export function TaxonomyAdmin({
     const payload = (await response.json()) as { error?: string };
 
     if (!response.ok) {
-      setError(payload.error ?? "无法添加知识点");
+      setError(mapUiError(payload.error ?? "无法添加知识点"));
       return;
     }
 
@@ -81,7 +82,7 @@ export function TaxonomyAdmin({
     const payload = (await response.json()) as { error?: string };
 
     if (!response.ok) {
-      setError(payload.error ?? "无法添加标签");
+      setError(mapUiError(payload.error ?? "无法添加标签"));
       return;
     }
 
@@ -104,7 +105,7 @@ export function TaxonomyAdmin({
     const payload = (await response.json()) as { error?: string };
 
     if (!response.ok) {
-      setError(payload.error ?? "无法保存知识点");
+      setError(mapUiError(payload.error ?? "无法保存知识点"));
       return;
     }
 
@@ -124,7 +125,7 @@ export function TaxonomyAdmin({
     const payload = (await response.json()) as { error?: string };
 
     if (!response.ok) {
-      setError(payload.error ?? "无法删除");
+      setError(mapUiError(payload.error ?? "无法删除"));
       return;
     }
 
@@ -134,7 +135,11 @@ export function TaxonomyAdmin({
   return (
     <div className="mx-auto w-full max-w-7xl space-y-8 px-6 py-8 lg:px-10">
       <h1 className="font-serif text-3xl font-semibold">知识点和标签</h1>
-      {error ? <p className="text-sm text-red-800">{error}</p> : null}
+      {error ? (
+        <p role="alert" className="text-sm text-[var(--danger)]">
+          {error}
+        </p>
+      ) : null}
       <section className="space-y-4">
         <h2 className="font-serif text-xl font-semibold">知识点</h2>
         <form className="flex flex-wrap items-end gap-3" onSubmit={(event) => void createKnowledgePoint(event)}>

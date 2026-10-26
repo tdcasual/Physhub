@@ -275,7 +275,9 @@ export function QuestionEditor({
             存为草稿
           </Button>
           {saveError ? (
-            <p className="text-sm text-[var(--danger)]">{saveError}</p>
+            <p role="alert" className="text-sm text-[var(--danger)]">
+              {saveError}
+            </p>
           ) : null}
         </div>
 
